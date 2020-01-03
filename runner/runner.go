@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/MontFerret/lab/runner/suites"
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
-	"github.com/MontFerret/lab/suites"
 )
 
 type Runner struct {
