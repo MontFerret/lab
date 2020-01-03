@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"context"
+	"sync"
 	"time"
 
 	"github.com/MontFerret/lab/runner/suites"
@@ -10,63 +10,33 @@ import (
 )
 
 type Runner struct {
-	runtime runtime.Runtime
+	runtime  runtime.Runtime
+	poolSize int
 }
 
-func New(rt runtime.Runtime) (*Runner, error) {
+func New(rt runtime.Runtime, poolSize int) (*Runner, error) {
+	if poolSize == 0 {
+		poolSize = 1
+	}
+
 	return &Runner{
 		rt,
+		poolSize,
 	}, nil
 }
 
 func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 	onProgress := make(chan Result)
 	onSummary := make(chan Summary)
-	onError := make(chan error)
 
 	go func() {
-		if err := r.runScripts(ctx, src, onProgress, onSummary); err != nil {
-			onError <- err
-		}
+		var failed int
+		var passed int
+		var sumDuration time.Duration
+		var err error
+		stream := src.Read(ctx)
 
-		close(onProgress)
-		close(onSummary)
-		close(onError)
-	}()
-
-	return Stream{
-		Progress: onProgress,
-		Summary:  onSummary,
-		Error:    onError,
-	}
-}
-
-func (r *Runner) runScripts(
-	ctx Context,
-	src sources.Source,
-	onProgress chan<- Result,
-	onSummary chan<- Summary,
-) error {
-	var failed int
-	var passed int
-	var sumDuration time.Duration
-	var done bool
-	var err error
-
-	stream := src.Read(ctx)
-
-	for !done {
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		case file, ok := <-stream.Files:
-			if !ok {
-				done = true
-				break
-			}
-
-			res := r.runScript(ctx, file)
-
+		for res := range r.runSuites(ctx, stream.Files) {
 			if res.Error != nil {
 				failed++
 			} else {
@@ -74,27 +44,67 @@ func (r *Runner) runScripts(
 			}
 
 			sumDuration += res.Duration
-
 			onProgress <- res
+		}
+
+		close(onProgress)
+
+		select {
 		case e := <-stream.Error:
 			err = e
-			done = true
 
 			break
+		default:
 		}
-	}
 
-	onSummary <- Summary{
-		Passed:   passed,
-		Failed:   failed,
-		Duration: sumDuration,
-		Error:    err,
-	}
+		onSummary <- Summary{
+			Passed:   passed,
+			Failed:   failed,
+			Duration: sumDuration,
+			Error:    err,
+		}
 
-	return nil
+		close(onSummary)
+	}()
+
+	return Stream{
+		Progress: onProgress,
+		Summary:  onSummary,
+	}
 }
 
-func (r *Runner) runScript(ctx Context, file sources.File) Result {
+func (r *Runner) runSuites(ctx Context, files <-chan sources.File) <-chan Result {
+	out := make(chan Result)
+
+	go func() {
+		pool := NewPool(r.poolSize)
+		var wg sync.WaitGroup
+
+		for f := range files {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				wg.Add(1)
+
+				pool.Go(func() {
+					if ctx.Err() == nil {
+						out <- r.runSuite(ctx, f)
+					}
+
+					wg.Done()
+				})
+			}
+		}
+
+		wg.Wait()
+		close(out)
+	}()
+
+	return out
+}
+
+func (r *Runner) runSuite(ctx Context, file sources.File) Result {
 	suite, err := suites.New(file)
 
 	if err != nil {

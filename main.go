@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	sysRuntime "runtime"
 
 	"github.com/urfave/cli/v2"
 
@@ -42,12 +43,19 @@ func main() {
 				Usage:   "url to remote Ferret runtime",
 				EnvVars: []string{"FERRET_LAB_RUNTIME"},
 			},
+			&cli.IntFlag{
+				Name:    "concurrency",
+				Usage:   "number of multiple tests to run at a time",
+				EnvVars: []string{"FERRET_LAB_CONCURRENCY"},
+				Value:   sysRuntime.NumCPU() * 2,
+			},
 		},
 		Action: func(c *cli.Context) error {
-			r, err := runner.New(runtime.New(runtime.Options{
+			rt := runtime.New(runtime.Options{
 				RemoteURL: c.String("runtime"),
 				CDP:       c.String("cdp"),
-			}))
+			})
+			r, err := runner.New(rt, c.Int("concurrency"))
 
 			if err != nil {
 				return cli.Exit(err, 1)
