@@ -22,28 +22,34 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 	var done bool
 	var err error
 
-	for {
-		if done {
-			break
-		}
-
+	for !done {
 		select {
 		case <-ctx.Done():
 			return context.Canceled
-		case res := <-stream.Progress:
+		case res, ok := <-stream.Progress:
+			if !ok {
+				done = true
+				break
+			}
+
 			if res.Error != nil {
 				c.logger.Error().
 					Err(res.Error).
-					Str("file", res.File).
+					Str("file", res.Filename).
 					Str("duration", res.Duration.String()).
 					Msg("Failed")
 			} else {
 				c.logger.Info().
-					Str("file", res.File).
+					Str("file", res.Filename).
 					Str("duration", res.Duration.String()).
 					Msg("Passed")
 			}
-		case sum := <-stream.Summary:
+		case sum, ok := <-stream.Summary:
+			if !ok {
+				done = true
+				break
+			}
+
 			var event *zerolog.Event
 
 			if sum.Failed == 0 {

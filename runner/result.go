@@ -4,7 +4,7 @@ import "time"
 
 type (
 	Result struct {
-		File     string
+		Filename string
 		Duration time.Duration
 		Error    error
 	}
@@ -13,5 +13,6 @@ type (
 		Passed   int
 		Failed   int
 		Duration time.Duration
+		Error    error
 	}
 )

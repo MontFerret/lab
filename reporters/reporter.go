@@ -2,6 +2,7 @@ package reporters
 
 import (
 	"context"
+
 	"github.com/MontFerret/lab/runner"
 )
 
