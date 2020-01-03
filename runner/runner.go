@@ -2,12 +2,11 @@ package runner
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
-	"github.com/pkg/errors"
+	"github.com/MontFerret/lab/suites"
 )
 
 type Runner struct {
@@ -96,64 +95,25 @@ func (r *Runner) runScripts(
 }
 
 func (r *Runner) runScript(ctx Context, file sources.File) Result {
-	if file.Error != nil {
+	suite, err := suites.New(file)
+
+	if err != nil {
 		return Result{
 			Filename: file.Name,
 			Duration: time.Duration(0) * time.Millisecond,
-			Error:    file.Error,
-		}
-	}
-
-	mustFail := mustFail(file.Name)
-	start := time.Now()
-
-	out, err := r.runtime.Run(ctx, string(file.Content), ctx.params)
-
-	duration := time.Since(start)
-
-	if err != nil {
-		if mustFail {
-			return Result{
-				Filename: file.Name,
-				Duration: duration,
-			}
-		}
-
-		return Result{
-			Filename: file.Name,
-			Duration: duration,
-			Error:    errors.Wrap(err, "failed to execute query"),
-		}
-	}
-
-	if mustFail {
-		return Result{
-			Filename: file.Name,
-			Duration: duration,
-			Error:    errors.New("expected to fail"),
-		}
-	}
-
-	var result string
-
-	if err := json.Unmarshal(out, &result); err != nil {
-		return Result{
-			Filename: file.Name,
-			Duration: duration,
 			Error:    err,
 		}
 	}
 
-	if result == "" {
-		return Result{
-			Filename: file.Name,
-			Duration: duration,
-		}
-	}
+	start := time.Now()
+
+	err = suite.Run(ctx, r.runtime, ctx.params)
+
+	duration := time.Since(start)
 
 	return Result{
 		Filename: file.Name,
 		Duration: duration,
-		Error:    errors.New(result),
+		Error:    err,
 	}
 }
