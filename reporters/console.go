@@ -35,13 +35,13 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 			if res.Error != nil {
 				c.logger.Error().
 					Err(res.Error).
-					Str("file", res.Filename).
-					Str("duration", res.Duration.String()).
+					Str("File", res.Filename).
+					Str("Duration", res.Duration.String()).
 					Msg("Failed")
 			} else {
 				c.logger.Info().
-					Str("file", res.Filename).
-					Str("duration", res.Duration.String()).
+					Str("File", res.Filename).
+					Str("Duration", res.Duration.String()).
 					Msg("Passed")
 			}
 		case sum, ok := <-stream.Summary:
@@ -52,7 +52,7 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 
 			var event *zerolog.Event
 
-			if sum.Failed == 0 {
+			if sum.Failed == 0 && sum.Error == nil {
 				event = c.logger.Info()
 			} else {
 				event = c.logger.Error()
@@ -60,10 +60,15 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 
 			event.
 				Timestamp().
-				Int("passed", sum.Passed).
-				Int("failed", sum.Failed).
-				Str("duration", sum.Duration.String()).
-				Msg("Completed")
+				Int("Passed", sum.Passed).
+				Int("Failed", sum.Failed).
+				Str("Duration", sum.Duration.String())
+
+			if sum.Error != nil {
+				event = event.Str("Error", sum.Error.Error())
+			}
+
+			event.Msg("Done")
 
 			done = true
 		case e := <-stream.Error:

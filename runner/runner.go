@@ -77,16 +77,11 @@ func (r *Runner) runScripts(
 			sumDuration += res.Duration
 
 			onProgress <- res
-		case e, ok := <-stream.Error:
-			if e != nil {
-				err = e
-				break
-			}
+		case e := <-stream.Error:
+			err = e
+			done = true
 
-			if !ok {
-				done = ok
-				break
-			}
+			break
 		}
 	}
 
