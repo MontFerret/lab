@@ -5,6 +5,7 @@ import (
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
 	"github.com/pkg/errors"
+	"path"
 )
 
 type Suite interface {
@@ -16,7 +17,7 @@ func New(file sources.File) (Suite, error) {
 		return nil, file.Error
 	}
 
-	switch file.Name {
+	switch path.Ext(file.Name) {
 	case ".fql":
 		return NewFQL(file), nil
 	default:
