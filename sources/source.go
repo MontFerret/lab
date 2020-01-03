@@ -3,6 +3,7 @@ package sources
 import (
 	"context"
 	"net/url"
+	"path"
 	"path/filepath"
 )
 
@@ -42,13 +43,13 @@ func create(location string) (Source, error) {
 
 	switch u.Scheme {
 	case "file":
-		path := filepath.Join(u.Host, u.Path)
-
-		return NewFileSystem(path)
+		return NewFileSystem(filepath.Join(u.Host, u.Path))
 	case "http":
 		return NewNoop(), nil
-	case "git":
-		return NewNoop(), nil
+	case "git+http":
+		return NewGit("http://" + path.Join(u.Host, u.Path)), nil
+	case "git+https":
+		return NewGit("https://" + path.Join(u.Host, u.Path)), nil
 	default:
 		return NewNoop(), nil
 	}

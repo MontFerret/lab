@@ -62,6 +62,10 @@ func (g Git) Read(ctx context.Context) Stream {
 		}
 
 		err = files.ForEach(func(f *object.File) error {
+			if !isFQLFile(f.Name) {
+				return nil
+			}
+
 			reader, err := f.Reader()
 
 			if err != nil {
