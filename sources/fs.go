@@ -47,8 +47,8 @@ func (fs *FileSystem) Read(ctx context.Context) Stream {
 	}()
 
 	return Stream{
-		Files: onFile,
-		Error: onError,
+		Files:  onFile,
+		Errors: onError,
 	}
 }
 

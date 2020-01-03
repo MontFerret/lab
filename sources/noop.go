@@ -18,7 +18,7 @@ func (n Noop) Read(_ context.Context) Stream {
 	}()
 
 	return Stream{
-		Files: f,
-		Error: e,
+		Files:  f,
+		Errors: e,
 	}
 }

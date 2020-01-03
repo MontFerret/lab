@@ -35,7 +35,7 @@ func (a *Aggregate) Read(ctx context.Context) Stream {
 				select {
 				case <-ctx.Done():
 					return
-				case e := <-stream.Error:
+				case e := <-stream.Errors:
 					err = e
 					done = true
 
@@ -61,7 +61,7 @@ func (a *Aggregate) Read(ctx context.Context) Stream {
 	}()
 
 	return Stream{
-		Files: onFile,
-		Error: onError,
+		Files:  onFile,
+		Errors: onError,
 	}
 }

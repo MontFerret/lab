@@ -2,6 +2,7 @@ package reporters
 
 import (
 	"context"
+	"errors"
 	"github.com/MontFerret/lab/runner"
 )
 
@@ -17,9 +18,11 @@ func (c *Silent) Report(ctx context.Context, stream runner.Stream) error {
 
 	select {
 	case <-ctx.Done():
-		break
-	case <-stream.Summary:
-		break
+		return context.Canceled
+	case sum := <-stream.Summary:
+		if sum.HasErrors() {
+			return errors.New("has errors")
+		}
 	}
 
 	return nil

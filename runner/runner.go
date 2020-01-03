@@ -33,7 +33,8 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 		var failed int
 		var passed int
 		var sumDuration time.Duration
-		var err error
+		errs := make([]error, 0, 5)
+
 		stream := src.Read(ctx)
 
 		for res := range r.runSuites(ctx, stream.Files) {
@@ -49,19 +50,15 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 
 		close(onProgress)
 
-		select {
-		case e := <-stream.Error:
-			err = e
-
-			break
-		default:
+		for e := range stream.Errors {
+			errs = append(errs, e)
 		}
 
 		onSummary <- Summary{
 			Passed:   passed,
 			Failed:   failed,
 			Duration: sumDuration,
-			Error:    err,
+			Errors:   errs,
 		}
 
 		close(onSummary)
@@ -81,23 +78,19 @@ func (r *Runner) runSuites(ctx Context, files <-chan sources.File) <-chan Result
 		var wg sync.WaitGroup
 
 		for f := range files {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				wg.Add(1)
+			wg.Add(1)
 
-				pool.Go(func() {
-					if ctx.Err() == nil {
-						out <- r.runSuite(ctx, f)
-					}
+			pool.Go(func() {
+				if ctx.Err() == nil {
+					out <- r.runSuite(ctx, f)
+				}
 
-					wg.Done()
-				})
-			}
+				wg.Done()
+			})
 		}
 
 		wg.Wait()
+
 		close(out)
 	}()
 

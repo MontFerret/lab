@@ -13,6 +13,10 @@ type (
 		Passed   int
 		Failed   int
 		Duration time.Duration
-		Error    error
+		Errors   []error
 	}
 )
+
+func (sum Summary) HasErrors() bool {
+	return sum.Failed > 0 || len(sum.Errors) > 0
+}

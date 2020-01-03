@@ -2,8 +2,10 @@ package reporters
 
 import (
 	"context"
-	"github.com/rs/zerolog"
+	"errors"
 	"io"
+
+	"github.com/rs/zerolog"
 
 	"github.com/MontFerret/lab/runner"
 )
@@ -36,11 +38,11 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 
 	select {
 	case <-ctx.Done():
-		break
+		return context.Canceled
 	case sum := <-stream.Summary:
 		var event *zerolog.Event
 
-		if sum.Failed == 0 && sum.Error == nil {
+		if sum.HasErrors() {
 			event = c.logger.Info()
 		} else {
 			event = c.logger.Error()
@@ -52,11 +54,15 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 			Int("Failed", sum.Failed).
 			Str("Duration", sum.Duration.String())
 
-		if sum.Error != nil {
-			event = event.Str("Error", sum.Error.Error())
+		for _, e := range sum.Errors {
+			event = event.Err(e)
 		}
 
 		event.Msg("Done")
+
+		if sum.HasErrors() {
+			return errors.New("has errors")
+		}
 	}
 
 	return nil
