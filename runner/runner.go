@@ -110,7 +110,7 @@ func (r *Runner) runSuite(ctx Context, file sources.File) Result {
 
 	start := time.Now()
 
-	err = suite.Run(ctx, r.runtime, ctx.params)
+	err = suite.Run(ctx, r.runtime, ctx.Params().ToMap())
 
 	duration := time.Since(start)
 

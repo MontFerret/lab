@@ -7,10 +7,10 @@ import (
 
 type Context struct {
 	root   context.Context
-	params map[string]interface{}
+	params Params
 }
 
-func NewContext(root context.Context, params map[string]interface{}) Context {
+func NewContext(root context.Context, params Params) Context {
 	return Context{
 		root:   root,
 		params: params,
@@ -33,6 +33,6 @@ func (c Context) Value(key interface{}) interface{} {
 	return c.root.Value(key)
 }
 
-func (c Context) Params() map[string]interface{} {
+func (c Context) Params() Params {
 	return c.params
 }
