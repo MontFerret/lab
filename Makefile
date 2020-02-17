@@ -20,10 +20,10 @@ compile:
 	./main.go
 
 test:
-	go test -race ${DIR_PKG}/...
+	go test ./...
 
 cover:
-	go test -race -coverprofile=coverage.txt -covermode=atomic ${DIR_PKG}/... && \
+	go test -race -coverprofile=coverage.txt -covermode=atomic ... && \
 	curl -s https://codecov.io/bash | bash
 
 doc:

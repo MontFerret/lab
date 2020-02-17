@@ -49,7 +49,9 @@ func (m *Manager) Start(ctx context.Context) error {
 	failed := make(map[int]error)
 
 	for _, n := range m.nodes {
-		if n.IsRunning() {
+		node := n
+
+		if node.IsRunning() {
 			continue
 		}
 
@@ -58,12 +60,12 @@ func (m *Manager) Start(ctx context.Context) error {
 		go func() {
 			w.Done()
 
-			err := n.Start(ctx)
+			err := node.Start(ctx)
 
 			if err != nil {
 				s.Lock()
 
-				failed[n.ID()] = err
+				failed[node.ID()] = err
 
 				s.Unlock()
 			}
