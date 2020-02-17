@@ -130,6 +130,12 @@ func main() {
 		Name:  "lab",
 		Usage: "run FQL scripts",
 		Flags: []cli.Flag{
+			&cli.StringSliceFlag{
+				Name:    "files",
+				Aliases: []string{"f"},
+				EnvVars: []string{"FERRET_LAB_FILES"},
+				Usage:   "Location of FQL script files to run",
+			},
 			&cli.StringFlag{
 				Name:    "cdp",
 				Value:   "http://127.0.0.1:9222",
@@ -138,7 +144,6 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:    "filter",
-				Aliases: []string{"f"},
 				Usage:   "filter test files",
 				Value:   "",
 				EnvVars: []string{"FERRET_LAB_FILTER"},
@@ -249,15 +254,13 @@ func main() {
 			var locations []string
 
 			if c.NArg() == 0 {
-				wd, err := os.Getwd()
-
-				if err != nil {
-					return cli.Exit(err, 1)
-				}
-
-				locations = []string{wd}
+				locations = c.StringSlice("files")
 			} else {
 				locations = c.Args().Slice()
+			}
+
+			if len(locations) == 0 {
+				cli.ShowAppHelpAndExit(c, 1)
 			}
 
 			src, err := sources.New(locations...)

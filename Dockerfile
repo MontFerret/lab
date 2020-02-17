@@ -27,9 +27,9 @@ WORKDIR /root
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.c
 
 # Add worker binary
-COPY --from=builder go/src/github.com/MontFerret/lab/bin/fegrase-lab .
+COPY --from=builder go/src/github.com/MontFerret/lab/bin/ferret-lab .
 
 EXPOSE 8080
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/sh", "-c", "chromium --no-sandbox --disable-setuid-sandbox --disable-gpu --headless --remote-debugging-port=9222 & ./fegrase-lab"]
+CMD ["/bin/sh", "-c", "chromium --no-sandbox --disable-setuid-sandbox --disable-gpu --headless --remote-debugging-port=9222 & ./ferret-lab --wait http://127.0.0.1:9222/json/version"]
