@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -41,6 +42,10 @@ func create(location string) (Source, error) {
 		return nil, err
 	}
 
+	if u.Scheme == "" {
+		return nil, errors.New("location scheme is not provided")
+	}
+
 	switch u.Scheme {
 	case "file":
 		return NewFileSystem(filepath.Join(u.Host, u.Path))
@@ -51,6 +56,6 @@ func create(location string) (Source, error) {
 	case "git+https":
 		return NewGit("https://" + path.Join(u.Host, u.Path)), nil
 	default:
-		return NewNoop(), nil
+		return nil, errors.Errorf("unknown location provider: %s", u.Scheme)
 	}
 }
