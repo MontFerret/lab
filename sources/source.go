@@ -49,8 +49,8 @@ func create(location string) (Source, error) {
 	switch u.Scheme {
 	case "file":
 		return NewFileSystem(filepath.Join(u.Host, u.Path))
-	case "http":
-		return NewNoop(), nil
+	//case "http":
+	//	return NewNoop(), nil
 	case "git+http":
 		return NewGit("http://" + path.Join(u.Host, u.Path)), nil
 	case "git+https":
