@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/MontFerret/ferret/pkg/runtime/core"
 	"os"
 	sysRuntime "runtime"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/MontFerret/ferret/pkg/runtime/core"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
@@ -108,6 +110,21 @@ func createCDNManager(dirs []Directory) (*cdn.Manager, error) {
 	return m, nil
 }
 
+func waitBeforeStart(deps []string, timeout time.Duration, attempts int) error {
+	for _, url := range deps {
+		client := retryablehttp.NewClient()
+		client.RetryWaitMax = time.Duration(timeout) * time.Second
+		client.RetryMax = attempts
+		client.Logger = nil
+
+		if _, err := client.Get(url); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	app := &cli.App{
 		Name:  "lab",
@@ -170,8 +187,55 @@ func main() {
 				DefaultText: "",
 				HasBeenSet:  false,
 			},
+			&cli.StringSliceFlag{
+				Name:        "wait",
+				Aliases:     []string{"w"},
+				Usage:       "waits for a 3rd party service by calling its endpoint (--wait http://127.0.0.1:9222/json/version)",
+				EnvVars:     []string{"FERRET_LAB_WAIT"},
+				FilePath:    "",
+				Required:    false,
+				Hidden:      false,
+				TakesFile:   false,
+				Value:       nil,
+				DefaultText: "",
+				HasBeenSet:  false,
+			},
+			&cli.IntFlag{
+				Name:        "wait-timeout",
+				Aliases:     nil,
+				Usage:       "wait timeout in seconds",
+				EnvVars:     []string{"FERRET_LAB_WAIT_TIMEOUT"},
+				FilePath:    "",
+				Required:    false,
+				Hidden:      false,
+				Value:       5,
+				DefaultText: "",
+				Destination: nil,
+				HasBeenSet:  false,
+			},
+			&cli.IntFlag{
+				Name:        "wait-attempts",
+				Aliases:     nil,
+				Usage:       "wait attempts",
+				EnvVars:     []string{"FERRET_LAB_WAIT_TRY"},
+				FilePath:    "",
+				Required:    false,
+				Hidden:      false,
+				Value:       5,
+				DefaultText: "",
+				Destination: nil,
+				HasBeenSet:  false,
+			},
 		},
 		Action: func(c *cli.Context) error {
+			waitFor := c.StringSlice("wait")
+
+			if len(waitFor) > 0 {
+				if err := waitBeforeStart(waitFor, time.Duration(c.Int("wait-timeout")), c.Int("wait-attempts")); err != nil {
+					return cli.Exit(errors.Wrap(err, "timeout"), 1)
+				}
+			}
+
 			rt := runtime.New(runtime.Options{
 				RemoteURL: c.String("runtime"),
 				CDP:       c.String("cdp"),

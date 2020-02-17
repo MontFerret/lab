@@ -42,7 +42,7 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 	case sum := <-stream.Summary:
 		var event *zerolog.Event
 
-		if sum.HasErrors() {
+		if !sum.HasErrors() {
 			event = c.logger.Info()
 		} else {
 			event = c.logger.Error()
@@ -63,7 +63,7 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 		if sum.HasErrors() {
 			return errors.New("has errors")
 		}
-	}
 
-	return nil
+		return nil
+	}
 }
