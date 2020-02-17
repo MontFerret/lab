@@ -21,6 +21,8 @@ import (
 	"github.com/MontFerret/lab/sources"
 )
 
+var version string
+
 type Directory struct {
 	Name string
 	Path string
@@ -127,8 +129,10 @@ func waitBeforeStart(deps []string, timeout time.Duration, attempts int) error {
 
 func main() {
 	app := &cli.App{
-		Name:  "lab",
-		Usage: "run FQL scripts",
+		Name:        "lab",
+		Usage:       "run FQL scripts",
+		Description: "Ferret scripts runner",
+		Version:     version,
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name:    "files",
