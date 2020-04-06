@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"github.com/MontFerret/lab/assertions"
 	"os"
 
 	"github.com/MontFerret/ferret/pkg/compiler"
@@ -11,23 +10,25 @@ import (
 	"github.com/MontFerret/ferret/pkg/drivers/http"
 	"github.com/MontFerret/ferret/pkg/runtime"
 	"github.com/rs/zerolog"
+
+	"github.com/MontFerret/lab/assertions"
 )
 
-type Native struct {
+type Builtin struct {
 	compiler *compiler.Compiler
 	cdp      string
 }
 
-func NewNative(cdp string) *Native {
+func NewBuiltin(cdp string, _ map[string]interface{}) (*Builtin, error) {
 	c := compiler.New()
 
 	assertions.Assertions(c.Namespace("T"))
 
-	return &Native{c, cdp}
+	return &Builtin{c, cdp}, nil
 }
 
-func (n *Native) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
-	p, err := n.compiler.Compile(query)
+func (r *Builtin) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+	p, err := r.compiler.Compile(query)
 
 	if err != nil {
 		return nil, err
@@ -35,7 +36,7 @@ func (n *Native) Run(ctx context.Context, query string, params map[string]interf
 
 	ctx = drivers.WithContext(
 		ctx,
-		cdp.NewDriver(cdp.WithAddress(n.cdp)),
+		cdp.NewDriver(cdp.WithAddress(r.cdp)),
 	)
 
 	ctx = drivers.WithContext(

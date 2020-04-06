@@ -161,8 +161,13 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:    "runtime",
-				Usage:   "url to remote Ferret runtime",
+				Usage:   "url to remote Ferret runtime (http, https or bin)",
 				EnvVars: []string{"FERRET_LAB_RUNTIME"},
+			},
+			&cli.StringSliceFlag{
+				Name:    "runtime-param",
+				Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\" })",
+				EnvVars: []string{"FERRET_LAB_RUNTIME_PARAM"},
 			},
 			&cli.IntFlag{
 				Name:    "concurrency",
@@ -245,10 +250,22 @@ func main() {
 				}
 			}
 
-			rt := runtime.New(runtime.Options{
+			runtimeParams, err := toParams(c.StringSlice("runtime-param"))
+
+			if err != nil {
+				return cli.Exit(err, 1)
+			}
+
+			rt, err := runtime.New(runtime.Options{
 				RemoteURL: c.String("runtime"),
 				CDP:       c.String("cdp"),
+				Params:    runtimeParams,
 			})
+
+			if err != nil {
+				return cli.Exit(err, 1)
+			}
+
 			r, err := runner.New(rt, c.Int("concurrency"))
 
 			if err != nil {

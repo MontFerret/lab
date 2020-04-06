@@ -1,11 +1,17 @@
 package runtime
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"github.com/pkg/errors"
+	"net/url"
+)
 
 type (
 	Options struct {
 		RemoteURL string
 		CDP       string
+		Params    map[string]interface{}
 	}
 
 	Runtime interface {
@@ -13,10 +19,23 @@ type (
 	}
 )
 
-func New(opts Options) Runtime {
-	if opts.RemoteURL != "" {
-		return NewRemote(opts.RemoteURL)
+func New(opts Options) (Runtime, error) {
+	if opts.RemoteURL == "" {
+		return NewBuiltin(opts.CDP, opts.Params)
 	}
 
-	return NewNative(opts.CDP)
+	u, err := url.Parse(opts.RemoteURL)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse remote runtime url")
+	}
+
+	switch u.Scheme {
+	case "http", "https":
+		return NewHTTP(opts.RemoteURL, opts.Params)
+	case "bin":
+		return NewBinary(u.Host, opts.Params)
+	default:
+		return nil, fmt.Errorf("invalid remote url: %s", opts.RemoteURL)
+	}
 }
