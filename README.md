@@ -1,4 +1,25 @@
 # lab
+<p align="center">
+	<a href="https://goreportcard.com/report/github.com/MontFerret/lab">
+		<img alt="Go Report Status" src="https://goreportcard.com/badge/github.com/MontFerret/lab">
+	</a>
+<!-- 	<a href="https://codecov.io/gh/MontFerret/lab">
+		<img alt="Code coverage" src="https://codecov.io/gh/MontFerret/lab/branch/master/graph/badge.svg" />
+	</a> -->
+	<a href="https://discord.gg/kzet32U">
+		<img alt="Discord Chat" src="https://img.shields.io/discord/501533080880676864.svg">
+	</a>
+	<a href="https://github.com/MontFerret/lab/releases">
+		<img alt="Lab release" src="https://img.shields.io/github/release/MontFerret/lab.svg">
+	</a>
+   <a href="https://microbadger.com/images/montferret/lab">
+      <img alt="Dockerimages" src="https://images.microbadger.com/badges/version/montferret/lab.svg">
+   </a>
+	<a href="http://opensource.org/licenses/MIT">
+		<img alt="MIT License" src="http://img.shields.io/badge/license-MIT-brightgreen.svg">
+	</a>
+</p>
+
 ``lab`` is a test runner for [Ferret](https://www.github.com/MontFerret/ferret) scripts.
 
 ## Features
