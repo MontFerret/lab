@@ -3,7 +3,6 @@ export CGO_ENABLED=0
 export GO111MODULE=on
 
 VERSION ?= $(shell git describe --tags --always --dirty)
-RELEASE_VERSION ?= $(version)
 DIR_BIN = ./bin
 NAME = ferret-lab
 
@@ -40,7 +39,7 @@ vet:
 
 release:
 ifeq ($(RELEASE_VERSION), )
-	$(error "Release version is required (version=x)")
+	$(error "Release version is required (RELEASE_VERSION)")
 else ifeq ($(GITHUB_TOKEN), )
 	$(error "GitHub token is required (GITHUB_TOKEN)")
 else
