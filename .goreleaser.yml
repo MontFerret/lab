@@ -37,7 +37,7 @@ dockers:
     goarch: amd64
     binaries:
       - lab
-    skip_push: true
+    skip_push: false
     dockerfile: Dockerfile
     image_templates:
       - "montferret/{{ .ProjectName }}:{{ .Tag }}"
