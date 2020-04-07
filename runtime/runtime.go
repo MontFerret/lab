@@ -34,7 +34,7 @@ func New(opts Options) (Runtime, error) {
 	case "http", "https":
 		return NewHTTP(opts.RemoteURL, opts.Params)
 	case "bin":
-		return NewBinary(u.Host, opts.Params)
+		return NewBinary(u.Host+u.Path, opts.Params)
 	default:
 		return nil, fmt.Errorf("invalid remote url: %s", opts.RemoteURL)
 	}

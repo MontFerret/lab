@@ -34,7 +34,11 @@ func (b *Binary) Run(ctx context.Context, query string, params map[string]interf
 	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		return nil, errors.New(string(out))
+		if len(out) != 0 {
+			return nil, errors.New(string(out))
+		}
+
+		return nil, err
 	}
 
 	return out, nil
