@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	waitfor "github.com/ziflex/waitfor/pkg/runner"
 
 	"github.com/MontFerret/lab/cdn"
 	"github.com/MontFerret/lab/reporters"
@@ -169,11 +170,11 @@ func main() {
 				Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\" })",
 				EnvVars: []string{"FERRET_LAB_RUNTIME_PARAM"},
 			},
-			&cli.IntFlag{
+			&cli.Uint64Flag{
 				Name:    "concurrency",
 				Usage:   "number of multiple tests to run at a time",
 				EnvVars: []string{"FERRET_LAB_CONCURRENCY"},
-				Value:   sysRuntime.NumCPU() * 2,
+				Value:   uint64(sysRuntime.NumCPU() * 2),
 			},
 			&cli.StringSliceFlag{
 				Name:        "dir",
@@ -204,7 +205,7 @@ func main() {
 			&cli.StringSliceFlag{
 				Name:        "wait",
 				Aliases:     []string{"w"},
-				Usage:       "waits for a 3rd party service by calling its endpoint (--wait http://127.0.0.1:9222/json/version)",
+				Usage:       "tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb)",
 				EnvVars:     []string{"FERRET_LAB_WAIT"},
 				FilePath:    "",
 				Required:    false,
@@ -214,7 +215,7 @@ func main() {
 				DefaultText: "",
 				HasBeenSet:  false,
 			},
-			&cli.IntFlag{
+			&cli.Uint64Flag{
 				Name:        "wait-timeout",
 				Aliases:     nil,
 				Usage:       "wait timeout in seconds",
@@ -227,7 +228,7 @@ func main() {
 				Destination: nil,
 				HasBeenSet:  false,
 			},
-			&cli.IntFlag{
+			&cli.Uint64Flag{
 				Name:        "wait-attempts",
 				Aliases:     nil,
 				Usage:       "wait attempts",
@@ -245,7 +246,14 @@ func main() {
 			waitFor := c.StringSlice("wait")
 
 			if len(waitFor) > 0 {
-				if err := waitBeforeStart(waitFor, time.Duration(c.Int("wait-timeout")), c.Int("wait-attempts")); err != nil {
+				err := waitfor.Test(
+					c.Context,
+					waitFor,
+					waitfor.WithAttempts(c.Uint64("wait-attempts")),
+					waitfor.WithInterval(c.Uint64("wait-timeout")),
+				)
+
+				if err != nil {
 					return cli.Exit(errors.Wrap(err, "timeout"), 1)
 				}
 			}
@@ -266,7 +274,7 @@ func main() {
 				return cli.Exit(err, 1)
 			}
 
-			r, err := runner.New(rt, c.Int("concurrency"))
+			r, err := runner.New(rt, c.Uint64("concurrency"))
 
 			if err != nil {
 				return cli.Exit(err, 1)

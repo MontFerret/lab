@@ -56,7 +56,7 @@ GLOBAL OPTIONS:
    --concurrency value         number of multiple tests to run at a time (default: 24) [$FERRET_LAB_CONCURRENCY]
    --dir value, -d value       file or directory to serve (./dir:8080 as default or ./dir:8080@name as named) [$FERRET_LAB_DIR]
    --param value, -p value     query parameter (--param=foo:"bar", --param=id:1) [$FERRET_LAB_PARAM]
-   --wait value, -w value      waits for a 3rd party service by calling its endpoint (--wait http://127.0.0.1:9222/json/version) [$FERRET_LAB_WAIT]
+   --wait value, -w value      waits for a 3rd party service by calling its endpoint (--wait http://127.0.0.1:9222/json/version, --wait postgres://locahost:5432/mydb) [$FERRET_LAB_WAIT]
    --wait-timeout value        wait timeout in seconds (default: 5) [$FERRET_LAB_WAIT_TIMEOUT]
    --wait-attempts value       wait attempts (default: 5) [$FERRET_LAB_WAIT_TRY]
    --help, -h                  show help (default: false)

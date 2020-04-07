@@ -11,10 +11,10 @@ import (
 
 type Runner struct {
 	runtime  runtime.Runtime
-	poolSize int
+	poolSize uint64
 }
 
-func New(rt runtime.Runtime, poolSize int) (*Runner, error) {
+func New(rt runtime.Runtime, poolSize uint64) (*Runner, error) {
 	if poolSize == 0 {
 		poolSize = 1
 	}
