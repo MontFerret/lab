@@ -10,8 +10,6 @@ import (
 	"github.com/MontFerret/ferret/pkg/drivers/http"
 	"github.com/MontFerret/ferret/pkg/runtime"
 	"github.com/rs/zerolog"
-
-	"github.com/MontFerret/lab/assertions"
 )
 
 type Builtin struct {
@@ -21,8 +19,6 @@ type Builtin struct {
 
 func NewBuiltin(cdp string, _ map[string]interface{}) (*Builtin, error) {
 	c := compiler.New()
-
-	assertions.Assertions(c.Namespace("T"))
 
 	return &Builtin{c, cdp}, nil
 }
