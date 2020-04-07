@@ -164,7 +164,7 @@ getPackage() {
         rm -rf $targetDir
     fi
 
-    lab --version
+    "$location/lab" --version
 }
 
 hasCli
