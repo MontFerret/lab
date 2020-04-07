@@ -91,8 +91,8 @@ getPackage() {
     ;;
     esac
 
-    if [ "$arch" == "" ]; then
-        echo "${$arch} is not supported. Exiting"
+    if [ "$arch" = "" ]; then
+        echo "$arch is not supported. Exiting"
         exit 1
     fi
 
