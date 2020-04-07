@@ -4,7 +4,7 @@ export GO111MODULE=on
 
 VERSION ?= $(shell git describe --tags --always --dirty)
 DIR_BIN = ./bin
-NAME = ferret-lab
+NAME = lab
 
 default: build
 

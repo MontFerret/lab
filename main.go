@@ -30,7 +30,7 @@ type Directory struct {
 }
 
 func toDirectories(values []string) ([]Directory, error) {
-	res := make([]Directory, len(values))
+	res := make([]Directory, 0, len(values))
 
 	for _, entry := range values {
 		dir := Directory{}
