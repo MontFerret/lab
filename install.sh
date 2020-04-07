@@ -1,14 +1,19 @@
 #!/bin/bash
 
+defaultLocation="/usr/local/bin"
+location=${1:-$defaultLocation}
+
+echo "Installing location $location"
 # Copyright MontFerret Team 2020
 version=$(curl -sI https://github.com/MontFerret/lab/releases/latest | grep location | awk -F"/" '{ printf "%s", $NF }' | tr -d '\r')
+
 if [ ! $version ]; then
     echo "Failed while attempting to install lab-cli. Please manually install:"
     echo ""
     echo "1. Open your web browser and go to https://github.com/MontFerret/lab/releases"
     echo "2. Download the latest release for your platform."
     echo "3. chmod +x ./lab"
-    echo "4. mv ./lab /usr/local/bin"
+    echo "4. mv ./lab $location"
     exit 1
 fi
 
@@ -106,26 +111,51 @@ getPackage() {
         rm $targetFile
     fi
 
+    echo
+
+    if [ $location = $defaultLocation ]; then
+        if [ "$userid" != "0" ]; then
+            echo
+            echo "========================================================="
+            echo "==    As the script was run as a non-root user the     =="
+            echo "==    following commands may need to be run manually   =="
+            echo "========================================================="
+            echo
+            echo "  sudo cp $targetFile $location/lab"
+            echo "  rm -rf $targetDir"
+            echo
+
+            exit 1
+        fi
+    fi
+
+    if [ ! -d $location ]; then
+        mkdir $location
+    fi
+
     baseUrl=https://github.com/MontFerret/lab/releases/download/$version
     url=$baseUrl/lab$suffix.tar.gz
     echo "Downloading package $url as $targetFile"
 
     curl -sSL $url | tar xz -C $targetDir
 
-    if [ "$?" = "0" ]; then
+    if [ "$?" != "0" ]; then
+        echo "Failed to download file"
+        exit 1
+    fi
 
     # checkHash
 
     chmod +x $targetFile
 
     echo "Download complete."
-
     echo
+    echo "Attempting to move $targetFile to $location"
 
-    mv $targetFile /usr/local/bin/lab
+    mv $targetFile "$location/lab"
 
     if [ "$?" = "0" ]; then
-        echo "New version of lab installed to /usr/local/bin"
+        echo "New version of lab installed to $location"
     fi
 
     if [ -d $targetDir ]; then
@@ -133,7 +163,6 @@ getPackage() {
     fi
 
     lab --version
-    fi
 }
 
 hasCli
