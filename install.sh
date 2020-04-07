@@ -1,7 +1,9 @@
 #!/bin/bash
 
 defaultLocation="/usr/local/bin"
-location=${1:-$defaultLocation}
+defaultVersion="latest"
+location=${location:-$defaultLocation}
+version=${version:-$defaultVersion}
 
 echo "Installing location $location"
 # Copyright MontFerret Team 2020
