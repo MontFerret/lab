@@ -2,9 +2,9 @@ package sources
 
 import (
 	"context"
-	"github.com/gobwas/glob"
 	"io/ioutil"
 
+	"github.com/gobwas/glob"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 	"gopkg.in/src-d/go-git.v4/storage/memory"

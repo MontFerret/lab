@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	sysRuntime "runtime"
 	"strconv"
 	"strings"
@@ -249,9 +251,25 @@ func main() {
 		Action: func(c *cli.Context) error {
 			waitFor := c.StringSlice("wait")
 
+			// Pass termination down the service tree
+			ctx, cancel := context.WithCancel(c.Context)
+
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, os.Interrupt)
+			signal.Notify(ch, os.Kill)
+
+			go func() {
+				for {
+					<-ch
+					cancel()
+				}
+			}()
+
+			defer cancel()
+
 			if len(waitFor) > 0 {
 				err := waitfor.Test(
-					c.Context,
+					ctx,
 					waitFor,
 					waitfor.WithAttempts(c.Uint64("wait-attempts")),
 					waitfor.WithInterval(c.Uint64("wait-timeout")),
@@ -342,17 +360,17 @@ func main() {
 				}
 			}
 
-			err = cdnManager.Start(c.Context)
+			err = cdnManager.Start(ctx)
 
 			if err != nil {
 				return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
 			}
 
-			stream := r.Run(runner.NewContext(c.Context, params), src)
+			stream := r.Run(runner.NewContext(ctx, params), src)
 
 			err = reporters.
 				NewConsole(os.Stdout).
-				Report(c.Context, stream)
+				Report(ctx, stream)
 
 			if err != nil {
 				return cli.Exit(err, 1)
