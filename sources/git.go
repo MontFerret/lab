@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"github.com/gobwas/glob"
 	"io/ioutil"
 
 	"gopkg.in/src-d/go-git.v4"
@@ -10,14 +11,27 @@ import (
 )
 
 type Git struct {
-	url string
+	url    string
+	filter glob.Glob
 }
 
-func NewGit(url string) *Git {
-	return &Git{url}
+func NewGit(url string, pattern string) (*Git, error) {
+	var filter glob.Glob
+
+	if pattern != "" {
+		f, err := glob.Compile(pattern)
+
+		if err != nil {
+			return nil, err
+		}
+
+		filter = f
+	}
+
+	return &Git{url, filter}, nil
 }
 
-func (g Git) Read(ctx context.Context) Stream {
+func (g *Git) Read(ctx context.Context) Stream {
 	onFile := make(chan File)
 	onError := make(chan error)
 
@@ -63,6 +77,11 @@ func (g Git) Read(ctx context.Context) Stream {
 
 		err = files.ForEach(func(f *object.File) error {
 			if !isFQLFile(f.Name) {
+				return nil
+			}
+
+			// if not matched, skip the file
+			if g.filter != nil && !g.filter.Match(f.Name) {
 				return nil
 			}
 

@@ -24,8 +24,6 @@ func New() (*Manager, error) {
 		return nil, err
 	}
 
-	println("Local address is", addr)
-
 	return &Manager{
 		addr:  addr,
 		nodes: make([]*Node, 0, 10),

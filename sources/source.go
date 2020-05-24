@@ -46,15 +46,23 @@ func create(location string) (Source, error) {
 		return nil, errors.New("location scheme is not provided")
 	}
 
+	var filter string
+
+	var query = u.Query()
+
+	if query != nil {
+		filter = query.Get("filter")
+	}
+
 	switch u.Scheme {
 	case "file":
-		return NewFileSystem(filepath.Join(u.Host, u.Path))
+		return NewFileSystem(filepath.Join(u.Host, u.Path), filter)
 	//case "http":
 	//	return NewNoop(), nil
 	case "git+http":
-		return NewGit("http://" + path.Join(u.Host, u.Path)), nil
+		return NewGit("http://"+path.Join(u.Host, u.Path), filter)
 	case "git+https":
-		return NewGit("https://" + path.Join(u.Host, u.Path)), nil
+		return NewGit("https://"+path.Join(u.Host, u.Path), filter)
 	default:
 		return nil, errors.Errorf("unknown location provider: %s", u.Scheme)
 	}

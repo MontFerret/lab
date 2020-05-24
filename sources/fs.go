@@ -15,22 +15,20 @@ type FileSystem struct {
 	filter glob.Glob
 }
 
-func NewFileSystem(path string) (*FileSystem, error) {
-	return &FileSystem{
-		path: path,
-	}, nil
-}
+func NewFileSystem(path string, pattern string) (*FileSystem, error) {
+	var filter glob.Glob
 
-func (fs *FileSystem) SetFilter(pattern string) error {
-	filter, err := glob.Compile(pattern)
+	if pattern != "" {
+		f, err := glob.Compile(pattern)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return nil, err
+		}
+
+		filter = f
 	}
 
-	fs.filter = filter
-
-	return nil
+	return &FileSystem{path, filter}, nil
 }
 
 func (fs *FileSystem) Read(ctx context.Context) Stream {
@@ -69,17 +67,17 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 	if fi.Mode().IsRegular() {
 		filename := path
 
-		// if not matched, skip the file
-		if fs.filter != nil && !fs.filter.Match(filename) {
-			return nil
-		}
-
 		if !isFQLFile(path) {
 			onFile <- File{
 				Name:    filename,
 				Content: nil,
 				Error:   errors.New("invalid file"),
 			}
+		}
+
+		// if not matched, skip the file
+		if fs.filter != nil && !fs.filter.Match(filename) {
+			return nil
 		}
 
 		onFile <- fs.readFile(filename)
@@ -96,11 +94,6 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 	for _, file := range files {
 		filename := filepath.Join(path, file.Name())
 
-		// if not matched, skip the file
-		if fs.filter != nil && !fs.filter.Match(filename) {
-			continue
-		}
-
 		if file.IsDir() {
 			if err := fs.traverse(ctx, filename, onFile); err != nil {
 				return err
@@ -110,6 +103,11 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 		}
 
 		if !isFQLFile(file.Name()) {
+			continue
+		}
+
+		// if not matched, skip the file
+		if fs.filter != nil && !fs.filter.Match(filename) {
 			continue
 		}
 
