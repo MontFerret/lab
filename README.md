@@ -57,7 +57,7 @@ GLOBAL OPTIONS:
    --param value, -p value     query parameter (--param=foo:"bar", --param=id:1) [$FERRET_LAB_PARAM]
    --wait value, -w value      waits for a 3rd party service by calling its endpoint (--wait http://127.0.0.1:9222/json/version, --wait postgres://locahost:5432/mydb) [$FERRET_LAB_WAIT]
    --wait-timeout value        wait timeout in seconds (default: 5) [$FERRET_LAB_WAIT_TIMEOUT]
-   --wait-attempts value       wait attempts (default: 5) [$FERRET_LAB_WAIT_TRY]
+   --wait-attempts value       wait attempts (default: 5) [$FERRET_LAB_WAIT_ATTEMPTS]
    --help, -h                  show help (default: false)
    --version, -v               print the version (default: false)
 

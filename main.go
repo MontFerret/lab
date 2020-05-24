@@ -232,7 +232,7 @@ func main() {
 				Name:        "wait-attempts",
 				Aliases:     nil,
 				Usage:       "wait attempts",
-				EnvVars:     []string{"FERRET_LAB_WAIT_TRY"},
+				EnvVars:     []string{"FERRET_LAB_WAIT_ATTEMPTS"},
 				FilePath:    "",
 				Required:    false,
 				Hidden:      false,
