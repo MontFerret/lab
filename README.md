@@ -49,7 +49,6 @@ COMMANDS:
 GLOBAL OPTIONS:
    --files value, -f value     Location of FQL script files to run [$FERRET_LAB_FILES]
    --cdp value                 Chrome DevTools Protocol address (default: "http://127.0.0.1:9222") [$FERRET_LAB_CDP]
-   --filter value              filter test files [$FERRET_LAB_FILTER]
    --reporter value, -r value  reporter (console, simple) (default: "console") [$FERRET_LAB_REPORTER]
    --runtime value             url to remote Ferret runtime (http, https or bin) [$FERRET_LAB_RUNTIME]
    --runtime-param value       params for remote Ferret runtime (--runtime-param=headers:{"KeyId": "abcd"} --runtime-param=path:"/ferret" }) [$FERRET_LAB_RUNTIME_PARAM]

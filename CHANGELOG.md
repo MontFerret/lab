@@ -1,5 +1,14 @@
 ## Changelog
 
+### 0.4.0
+#### Added
+- Support of expected failure (my-test.fail.fql)
+
+### Fixed
+- Execution of CDN
+- Filtering
+- Graceful termination
+
 ### 0.3.0
 #### Added
 - Extended options of resources that can be tested and waited on

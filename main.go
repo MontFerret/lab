@@ -154,12 +154,6 @@ func main() {
 				EnvVars: []string{"FERRET_LAB_CDP"},
 			},
 			&cli.StringFlag{
-				Name:    "filter",
-				Usage:   "filter test files",
-				Value:   "",
-				EnvVars: []string{"FERRET_LAB_FILTER"},
-			},
-			&cli.StringFlag{
 				Name:    "reporter",
 				Aliases: []string{"r"},
 				Usage:   "reporter (console, simple)",
