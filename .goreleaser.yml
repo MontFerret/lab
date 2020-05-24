@@ -40,7 +40,6 @@ dockers:
     skip_push: false
     dockerfile: Dockerfile
     image_templates:
-      - "montferret/{{ .ProjectName }}:{{ .Tag }}"
       #- "montferret/{{ .ProjectName }}:{{ .Major }}"
       - "montferret/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}"
       - "montferret/{{ .ProjectName }}:latest"
