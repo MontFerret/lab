@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"path"
@@ -129,8 +128,6 @@ func (r HTTP) Run(ctx context.Context, query string, params map[string]interface
 	for _, c := range r.params.Cookies {
 		req.AddCookie(&c)
 	}
-
-	fmt.Println("headers:", req.Header)
 
 	c := http.Client{}
 	resp, err := c.Do(req.WithContext(ctx))

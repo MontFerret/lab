@@ -3,7 +3,7 @@ module github.com/MontFerret/lab
 go 1.13
 
 require (
-	github.com/MontFerret/ferret v0.10.1
+	github.com/MontFerret/ferret v0.11.0
 	github.com/gobwas/glob v0.2.3
 	github.com/hashicorp/go-retryablehttp v0.6.4
 	github.com/labstack/echo/v4 v4.1.13
