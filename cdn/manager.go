@@ -11,15 +11,25 @@ import (
 )
 
 type Manager struct {
+	addr    string
 	server  *http.Server
 	nodes   []*Node
 	running bool
 }
 
-func New() *Manager {
-	return &Manager{
-		nodes: make([]*Node, 0, 10),
+func New() (*Manager, error) {
+	addr, err := getLocalIPAddress()
+
+	if err != nil {
+		return nil, err
 	}
+
+	println("Local address is", addr)
+
+	return &Manager{
+		addr:  addr,
+		nodes: make([]*Node, 0, 10),
+	}, nil
 }
 
 func (m *Manager) IsRunning() bool {
@@ -36,7 +46,7 @@ func (m *Manager) Endpoints() map[string]string {
 	endpoints := make(map[string]string)
 
 	for _, n := range m.nodes {
-		endpoints[n.Name()] = fmt.Sprintf("http://127.0.0.1:%d", n.Port())
+		endpoints[n.Name()] = fmt.Sprintf("http://%s:%d", m.addr, n.Port())
 	}
 
 	return endpoints

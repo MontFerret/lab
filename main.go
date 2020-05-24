@@ -95,7 +95,11 @@ func toParams(values []string) (map[string]interface{}, error) {
 }
 
 func createCDNManager(dirs []Directory) (*cdn.Manager, error) {
-	m := cdn.New()
+	m, err := cdn.New()
+
+	if err != nil {
+		return nil, err
+	}
 
 	for _, dir := range dirs {
 		err := m.Add(cdn.NewNode(cdn.NodeSettings{
@@ -174,7 +178,7 @@ func main() {
 				Name:    "concurrency",
 				Usage:   "number of multiple tests to run at a time",
 				EnvVars: []string{"FERRET_LAB_CONCURRENCY"},
-				Value:   uint64(sysRuntime.NumCPU() * 2),
+				Value:   uint64(sysRuntime.NumCPU()),
 			},
 			&cli.StringSliceFlag{
 				Name:        "dir",
@@ -336,6 +340,12 @@ func main() {
 				if found {
 					cdnMap[dir.Name] = address
 				}
+			}
+
+			err = cdnManager.Start(c.Context)
+
+			if err != nil {
+				return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
 			}
 
 			stream := r.Run(runner.NewContext(c.Context, params), src)
