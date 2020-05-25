@@ -1,42 +1,19 @@
 package cdn
 
 import (
-	"github.com/pkg/errors"
 	"net"
 )
 
-func getLocalIPAddress() (string, error) {
-	ifaces, err := net.Interfaces()
+func getOutboundIP() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
 
 	if err != nil {
 		return "", err
 	}
 
-	// handle err
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
+	defer conn.Close()
 
-		if err != nil {
-			return "", err
-		}
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
-		// handle err
-		for _, addr := range addrs {
-			ipnet, ok := addr.(*net.IPNet)
-
-			if !ok {
-				continue
-			}
-
-			v4 := ipnet.IP.To4()
-
-			if ipnet.IP.IsLoopback() || v4 == nil {
-				continue
-			}
-
-			return v4.String(), nil
-		}
-	}
-
-	return "", errors.New("unable to detect local IP address")
+	return localAddr.IP.String(), nil
 }

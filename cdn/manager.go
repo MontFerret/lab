@@ -18,7 +18,7 @@ type Manager struct {
 }
 
 func New() (*Manager, error) {
-	addr, err := getLocalIPAddress()
+	addr, err := getOutboundIP()
 
 	if err != nil {
 		return nil, err
