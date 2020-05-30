@@ -3,8 +3,9 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"net/url"
+
+	"github.com/pkg/errors"
 )
 
 type (

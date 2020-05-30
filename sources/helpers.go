@@ -2,6 +2,11 @@ package sources
 
 import "path/filepath"
 
-func isFQLFile(name string) bool {
-	return filepath.Ext(name) == ".fql"
+func IsSupportedFile(name string) bool {
+	switch filepath.Ext(name) {
+	case ".fql", ".yaml", ".yml":
+		return true
+	default:
+		return false
+	}
 }

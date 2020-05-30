@@ -1,12 +1,13 @@
 package runner
 
 import (
+	"context"
 	"sync"
 	"time"
 
-	"github.com/MontFerret/lab/runner/suites"
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
+	"github.com/MontFerret/lab/testing"
 )
 
 type Runner struct {
@@ -37,7 +38,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 
 		stream := src.Read(ctx)
 
-		for res := range r.runSuites(ctx, stream.Files) {
+		for res := range r.runTests(ctx, stream.Files) {
 			if res.Error != nil {
 				failed++
 			} else {
@@ -70,7 +71,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 	}
 }
 
-func (r *Runner) runSuites(ctx Context, files <-chan sources.File) <-chan Result {
+func (r *Runner) runTests(ctx Context, files <-chan sources.File) <-chan Result {
 	out := make(chan Result)
 
 	go func() {
@@ -80,9 +81,11 @@ func (r *Runner) runSuites(ctx Context, files <-chan sources.File) <-chan Result
 		for f := range files {
 			wg.Add(1)
 
+			params := ctx.Params().Clone()
+
 			pool.Go(func() {
 				if ctx.Err() == nil {
-					out <- r.runSuite(ctx, f)
+					out <- r.runCase(ctx, f, params)
 				}
 
 				wg.Done()
@@ -97,8 +100,8 @@ func (r *Runner) runSuites(ctx Context, files <-chan sources.File) <-chan Result
 	return out
 }
 
-func (r *Runner) runSuite(ctx Context, file sources.File) Result {
-	suite, err := suites.New(file)
+func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.Params) Result {
+	testCase, err := testing.New(file)
 
 	if err != nil {
 		return Result{
@@ -110,7 +113,7 @@ func (r *Runner) runSuite(ctx Context, file sources.File) Result {
 
 	start := time.Now()
 
-	err = suite.Run(ctx, r.runtime, ctx.Params().ToMap())
+	err = testCase.Run(ctx, r.runtime, params)
 
 	duration := time.Since(start)
 

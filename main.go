@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/MontFerret/lab/testing"
 	"os"
 	"os/signal"
 	sysRuntime "runtime"
@@ -314,7 +315,7 @@ func main() {
 				return cli.Exit(err, 1)
 			}
 
-			params := runner.NewParams()
+			params := testing.NewParams()
 
 			userParams, err := toParams(c.StringSlice("p"))
 

@@ -12,4 +12,5 @@ require (
 	github.com/urfave/cli/v2 v2.1.1
 	github.com/ziflex/waitfor v1.1.0
 	gopkg.in/src-d/go-git.v4 v4.13.1
+	gopkg.in/yaml.v2 v2.2.2
 )

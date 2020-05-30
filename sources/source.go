@@ -2,10 +2,11 @@ package sources
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"net/url"
 	"path"
 	"path/filepath"
+
+	"github.com/pkg/errors"
 )
 
 type Source interface {
@@ -46,17 +47,29 @@ func create(location string) (Source, error) {
 		return nil, errors.New("location scheme is not provided")
 	}
 
-	var filter string
-
 	var query = u.Query()
-
-	if query != nil {
-		filter = query.Get("filter")
-	}
+	filter := query.Get("filter")
 
 	switch u.Scheme {
 	case "file":
-		return NewFileSystem(filepath.Join(u.Host, u.Path), filter)
+		fullPath := filepath.Join(u.Host, u.Path)
+		parent := query.Get("from")
+
+		if parent != "" {
+			if !filepath.IsAbs(fullPath) {
+				parentDir := filepath.Dir(parent)
+
+				fp, err := filepath.Abs(filepath.Join(parentDir, u.Host, u.Path))
+
+				if err != nil {
+					return nil, err
+				}
+
+				fullPath = fp
+			}
+		}
+
+		return NewFileSystem(fullPath, filter)
 	//case "http":
 	//	return NewNoop(), nil
 	case "git+http":

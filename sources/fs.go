@@ -28,7 +28,19 @@ func NewFileSystem(path string, pattern string) (*FileSystem, error) {
 		filter = f
 	}
 
-	return &FileSystem{path, filter}, nil
+	fullPath := path
+
+	if !filepath.IsAbs(path) {
+		fp, err := filepath.Abs(path)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "get absolute path")
+		}
+
+		fullPath = fp
+	}
+
+	return &FileSystem{fullPath, filter}, nil
 }
 
 func (fs *FileSystem) Read(ctx context.Context) Stream {
@@ -67,7 +79,7 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 	if fi.Mode().IsRegular() {
 		filename := path
 
-		if !isFQLFile(path) {
+		if !IsSupportedFile(path) {
 			onFile <- File{
 				Name:    filename,
 				Content: nil,
@@ -102,7 +114,7 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 			continue
 		}
 
-		if !isFQLFile(file.Name()) {
+		if !IsSupportedFile(file.Name()) {
 			continue
 		}
 

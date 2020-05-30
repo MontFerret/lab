@@ -3,14 +3,16 @@ package runner
 import (
 	"context"
 	"time"
+
+	"github.com/MontFerret/lab/testing"
 )
 
 type Context struct {
 	root   context.Context
-	params Params
+	params testing.Params
 }
 
-func NewContext(root context.Context, params Params) Context {
+func NewContext(root context.Context, params testing.Params) Context {
 	return Context{
 		root:   root,
 		params: params,
@@ -33,6 +35,6 @@ func (c Context) Value(key interface{}) interface{} {
 	return c.root.Value(key)
 }
 
-func (c Context) Params() Params {
+func (c Context) Params() testing.Params {
 	return c.params
 }
