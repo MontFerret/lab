@@ -10,56 +10,59 @@ import (
 	"net/url"
 )
 
-type Suite struct {
-	file       sources.File
-	beforeHook string
-	afterHook  string
-	query      interface{}
-	assertion  interface{}
-}
+type (
+	Suite struct {
+		file     sources.File
+		manifest SuiteManifest
+	}
+
+	SuiteManifest struct {
+		Query  ScriptManifest `yaml:"query"`
+		Assert ScriptManifest `yaml:"assert"`
+	}
+
+	ScriptManifest struct {
+		Text   string                 `yaml:"text"`
+		Ref    string                 `yaml:"ref"`
+		Params map[string]interface{} `yaml:"params"`
+	}
+)
 
 func NewSuite(file sources.File) (*Suite, error) {
-	config := make(map[interface{}]interface{})
+	manifest := SuiteManifest{}
 
-	if err := yaml.Unmarshal(file.Content, &config); err != nil {
+	if err := yaml.Unmarshal(file.Content, &manifest); err != nil {
 		return nil, errors.Wrap(err, "failed to parse file")
 	}
 
-	query, ok := config["query"]
-
-	if !ok {
-		return nil, errors.New("'query' property is required")
+	if err := validateScriptManifest(manifest.Query); err != nil {
+		return nil, errors.Wrap(err, "query")
 	}
 
-	assertion, ok := config["assert"]
-
-	if !ok {
-		return nil, errors.New("'assert' property is required")
+	if err := validateScriptManifest(manifest.Assert); err != nil {
+		return nil, errors.Wrap(err, "assert")
 	}
 
 	return &Suite{
-		file:       file,
-		beforeHook: "", // TODO: implement
-		afterHook:  "", // TODO: implement
-		query:      query,
-		assertion:  assertion,
+		file:     file,
+		manifest: manifest,
 	}, nil
 }
 
 func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) error {
-	query, err := suite.resolveScript(ctx, suite.query)
+	query, err := suite.resolveScript(ctx, suite.manifest.Query)
 
 	if err != nil {
 		return errors.Wrap(err, "resolve query script")
 	}
 
-	assertion, err := suite.resolveScript(ctx, suite.assertion)
+	assertion, err := suite.resolveScript(ctx, suite.manifest.Assert)
 
 	if err != nil {
 		return errors.Wrap(err, "resolve assertion script")
 	}
 
-	out, err := rt.Run(ctx, query, params.ToMap())
+	out, err := rt.Run(ctx, query, resolveRuntimeParams(params.Clone(), suite.manifest.Query))
 
 	if err != nil {
 		return errors.Wrap(err, "failed to execute query script")
@@ -75,60 +78,51 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 		"query": outVal,
 	})
 
-	_, err = rt.Run(ctx, assertion, params.ToMap())
+	_, err = rt.Run(ctx, assertion, resolveRuntimeParams(params, suite.manifest.Query))
 
 	return err
 }
 
-func (suite *Suite) resolveScript(ctx context.Context, config interface{}) (string, error) {
-	switch value := config.(type) {
-	case string:
-		return value, nil
-	case map[interface{}]interface{}:
-		location, ok := value["src"]
-
-		if !ok {
-			return "", errors.New("missed 'src' keyword")
-		}
-
-		locationStr, ok := location.(string)
-
-		if !ok {
-			return "", errors.New("'src' must be a string")
-		}
-
-		u, err := url.Parse(locationStr)
-
-		if err != nil {
-			return "", errors.Wrap(err, "parse 'src'")
-		}
-
-		// set a query param that indicates from what relative location to resolve a given script
-		q := u.Query()
-		q.Add("from", suite.file.Name)
-		u.RawQuery = q.Encode()
-
-		src, err := sources.New(u.String())
-
-		if err != nil {
-			return "", errors.Wrap(err, "new src source")
-		}
-
-		out := src.Read(ctx)
-
-		select {
-		case e := <-out.Errors:
-			return "", e
-		case f := <-out.Files:
-			if f.Error != nil {
-				return "", f.Error
-			}
-
-			return string(f.Content), nil
-		}
-	default:
-		return "", errors.New("invalid script definition")
+func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) (string, error) {
+	if manifest.Text != "" {
+		return manifest.Text, nil
 	}
+
+	u, err := url.Parse(manifest.Ref)
+
+	if err != nil {
+		return "", errors.Wrap(err, "parse 'src'")
+	}
+
+	// set a query param that indicates from what relative location to resolve a given script
+	q := u.Query()
+	q.Add("from", suite.file.Name)
+	u.RawQuery = q.Encode()
+
+	src, err := sources.New(u.String())
+
+	if err != nil {
+		return "", errors.Wrap(err, "new src source")
+	}
+
+	out := src.Read(ctx)
+
+	select {
+	case e := <-out.Errors:
+		return "", e
+	case f := <-out.Files:
+		if f.Error != nil {
+			return "", f.Error
+		}
+
+		return string(f.Content), nil
+	}
+}
+
+func resolveRuntimeParams(params Params, manifest ScriptManifest) map[string]interface{} {
+	params.SetUserValues(manifest.Params)
+
+	return params.ToMap()
 }
 
 func toAny(values []byte) (interface{}, error) {
@@ -143,4 +137,16 @@ func toAny(values []byte) (interface{}, error) {
 	}
 
 	return o, nil
+}
+
+func validateScriptManifest(manifest ScriptManifest) error {
+	if manifest.Ref == "" && manifest.Text == "" {
+		return errors.New("ref or text must have value")
+	}
+
+	if manifest.Ref != "" && manifest.Text != "" {
+		return errors.New("only either ref or text must have value")
+	}
+
+	return nil
 }

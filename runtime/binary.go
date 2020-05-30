@@ -11,25 +11,37 @@ import (
 )
 
 type Binary struct {
-	path string
+	path         string
+	sharedParams map[string]interface{}
 }
 
 func NewBinary(path string, params map[string]interface{}) (*Binary, error) {
-	return &Binary{path: path}, nil
+	return &Binary{path, params}, nil
 }
 
 func (b *Binary) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
-	p, err := b.paramsToArg(params)
+	args := make([]string, 0, 10)
+
+	sharedArgs, err := b.paramsToArg(b.sharedParams)
 
 	if err != nil {
 		return nil, err
 	}
 
-	q := &bytes.Buffer{}
+	queryArgs, err := b.paramsToArg(params)
+
+	if err != nil {
+		return nil, err
+	}
+
+	args = append(args, sharedArgs...)
+	args = append(args, queryArgs...)
+
+	var q bytes.Buffer
 	q.WriteString(query)
 
-	cmd := exec.CommandContext(ctx, b.path, p)
-	cmd.Stdin = q
+	cmd := exec.CommandContext(ctx, b.path, args...)
+	cmd.Stdin = &q
 
 	out, err := cmd.CombinedOutput()
 
@@ -44,22 +56,18 @@ func (b *Binary) Run(ctx context.Context, query string, params map[string]interf
 	return out, nil
 }
 
-func (b *Binary) paramsToArg(params map[string]interface{}) (string, error) {
-	var buff bytes.Buffer
+func (b *Binary) paramsToArg(params map[string]interface{}) ([]string, error) {
+	args := make([]string, 0, len(params))
 
 	for k, v := range params {
 		j, err := json.Marshal(v)
 
 		if err != nil {
-			return "", errors.Wrap(err, fmt.Sprintf("failed to serialize parameter: %s", k))
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to serialize parameter: %s", k))
 		}
 
-		buff.WriteString("--param=")
-		buff.WriteString(k)
-		buff.WriteString(":")
-		buff.Write(j)
-		buff.WriteString(" ")
+		args = append(args, fmt.Sprintf("--param=%s:%s", k, j))
 	}
 
-	return buff.String(), nil
+	return args, nil
 }

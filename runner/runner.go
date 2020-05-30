@@ -106,7 +106,8 @@ func (r *Runner) runTests(ctx Context, files <-chan sources.File) <-chan Result 
 			f := f
 			wg.Add(1)
 
-			params := ctx.Params().Clone()
+			params := ctx.Params()
+			params = params.Clone()
 
 			pool.Go(func() {
 				if ctx.Err() == nil {
