@@ -5,24 +5,48 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
 	"github.com/MontFerret/lab/testing"
 )
 
-type Runner struct {
-	runtime  runtime.Runtime
-	poolSize uint64
-}
+type (
+	Options struct {
+		Runtime     runtime.Runtime
+		PoolSize    uint64
+		TestTimeout time.Duration
+	}
 
-func New(rt runtime.Runtime, poolSize uint64) (*Runner, error) {
+	Runner struct {
+		runtime     runtime.Runtime
+		poolSize    uint64
+		testTimeout time.Duration
+	}
+)
+
+func New(opts Options) (*Runner, error) {
+	if opts.Runtime == nil {
+		return nil, errors.New("missed runtime")
+	}
+
+	poolSize := opts.PoolSize
+
 	if poolSize == 0 {
 		poolSize = 1
 	}
 
+	testTimeout := opts.TestTimeout
+
+	if testTimeout == 0 {
+		testTimeout = time.Second * 30
+	}
+
 	return &Runner{
-		rt,
-		poolSize,
+		runtime:     opts.Runtime,
+		poolSize:    poolSize,
+		testTimeout: testTimeout,
 	}, nil
 }
 
@@ -112,6 +136,9 @@ func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.
 	}
 
 	start := time.Now()
+
+	ctx, cancel := context.WithTimeout(ctx, r.testTimeout)
+	defer cancel()
 
 	err = testCase.Run(ctx, r.runtime, params)
 

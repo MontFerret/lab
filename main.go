@@ -145,43 +145,56 @@ func main() {
 			&cli.StringSliceFlag{
 				Name:    "files",
 				Aliases: []string{"f"},
-				EnvVars: []string{"FERRET_LAB_FILES"},
+				EnvVars: []string{"LAB_FILES"},
 				Usage:   "Location of FQL script files to run",
+			},
+			&cli.Uint64Flag{
+				Name:        "timeout",
+				Aliases:     nil,
+				Usage:       "test timeout in seconds",
+				EnvVars:     []string{"LAB_TIMEOUT"},
+				FilePath:    "",
+				Required:    false,
+				Hidden:      false,
+				Value:       30,
+				DefaultText: "",
+				Destination: nil,
+				HasBeenSet:  false,
 			},
 			&cli.StringFlag{
 				Name:    "cdp",
 				Value:   "http://127.0.0.1:9222",
 				Usage:   "Chrome DevTools Protocol address",
-				EnvVars: []string{"FERRET_LAB_CDP"},
+				EnvVars: []string{"LAB_CDP"},
 			},
 			&cli.StringFlag{
 				Name:    "reporter",
 				Aliases: []string{"r"},
 				Usage:   "reporter (console, simple)",
-				EnvVars: []string{"FERRET_LAB_REPORTER"},
+				EnvVars: []string{"LAB_REPORTER"},
 				Value:   "console",
 			},
 			&cli.StringFlag{
 				Name:    "runtime",
 				Usage:   "url to remote Ferret runtime (http, https or bin)",
-				EnvVars: []string{"FERRET_LAB_RUNTIME"},
+				EnvVars: []string{"LAB_RUNTIME"},
 			},
 			&cli.StringSliceFlag{
 				Name:    "runtime-param",
 				Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\" })",
-				EnvVars: []string{"FERRET_LAB_RUNTIME_PARAM"},
+				EnvVars: []string{"LAB_RUNTIME_PARAM"},
 			},
 			&cli.Uint64Flag{
 				Name:    "concurrency",
 				Usage:   "number of multiple tests to run at a time",
-				EnvVars: []string{"FERRET_LAB_CONCURRENCY"},
+				EnvVars: []string{"LAB_CONCURRENCY"},
 				Value:   uint64(sysRuntime.NumCPU()),
 			},
 			&cli.StringSliceFlag{
 				Name:        "dir",
 				Aliases:     []string{"d"},
 				Usage:       "file or directory to serve (./dir:8080 as default or ./dir:8080@name as named)",
-				EnvVars:     []string{"FERRET_LAB_DIR"},
+				EnvVars:     []string{"LAB_DIR"},
 				FilePath:    "",
 				Required:    false,
 				Hidden:      false,
@@ -194,7 +207,7 @@ func main() {
 				Name:        "param",
 				Aliases:     []string{"p"},
 				Usage:       "query parameter (--param=foo:\"bar\", --param=id:1)",
-				EnvVars:     []string{"FERRET_LAB_PARAM"},
+				EnvVars:     []string{"LAB_PARAM"},
 				FilePath:    "",
 				Required:    false,
 				Hidden:      false,
@@ -207,7 +220,7 @@ func main() {
 				Name:        "wait",
 				Aliases:     []string{"w"},
 				Usage:       "tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb)",
-				EnvVars:     []string{"FERRET_LAB_WAIT"},
+				EnvVars:     []string{"LAB_WAIT"},
 				FilePath:    "",
 				Required:    false,
 				Hidden:      false,
@@ -220,7 +233,7 @@ func main() {
 				Name:        "wait-timeout",
 				Aliases:     nil,
 				Usage:       "wait timeout in seconds",
-				EnvVars:     []string{"FERRET_LAB_WAIT_TIMEOUT"},
+				EnvVars:     []string{"LAB_WAIT_TIMEOUT"},
 				FilePath:    "",
 				Required:    false,
 				Hidden:      false,
@@ -233,7 +246,7 @@ func main() {
 				Name:        "wait-attempts",
 				Aliases:     nil,
 				Usage:       "wait attempts",
-				EnvVars:     []string{"FERRET_LAB_WAIT_ATTEMPTS"},
+				EnvVars:     []string{"LAB_WAIT_ATTEMPTS"},
 				FilePath:    "",
 				Required:    false,
 				Hidden:      false,
@@ -261,6 +274,18 @@ func main() {
 			}()
 
 			defer cancel()
+
+			var locations []string
+
+			if c.NArg() == 0 {
+				locations = c.StringSlice("files")
+			} else {
+				locations = c.Args().Slice()
+			}
+
+			if len(locations) == 0 {
+				cli.ShowAppHelpAndExit(c, 1)
+			}
 
 			if len(waitFor) > 0 {
 				err := waitfor.Test(
@@ -291,22 +316,14 @@ func main() {
 				return cli.Exit(err, 1)
 			}
 
-			r, err := runner.New(rt, c.Uint64("concurrency"))
+			r, err := runner.New(runner.Options{
+				Runtime:     rt,
+				PoolSize:    c.Uint64("concurrency"),
+				TestTimeout: time.Duration(c.Uint64("timeout")) * time.Second,
+			})
 
 			if err != nil {
 				return cli.Exit(err, 1)
-			}
-
-			var locations []string
-
-			if c.NArg() == 0 {
-				locations = c.StringSlice("files")
-			} else {
-				locations = c.Args().Slice()
-			}
-
-			if len(locations) == 0 {
-				cli.ShowAppHelpAndExit(c, 1)
 			}
 
 			src, err := sources.New(locations...)
