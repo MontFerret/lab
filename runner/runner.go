@@ -103,6 +103,7 @@ func (r *Runner) runTests(ctx Context, files <-chan sources.File) <-chan Result 
 		var wg sync.WaitGroup
 
 		for f := range files {
+			f := f
 			wg.Add(1)
 
 			params := ctx.Params().Clone()
