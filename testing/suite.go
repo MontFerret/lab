@@ -3,11 +3,13 @@ package testing
 import (
 	"context"
 	"encoding/json"
-	"github.com/MontFerret/lab/runtime"
-	"github.com/MontFerret/lab/sources"
+	"net/url"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
-	"net/url"
+
+	"github.com/MontFerret/lab/runtime"
+	"github.com/MontFerret/lab/sources"
 )
 
 type (
@@ -25,6 +27,15 @@ type (
 		Text   string                 `yaml:"text"`
 		Ref    string                 `yaml:"ref"`
 		Params map[string]interface{} `yaml:"params"`
+	}
+
+	DataContext struct {
+		Query DataContextValues `json:"query"`
+	}
+
+	DataContextValues struct {
+		Result interface{}            `json:"result"`
+		Params map[string]interface{} `json:"params"`
 	}
 )
 
@@ -62,7 +73,9 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 		return errors.Wrap(err, "resolve assertion script")
 	}
 
-	out, err := rt.Run(ctx, query, resolveRuntimeParams(params.Clone(), suite.manifest.Query))
+	queryParams := resolveRuntimeParams(params.Clone(), suite.manifest.Query)
+
+	out, err := rt.Run(ctx, query, queryParams)
 
 	if err != nil {
 		return errors.Wrap(err, "failed to execute query script")
@@ -74,8 +87,11 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 		return errors.Wrap(err, "deserialize query output")
 	}
 
-	params.SetSystemValue("data", map[string]interface{}{
-		"query": outVal,
+	params.SetSystemValue("context", DataContext{
+		Query: DataContextValues{
+			Result: outVal,
+			Params: queryParams,
+		},
 	})
 
 	_, err = rt.Run(ctx, assertion, resolveRuntimeParams(params, suite.manifest.Query))
