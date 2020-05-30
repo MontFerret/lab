@@ -87,7 +87,7 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 		return errors.Wrap(err, "deserialize query output")
 	}
 
-	params.SetSystemValue("context", DataContext{
+	params.SetSystemValue("data", DataContext{
 		Query: DataContextValues{
 			Result: outVal,
 			Params: queryParams,
