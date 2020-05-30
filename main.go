@@ -307,9 +307,9 @@ func main() {
 			}
 
 			rt, err := runtime.New(runtime.Options{
-				RemoteURL: c.String("runtime"),
-				CDP:       c.String("cdp"),
-				Params:    runtimeParams,
+				RemoteURL:  c.String("runtime"),
+				CDPAddress: c.String("cdp"),
+				Params:     runtimeParams,
 			})
 
 			if err != nil {

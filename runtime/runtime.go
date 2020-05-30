@@ -10,9 +10,9 @@ import (
 
 type (
 	Options struct {
-		RemoteURL string
-		CDP       string
-		Params    map[string]interface{}
+		RemoteURL  string
+		CDPAddress string
+		Params     map[string]interface{}
 	}
 
 	Runtime interface {
@@ -22,7 +22,7 @@ type (
 
 func New(opts Options) (Runtime, error) {
 	if opts.RemoteURL == "" {
-		return NewBuiltin(opts.CDP, opts.Params)
+		return NewBuiltin(opts.CDPAddress, opts.Params)
 	}
 
 	u, err := url.Parse(opts.RemoteURL)
@@ -35,7 +35,7 @@ func New(opts Options) (Runtime, error) {
 	case "http", "https":
 		return NewHTTP(opts.RemoteURL, opts.Params)
 	case "bin":
-		return NewBinary(u.Host+u.Path, opts.Params)
+		return NewBinary(u.Host+u.Path, opts.CDPAddress, opts.Params)
 	default:
 		return nil, fmt.Errorf("invalid remote url: %s", opts.RemoteURL)
 	}

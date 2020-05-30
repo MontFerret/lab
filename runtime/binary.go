@@ -12,15 +12,17 @@ import (
 
 type Binary struct {
 	path         string
+	cdpAddress   string
 	sharedParams map[string]interface{}
 }
 
-func NewBinary(path string, params map[string]interface{}) (*Binary, error) {
-	return &Binary{path, params}, nil
+func NewBinary(path string, cdpAddress string, params map[string]interface{}) (*Binary, error) {
+	return &Binary{path, cdpAddress, params}, nil
 }
 
 func (b *Binary) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
 	args := make([]string, 0, 10)
+	args = append(args, "--cdp="+b.cdpAddress)
 
 	sharedArgs, err := b.paramsToArg(b.sharedParams)
 
