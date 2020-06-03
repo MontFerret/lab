@@ -4,25 +4,33 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"path"
+	"time"
 
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
 )
 
-type Case interface {
-	Run(ctx context.Context, rt runtime.Runtime, params Params) error
-}
-
-func New(file sources.File) (Case, error) {
-	if file.Error != nil {
-		return nil, file.Error
+type (
+	Options struct {
+		File    sources.File
+		Timeout time.Duration
 	}
 
-	switch path.Ext(file.Name) {
+	Case interface {
+		Run(ctx context.Context, rt runtime.Runtime, params Params) error
+	}
+)
+
+func New(opts Options) (Case, error) {
+	if opts.File.Error != nil {
+		return nil, opts.File.Error
+	}
+
+	switch path.Ext(opts.File.Name) {
 	case ".fql":
-		return NewUnit(file)
+		return NewUnit(opts)
 	case ".yaml", ".yml":
-		return NewSuite(file)
+		return NewSuite(opts)
 	default:
 		return nil, errors.New("unknown file type")
 	}

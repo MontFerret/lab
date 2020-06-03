@@ -127,7 +127,10 @@ func (r *Runner) runTests(ctx Context, files <-chan sources.File) <-chan Result 
 }
 
 func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.Params) Result {
-	testCase, err := testing.New(file)
+	testCase, err := testing.New(testing.Options{
+		File:    file,
+		Timeout: r.testTimeout,
+	})
 
 	if err != nil {
 		return Result{
@@ -138,9 +141,6 @@ func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.
 	}
 
 	start := time.Now()
-
-	ctx, cancel := context.WithTimeout(ctx, r.testTimeout)
-	defer cancel()
 
 	err = testCase.Run(ctx, r.runtime, params)
 

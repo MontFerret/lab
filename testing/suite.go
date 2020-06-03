@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -15,12 +16,14 @@ import (
 type (
 	Suite struct {
 		file     sources.File
+		timeout  time.Duration
 		manifest SuiteManifest
 	}
 
 	SuiteManifest struct {
-		Query  ScriptManifest `yaml:"query"`
-		Assert ScriptManifest `yaml:"assert"`
+		Timeout uint64         `yaml:"timeout"`
+		Query   ScriptManifest `yaml:"query"`
+		Assert  ScriptManifest `yaml:"assert"`
 	}
 
 	ScriptManifest struct {
@@ -39,10 +42,10 @@ type (
 	}
 )
 
-func NewSuite(file sources.File) (*Suite, error) {
+func NewSuite(opts Options) (*Suite, error) {
 	manifest := SuiteManifest{}
 
-	if err := yaml.Unmarshal(file.Content, &manifest); err != nil {
+	if err := yaml.Unmarshal(opts.File.Content, &manifest); err != nil {
 		return nil, errors.Wrap(err, "failed to parse file")
 	}
 
@@ -54,13 +57,23 @@ func NewSuite(file sources.File) (*Suite, error) {
 		return nil, errors.Wrap(err, "assert")
 	}
 
+	timeout := opts.Timeout
+
+	if manifest.Timeout > 0 {
+		timeout = time.Duration(manifest.Timeout) * time.Second
+	}
+
 	return &Suite{
-		file:     file,
+		file:     opts.File,
+		timeout:  timeout,
 		manifest: manifest,
 	}, nil
 }
 
 func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) error {
+	ctx, cancel := context.WithTimeout(ctx, suite.timeout)
+	defer cancel()
+
 	query, err := suite.resolveScript(ctx, suite.manifest.Query)
 
 	if err != nil {

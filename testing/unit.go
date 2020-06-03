@@ -4,23 +4,28 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
 )
 
 type Unit struct {
-	file sources.File
+	file    sources.File
+	timeout time.Duration
 }
 
-func NewUnit(file sources.File) (*Unit, error) {
-	return &Unit{file: file}, nil
+func NewUnit(opts Options) (*Unit, error) {
+	return &Unit{file: opts.File, timeout: opts.Timeout}, nil
 }
 
-func (suite *Unit) Run(ctx context.Context, rt runtime.Runtime, params Params) error {
-	_, err := rt.Run(ctx, string(suite.file.Content), params.ToMap())
+func (unit *Unit) Run(ctx context.Context, rt runtime.Runtime, params Params) error {
+	ctx, cancel := context.WithTimeout(ctx, unit.timeout)
+	defer cancel()
 
-	if suite.mustFail() {
+	_, err := rt.Run(ctx, string(unit.file.Content), params.ToMap())
+
+	if unit.mustFail() {
 		if err != nil {
 			return nil
 		}
@@ -31,6 +36,6 @@ func (suite *Unit) Run(ctx context.Context, rt runtime.Runtime, params Params) e
 	return err
 }
 
-func (suite *Unit) mustFail() bool {
-	return strings.HasSuffix(suite.file.Name, ".fail.fql")
+func (unit *Unit) mustFail() bool {
+	return strings.HasSuffix(unit.file.Name, ".fail.fql")
 }
