@@ -38,7 +38,7 @@ dockers:
     binaries:
       - lab
     skip_push: false
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.release
     image_templates:
       #- "montferret/{{ .ProjectName }}:{{ .Major }}"
       - "montferret/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}"
