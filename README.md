@@ -28,37 +28,37 @@
 - Support of multiple types of script locations (file system, git, http)
 - Arbitrary amount of HTTP endpoints for serving static files
 
+## Quick start
+
+```
+$ docker run --mount src="$(pwd)/mytests",target=/data,type=bind montferret/lab
+```
+
+## Installation
+
+### Binary
+You can download the latest binaries from [here](https://github.com/MontFerret/lab/releases).
+
+### Docker
+```bash
+$ docker pull montferret/lab:latest
+```
+
 ## Usage
 
 ```bash
-NAME:
-   lab - run FQL scripts
-
-USAGE:
-   ferret-lab [global options] command [command options] [arguments...]
-
-VERSION:
-   v0.1.0
-
-DESCRIPTION:
-   Ferret scripts runner
-
-COMMANDS:
-   help, h  Shows a list of commands or help for one command
-
-GLOBAL OPTIONS:
-   --files value, -f value     Location of FQL script files to run [$FERRET_LAB_FILES]
-   --cdp value                 Chrome DevTools Protocol address (default: "http://127.0.0.1:9222") [$FERRET_LAB_CDP]
-   --reporter value, -r value  reporter (console, simple) (default: "console") [$FERRET_LAB_REPORTER]
-   --runtime value             url to remote Ferret runtime (http, https or bin) [$FERRET_LAB_RUNTIME]
-   --runtime-param value       params for remote Ferret runtime (--runtime-param=headers:{"KeyId": "abcd"} --runtime-param=path:"/ferret" }) [$FERRET_LAB_RUNTIME_PARAM]
-   --concurrency value         number of multiple tests to run at a time (default: 24) [$FERRET_LAB_CONCURRENCY]
-   --dir value, -d value       file or directory to serve (./dir:8080 as default or ./dir:8080@name as named) [$FERRET_LAB_DIR]
-   --param value, -p value     query parameter (--param=foo:"bar", --param=id:1) [$FERRET_LAB_PARAM]
-   --wait value, -w value      waits for a 3rd party service by calling its endpoint (--wait http://127.0.0.1:9222/json/version, --wait postgres://locahost:5432/mydb) [$FERRET_LAB_WAIT]
-   --wait-timeout value        wait timeout in seconds (default: 5) [$FERRET_LAB_WAIT_TIMEOUT]
-   --wait-attempts value       wait attempts (default: 5) [$FERRET_LAB_WAIT_ATTEMPTS]
+   --files value, -f value     location of FQL script files to run [$LAB_FILES]
+   --timeout value             test timeout in seconds (default: 30) [$LAB_TIMEOUT]
+   --cdp value                 Chrome DevTools Protocol address (default: "http://127.0.0.1:9222") [$LAB_CDP]
+   --reporter value, -r value  reporter (console, simple) (default: "console") [$LAB_REPORTER]
+   --runtime value             url to remote Ferret runtime (http, https or bin) [$LAB_RUNTIME]
+   --runtime-param value       params for remote Ferret runtime (--runtime-param=headers:{"KeyId": "abcd"} --runtime-param=path:"/ferret" }) [$LAB_RUNTIME_PARAM]
+   --concurrency value         number of multiple tests to run at a time (default: 12) [$LAB_CONCURRENCY]
+   --dir value, -d value       file or directory to serve (./dir:8080 as default or ./dir:8080@name as named) [$LAB_DIR]
+   --param value, -p value     query parameter (--param=foo:"bar", --param=id:1) [$LAB_PARAM]
+   --wait value, -w value      tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb) [$LAB_WAIT]
+   --wait-timeout value        wait timeout in seconds (default: 5) [$LAB_WAIT_TIMEOUT]
+   --wait-attempts value       wait attempts (default: 5) [$LAB_WAIT_ATTEMPTS]
    --help, -h                  show help (default: false)
    --version, -v               print the version (default: false)
-
 ```

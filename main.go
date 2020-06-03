@@ -146,7 +146,7 @@ func main() {
 				Name:    "files",
 				Aliases: []string{"f"},
 				EnvVars: []string{"LAB_FILES"},
-				Usage:   "Location of FQL script files to run",
+				Usage:   "location of FQL script files to run",
 			},
 			&cli.Uint64Flag{
 				Name:        "timeout",
