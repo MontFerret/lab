@@ -14,4 +14,4 @@ VOLUME /data
 
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["/bin/sh", "-c", "chromium --disable-dev-shm-usage --force-gpu-mem-available-mb --full-memory-crash-report --no-sandbox --disable-setuid-sandbox --disable-gpu --headless --remote-debugging-port=9222 & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///data"]
+CMD ["/bin/sh", "-c", "chromium --disable-dev-shm-usage --full-memory-crash-report --no-sandbox --disable-setuid-sandbox --disable-gpu --headless --remote-debugging-port=9222 & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///data"]
