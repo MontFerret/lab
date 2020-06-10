@@ -22,7 +22,7 @@
 
 ``lab`` is a test runner for [Ferret](https://www.github.com/MontFerret/ferret) scripts.
 
-![lab](https://raw.githubusercontent.com/MontFerret/lab/master/assets/landing.jpg)
+![lab](https://raw.githubusercontent.com/MontFerret/lab/master/assets/landing.png)
 
 ## Features
 - Parallel execution
