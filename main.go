@@ -7,7 +7,6 @@ import (
 	"github.com/MontFerret/lab/testing"
 	"os"
 	"os/signal"
-	sysRuntime "runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -188,13 +187,12 @@ func main() {
 				Name:    "concurrency",
 				Usage:   "number of multiple tests to run at a time",
 				EnvVars: []string{"LAB_CONCURRENCY"},
-				Value:   uint64(sysRuntime.NumCPU()),
+				Value:   1,
 			},
 			&cli.StringSliceFlag{
-				Name:        "dir",
-				Aliases:     []string{"d"},
+				Name:        "cdn",
 				Usage:       "file or directory to serve (./dir:8080 as default or ./dir:8080@name as named)",
-				EnvVars:     []string{"LAB_DIR"},
+				EnvVars:     []string{"LAB_CDN"},
 				FilePath:    "",
 				Required:    false,
 				Hidden:      false,
@@ -334,7 +332,7 @@ func main() {
 
 			params := testing.NewParams()
 
-			userParams, err := toParams(c.StringSlice("p"))
+			userParams, err := toParams(c.StringSlice("param"))
 
 			if err != nil {
 				return cli.Exit(err, 1)
@@ -342,7 +340,7 @@ func main() {
 
 			params.SetUserValues(userParams)
 
-			dirs, err := toDirectories(c.StringSlice("d"))
+			dirs, err := toDirectories(c.StringSlice("cdn"))
 
 			if err != nil {
 				return cli.Exit(err, 1)
