@@ -27,11 +27,13 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 				Err(res.Error).
 				Str("File", res.Filename).
 				Str("Duration", res.Duration.String()).
+				Uint64("Times", res.Times).
 				Msg("Failed")
 		} else {
 			c.logger.Info().
 				Str("File", res.Filename).
 				Str("Duration", res.Duration.String()).
+				Uint64("Times", res.Times).
 				Msg("Passed")
 		}
 	}

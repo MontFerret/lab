@@ -28,7 +28,7 @@
 - Parallel execution
 - Support of multiple types of remote runtime (local binaries or HTTP services)
 - Support of multiple types of script locations (file system, git, http)
-- Arbitrary amount of HTTP endpoints for serving static files
+- An arbitrary amount of HTTP endpoints for serving static files
 
 ## Quick start
 
@@ -49,14 +49,28 @@ $ docker pull montferret/lab:latest
 ## Usage
 
 ```bash
+NAME:
+   lab - run FQL test scripts
+
+USAGE:
+   lab [global options] [files...]
+
+DESCRIPTION:
+   Ferret test runner
+
+COMMANDS:
+   help, h  Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
    --files value, -f value     location of FQL script files to run [$LAB_FILES]
    --timeout value             test timeout in seconds (default: 30) [$LAB_TIMEOUT]
    --cdp value                 Chrome DevTools Protocol address (default: "http://127.0.0.1:9222") [$LAB_CDP]
    --reporter value, -r value  reporter (console, simple) (default: "console") [$LAB_REPORTER]
    --runtime value             url to remote Ferret runtime (http, https or bin) [$LAB_RUNTIME]
    --runtime-param value       params for remote Ferret runtime (--runtime-param=headers:{"KeyId": "abcd"} --runtime-param=path:"/ferret" }) [$LAB_RUNTIME_PARAM]
-   --concurrency value         number of multiple tests to run at a time (default: 12) [$LAB_CONCURRENCY]
-   --dir value, -d value       file or directory to serve (./dir:8080 as default or ./dir:8080@name as named) [$LAB_DIR]
+   --concurrency value         number of multiple tests to run at a time (default: 1) [$LAB_CONCURRENCY]
+   --times value               number of times to run each test (default: 1) [$LAB_TIMES]
+   --cdn value                 file or directory to serve via HTTP (./dir:8080 as default or ./dir:8080@name as named) [$LAB_CDN]
    --param value, -p value     query parameter (--param=foo:"bar", --param=id:1) [$LAB_PARAM]
    --wait value, -w value      tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb) [$LAB_WAIT]
    --wait-timeout value        wait timeout in seconds (default: 5) [$LAB_WAIT_TIMEOUT]

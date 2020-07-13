@@ -137,9 +137,10 @@ func waitBeforeStart(deps []string, timeout time.Duration, attempts int) error {
 func main() {
 	app := &cli.App{
 		Name:        "lab",
-		Usage:       "run FQL scripts",
-		Description: "Ferret scripts runner",
+		Usage:       "run FQL test scripts",
+		Description: "Ferret test runner",
 		Version:     version,
+		UsageText:   "lab [global options] [files...]",
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name:    "files",
@@ -189,9 +190,15 @@ func main() {
 				EnvVars: []string{"LAB_CONCURRENCY"},
 				Value:   1,
 			},
+			&cli.Uint64Flag{
+				Name:    "times",
+				Usage:   "number of times to run each test",
+				EnvVars: []string{"LAB_TIMES"},
+				Value:   1,
+			},
 			&cli.StringSliceFlag{
 				Name:        "cdn",
-				Usage:       "file or directory to serve (./dir:8080 as default or ./dir:8080@name as named)",
+				Usage:       "file or directory to serve via HTTP (./dir:8080 as default or ./dir:8080@name as named)",
 				EnvVars:     []string{"LAB_CDN"},
 				FilePath:    "",
 				Required:    false,
@@ -318,6 +325,7 @@ func main() {
 				Runtime:     rt,
 				PoolSize:    c.Uint64("concurrency"),
 				TestTimeout: time.Duration(c.Uint64("timeout")) * time.Second,
+				Times:       c.Uint64("times"),
 			})
 
 			if err != nil {

@@ -4,6 +4,7 @@ import "time"
 
 type (
 	Result struct {
+		Times    uint64
 		Filename string
 		Duration time.Duration
 		Error    error

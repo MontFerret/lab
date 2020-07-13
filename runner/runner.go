@@ -17,12 +17,14 @@ type (
 		Runtime     runtime.Runtime
 		PoolSize    uint64
 		TestTimeout time.Duration
+		Times       uint64
 	}
 
 	Runner struct {
 		runtime     runtime.Runtime
 		poolSize    uint64
 		testTimeout time.Duration
+		testCount   uint64
 	}
 )
 
@@ -37,6 +39,12 @@ func New(opts Options) (*Runner, error) {
 		poolSize = 1
 	}
 
+	times := opts.Times
+
+	if times == 0 {
+		times = 1
+	}
+
 	testTimeout := opts.TestTimeout
 
 	if testTimeout == 0 {
@@ -47,6 +55,7 @@ func New(opts Options) (*Runner, error) {
 		runtime:     opts.Runtime,
 		poolSize:    poolSize,
 		testTimeout: testTimeout,
+		testCount:   times,
 	}, nil
 }
 
@@ -134,21 +143,38 @@ func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.
 
 	if err != nil {
 		return Result{
+			Times:    0,
 			Filename: file.Name,
 			Duration: time.Duration(0) * time.Millisecond,
 			Error:    err,
 		}
 	}
 
-	start := time.Now()
+	counter := uint64(0)
+	totalDuration := int64(0)
 
-	err = testCase.Run(ctx, r.runtime, params)
+	for {
+		if counter == r.testCount {
+			break
+		}
 
-	duration := time.Since(start)
+		counter++
+
+		currentStart := time.Now()
+
+		err = testCase.Run(ctx, r.runtime, params)
+
+		totalDuration += time.Since(currentStart).Nanoseconds()
+
+		if err != nil {
+			break
+		}
+	}
 
 	return Result{
+		Times:    counter,
 		Filename: file.Name,
-		Duration: duration,
+		Duration: time.Duration(totalDuration / int64(counter)), // average duration
 		Error:    err,
 	}
 }
