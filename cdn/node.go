@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"math/rand"
 )
 
@@ -27,6 +28,7 @@ func NewNode(settings NodeSettings) *Node {
 	e := echo.New()
 	e.Debug = false
 	e.HideBanner = true
+	e.Use(middleware.CORS())
 
 	prefix := "/"
 

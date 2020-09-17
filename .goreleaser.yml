@@ -40,9 +40,10 @@ dockers:
     skip_push: false
     dockerfile: Dockerfile.release
     image_templates:
-      #- "montferret/{{ .ProjectName }}:{{ .Major }}"
-      - "montferret/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}"
-      - "montferret/{{ .ProjectName }}:latest"
+      - "docker.io/montferret/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}"
+      - "docker.io/montferret/{{ .ProjectName }}:latest"
+      - "ghcr.io/montferret/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}"
+      - "ghcr.io/montferret/{{ .ProjectName }}:latest"
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
