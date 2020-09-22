@@ -1,7 +1,3 @@
-export GOPATH
-export CGO_ENABLED=0
-export GO111MODULE=on
-
 VERSION ?= $(shell sh versions.sh lab)
 FERRET_VERSION = $(shell sh versions.sh ferret)
 DIR_BIN = ./bin
