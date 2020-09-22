@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/MontFerret/lab/testing"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/MontFerret/ferret/pkg/runtime/core"
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	waitfor "github.com/ziflex/waitfor/pkg/runner"
@@ -22,9 +21,13 @@ import (
 	"github.com/MontFerret/lab/runner"
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
+	"github.com/MontFerret/lab/testing"
 )
 
-var version string
+var (
+	version       string
+	ferretVersion string
+)
 
 type Directory struct {
 	Name string
@@ -43,15 +46,21 @@ func toDirectories(values []string) ([]Directory, error) {
 			return nil, errors.New("invalid directory binding format")
 		}
 
-		name := "default"
 		path := pathAndPort[0]
 		port := pathAndPort[1]
+		name := ""
 
 		portAndName := strings.Split(pathAndPort[1], "@")
 
 		if len(portAndName) == 2 {
 			port = portAndName[0]
 			name = portAndName[1]
+		} else {
+			name = filepath.Base(path)
+
+			if name == "" {
+				name = "default"
+			}
 		}
 
 		portInt, err := strconv.Atoi(port)
@@ -119,28 +128,16 @@ func createCDNManager(dirs []Directory) (*cdn.Manager, error) {
 	return m, nil
 }
 
-func waitBeforeStart(deps []string, timeout time.Duration, attempts int) error {
-	for _, url := range deps {
-		client := retryablehttp.NewClient()
-		client.RetryWaitMax = time.Duration(timeout) * time.Second
-		client.RetryMax = attempts
-		client.Logger = nil
-
-		if _, err := client.Get(url); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func main() {
 	app := &cli.App{
 		Name:        "lab",
 		Usage:       "run FQL test scripts",
 		Description: "Ferret test runner",
-		Version:     version,
-		UsageText:   "lab [global options] [files...]",
+		Version: fmt.Sprintf(`
+Runner: %s
+Ferret: %s
+`, version, ferretVersion),
+		UsageText: "lab [global options] [files...]",
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name:    "files",

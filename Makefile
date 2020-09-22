@@ -2,7 +2,8 @@ export GOPATH
 export CGO_ENABLED=0
 export GO111MODULE=on
 
-VERSION ?= $(shell git describe --tags --always --dirty)
+VERSION ?= $(shell sh versions.sh lab)
+FERRET_VERSION = $(shell sh versions.sh ferret)
 DIR_BIN = ./bin
 NAME = lab
 
@@ -15,7 +16,7 @@ install:
 
 compile:
 	go build -v -o ${DIR_BIN}/${NAME} \
-	-ldflags "-X main.version=${VERSION}" \
+	-ldflags "-X main.version=${VERSION} -X main.ferretVersion=${FERRET_VERSION}" \
 	./main.go
 
 test:
@@ -40,6 +41,8 @@ vet:
 release:
 ifeq ($(RELEASE_VERSION), )
 	$(error "Release version is required (RELEASE_VERSION)")
+else ifeq ($(FERRET_VERSION), )
+	$(error "Ferret version is required")
 else ifeq ($(GITHUB_TOKEN), )
 	$(error "GitHub token is required (GITHUB_TOKEN)")
 else

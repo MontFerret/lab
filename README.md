@@ -48,6 +48,108 @@ You can download the latest binaries from [here](https://github.com/MontFerret/l
 $ docker pull montferret/lab:latest
 ```
 
+### Quick start
+
+The easiest way to use ``lab`` is to execute FQL scripts as is:
+
+```bash
+$ lab file://./myscript.fql
+```
+
+You can also pass a path to a folder that contains ``.fql`` scripts:
+
+```bash
+$ lab file://./myscripts/
+```
+
+### Test suites
+
+``lab`` also allows you to define suite tests in YAML:
+
+```yaml
+query:
+  text: |
+    LET doc = DOCUMENT("https://github.com/", { driver: "cdp" })
+    
+    HOVER(doc, ".HeaderMenu-details")
+    CLICK(doc, ".HeaderMenu a")
+    
+    WAIT_NAVIGATION(doc)
+    WAIT_ELEMENT(doc, '.IconNav')
+    
+    FOR el IN ELEMENTS(doc, '.IconNav a')
+        RETURN TRIM(el.innerText)
+assert:
+  text: RETURN T::NOT::EMPTY(@lab.data.query.result)
+```
+
+```bash
+$ lab file://./mysuite.yaml
+```
+
+In order to make testing more modular, you can refer to an existing script in suites:
+
+```yaml
+query:
+  ref: file://../myscript.fql
+assert:
+  text: RETURN T::NOT::EMPTY(@lab.data.query.result)
+```
+
+## Files resolutions
+
+``lab`` supports multiple file locations:
+
+- file:
+- git+http:
+- git+https:
+
+## Static files serving
+
+``lab`` has an ability to server static files that can be used by your scripts.
+
+```bash
+	lab --files=file://./tests --cdn=./website:8080
+```
+
+Which can be access via ``@lab.cdn.DIR_NAME``
+
+```yaml
+query:
+  ref: |
+    LET page = DOCUMENT(@lab.cdn.website, { driver: "cdp" })
+    
+    RETURN page.innerHTML
+assert:
+  text: RETURN T::NOT::EMPTY(@lab.data.query.result)
+```
+
+You can define multiple cdn endpoints pointing to different directories:
+
+```bash
+	lab --files=file://./tests --cdn=./app_1:8080 --cdn=./app_2:8080
+```
+
+Additionally, you can give them custom names:
+
+```bash
+	lab --files=file://./tests --cdn=./app_1:8080@sales --cdn=./app_2:8080@marketing
+```
+
+## Remote Ferret runtime
+By default, ``lab`` uses built-in version of Ferret to execute scripts, but it also can use remote versions as well.
+
+- http, https
+- bin
+
+### HTTP(S) runtime
+HTTP based runtime is used by sending POST requests that contain an object with the following fields:
+- query
+- params
+
+### External binary runtime
+Custom binary runtime is used by using Ferret CLI's interface. 
+
 ## Usage
 
 ```bash
