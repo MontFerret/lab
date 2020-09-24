@@ -15,7 +15,7 @@ type FileSystem struct {
 	filter glob.Glob
 }
 
-func NewFileSystem(path string, pattern string) (*FileSystem, error) {
+func NewFileSystem(path string, pattern string) (Source, error) {
 	var filter glob.Glob
 
 	if pattern != "" {
@@ -44,22 +44,19 @@ func NewFileSystem(path string, pattern string) (*FileSystem, error) {
 }
 
 func (fs *FileSystem) Read(ctx context.Context) Stream {
-	onFile := make(chan File)
+	onNext := make(chan File)
 	onError := make(chan error)
 
 	go func() {
-		if err := fs.traverse(ctx, fs.path, onFile); err != nil {
+		if err := fs.traverse(ctx, fs.path, onNext); err != nil {
 			onError <- err
 		}
 
-		close(onFile)
+		close(onNext)
 		close(onError)
 	}()
 
-	return Stream{
-		Files:  onFile,
-		Errors: onError,
-	}
+	return NewStream(onNext, onError)
 }
 
 func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- File) error {
@@ -81,7 +78,7 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 
 		if !IsSupportedFile(path) {
 			onFile <- File{
-				Name:    filename,
+				Name:    "file://" + filename,
 				Content: nil,
 				Error:   errors.New("invalid file"),
 			}
@@ -134,14 +131,14 @@ func (fs *FileSystem) readFile(filename string) File {
 
 	if err != nil {
 		return File{
-			Name:    filename,
+			Name:    "file://" + filename,
 			Content: nil,
 			Error:   err,
 		}
 	}
 
 	return File{
-		Name:    filename,
+		Name:    "file://" + filename,
 		Content: content,
 	}
 }

@@ -70,8 +70,8 @@ func create(location string) (Source, error) {
 		}
 
 		return NewFileSystem(fullPath, filter)
-	//case "http":
-	//	return NewNoop(), nil
+	case "http", "https":
+		return NewHTTP(location)
 	case "git+http":
 		return NewGit("http://"+path.Join(u.Host, u.Path), filter)
 	case "git+https":

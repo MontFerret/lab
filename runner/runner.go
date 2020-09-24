@@ -71,7 +71,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 
 		stream := src.Read(ctx)
 
-		for res := range r.runTests(ctx, stream.Files) {
+		for res := range r.runTests(ctx, stream.OnNext()) {
 			if res.Error != nil {
 				failed++
 			} else {
@@ -84,7 +84,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 
 		close(onProgress)
 
-		for e := range stream.Errors {
+		for e := range stream.OnError() {
 			errs = append(errs, e)
 		}
 

@@ -9,16 +9,13 @@ func NewNoop() *Noop {
 }
 
 func (n Noop) Read(_ context.Context) Stream {
-	f := make(chan File)
-	e := make(chan error)
+	onNext := make(chan File)
+	onError := make(chan error)
 
 	defer func() {
-		close(f)
-		close(e)
+		close(onNext)
+		close(onError)
 	}()
 
-	return Stream{
-		Files:  f,
-		Errors: e,
-	}
+	return NewStream(onNext, onError)
 }

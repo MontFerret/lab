@@ -137,9 +137,9 @@ func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) 
 	out := src.Read(ctx)
 
 	select {
-	case e := <-out.Errors:
+	case e := <-out.OnError():
 		return "", e
-	case f := <-out.Files:
+	case f := <-out.OnNext():
 		if f.Error != nil {
 			return "", f.Error
 		}

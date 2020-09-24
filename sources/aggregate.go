@@ -19,7 +19,7 @@ func (a *Aggregate) Add(src Source) {
 }
 
 func (a *Aggregate) Read(ctx context.Context) Stream {
-	onFile := make(chan File)
+	onNext := make(chan File)
 	onError := make(chan error)
 
 	srcCtx, cancel := context.WithCancel(ctx)
@@ -35,18 +35,18 @@ func (a *Aggregate) Read(ctx context.Context) Stream {
 				select {
 				case <-ctx.Done():
 					return
-				case e := <-stream.Errors:
+				case e := <-stream.OnError():
 					err = e
 					done = true
 
 					break
-				case f, ok := <-stream.Files:
+				case f, ok := <-stream.OnNext():
 					if !ok {
 						done = true
 						break
 					}
 
-					onFile <- f
+					onNext <- f
 				}
 			}
 
@@ -60,8 +60,5 @@ func (a *Aggregate) Read(ctx context.Context) Stream {
 		}
 	}()
 
-	return Stream{
-		Files:  onFile,
-		Errors: onError,
-	}
+	return NewStream(onNext, onError)
 }

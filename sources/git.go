@@ -15,7 +15,7 @@ type Git struct {
 	filter glob.Glob
 }
 
-func NewGit(url string, pattern string) (*Git, error) {
+func NewGit(url string, pattern string) (Source, error) {
 	var filter glob.Glob
 
 	if pattern != "" {
@@ -32,12 +32,12 @@ func NewGit(url string, pattern string) (*Git, error) {
 }
 
 func (g *Git) Read(ctx context.Context) Stream {
-	onFile := make(chan File)
+	onNext := make(chan File)
 	onError := make(chan error)
 
 	go func() {
 		defer func() {
-			close(onFile)
+			close(onNext)
 			close(onError)
 		}()
 
@@ -88,7 +88,7 @@ func (g *Git) Read(ctx context.Context) Stream {
 			reader, err := f.Reader()
 
 			if err != nil {
-				onFile <- File{
+				onNext <- File{
 					Name:  f.Name,
 					Error: err,
 				}
@@ -101,7 +101,7 @@ func (g *Git) Read(ctx context.Context) Stream {
 			content, err := ioutil.ReadAll(reader)
 
 			if err != nil {
-				onFile <- File{
+				onNext <- File{
 					Name:  f.Name,
 					Error: err,
 				}
@@ -109,7 +109,7 @@ func (g *Git) Read(ctx context.Context) Stream {
 				return nil
 			}
 
-			onFile <- File{
+			onNext <- File{
 				Name:    f.Name,
 				Content: content,
 				Error:   nil,
@@ -125,8 +125,5 @@ func (g *Git) Read(ctx context.Context) Stream {
 		}
 	}()
 
-	return Stream{
-		Files:  onFile,
-		Errors: onError,
-	}
+	return NewStream(onNext, onError)
 }
