@@ -67,11 +67,31 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 		var failed int
 		var passed int
 		var sumDuration time.Duration
+		// var done bool
 		errs := make([]error, 0, 5)
 
-		stream := src.Read(ctx)
+		onNext, onError := src.Read(ctx)
 
-		for res := range r.runTests(ctx, stream.OnNext()) {
+		//for !done {
+		//	select {
+		//	case file, open := <-onNext:
+		//		if !open {
+		//			done = true
+		//
+		//			break
+		//		}
+		//
+		//		break
+		//	case err, open := <-onError:
+		//		if !open {
+		//			done = true
+		//		}
+		//
+		//		break
+		//	}
+		//}
+
+		for res := range r.runTests(ctx, onNext) {
 			if res.Error != nil {
 				failed++
 			} else {
@@ -84,7 +104,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 
 		close(onProgress)
 
-		for e := range stream.OnError() {
+		for e := range onError {
 			errs = append(errs, e)
 		}
 

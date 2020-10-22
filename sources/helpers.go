@@ -1,6 +1,8 @@
 package sources
 
-import "path/filepath"
+import (
+	"path/filepath"
+)
 
 func IsSupportedFile(name string) bool {
 	switch filepath.Ext(name) {

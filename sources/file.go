@@ -1,7 +1,9 @@
 package sources
 
-type File struct {
-	Name    string
-	Content []byte
-	Error   error
-}
+type (
+	File struct {
+		Source  Source
+		Name    string
+		Content []byte
+	}
+)

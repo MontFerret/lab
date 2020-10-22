@@ -3,14 +3,40 @@ package sources
 import (
 	"context"
 	"net/url"
-	"path"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 )
 
-type Source interface {
-	Read(ctx context.Context) Stream
+type (
+	Source interface {
+		Read(ctx context.Context) (onNext <-chan File, onError <-chan Error)
+		Resolve(ctx context.Context, path string) (onNext <-chan File, onError <-chan Error)
+	}
+
+	SourceFactory func(u *url.URL) (Source, error)
+
+	SourceType int
+)
+
+const (
+	SourceTypeUnknown SourceType = 0
+	SourceTypeFS      SourceType = 1
+	SourceTypeHTTP    SourceType = 2
+	SourceTypeGIT     SourceType = 3
+)
+
+var typeByScheme = map[string]SourceType{
+	"file":      SourceTypeFS,
+	"http":      SourceTypeHTTP,
+	"https":     SourceTypeHTTP,
+	"git+http":  SourceTypeGIT,
+	"git+https": SourceTypeGIT,
+}
+
+var factoryByType = map[SourceType]SourceFactory{
+	SourceTypeFS:   NewFileSystem,
+	SourceTypeHTTP: NewHTTP,
+	SourceTypeGIT:  NewGit,
 }
 
 func New(locations ...string) (Source, error) {
@@ -18,12 +44,12 @@ func New(locations ...string) (Source, error) {
 	case 0:
 		return NewNoop(), nil
 	case 1:
-		return create(locations[0])
+		return Create(locations[0])
 	default:
 		a := NewAggregate()
 
 		for _, loc := range locations {
-			src, err := create(loc)
+			src, err := Create(loc)
 
 			if err != nil {
 				return nil, err
@@ -36,47 +62,53 @@ func New(locations ...string) (Source, error) {
 	}
 }
 
-func create(location string) (Source, error) {
-	u, err := url.Parse(location)
+func Create(str string) (Source, error) {
+	u, err := url.Parse(str)
 
 	if err != nil {
 		return nil, err
 	}
 
 	if u.Scheme == "" {
-		return nil, errors.New("location scheme is not provided")
+		return nil, errors.New("source scheme is not provided")
 	}
 
-	var query = u.Query()
-	filter := query.Get("filter")
+	srcType := GetType(u)
 
-	switch u.Scheme {
-	case "file":
-		fullPath := filepath.Join(u.Host, u.Path)
-		parent := query.Get("from")
+	factory, found := factoryByType[srcType]
 
-		if parent != "" {
-			if !filepath.IsAbs(fullPath) {
-				parentDir := filepath.Dir(parent)
-
-				fp, err := filepath.Abs(filepath.Join(parentDir, u.Host, u.Path))
-
-				if err != nil {
-					return nil, err
-				}
-
-				fullPath = fp
-			}
-		}
-
-		return NewFileSystem(fullPath, filter)
-	case "http", "https":
-		return NewHTTP(location)
-	case "git+http":
-		return NewGit("http://"+path.Join(u.Host, u.Path), filter)
-	case "git+https":
-		return NewGit("https://"+path.Join(u.Host, u.Path), filter)
-	default:
-		return nil, errors.Errorf("unknown location provider: %s", u.Scheme)
+	if !found {
+		return nil, errors.Errorf("unknown source provider: %s", u.Scheme)
 	}
+
+	return factory(u)
+}
+
+func Resolve(file File, ref string) (Source, error) {
+	u, err := url.Parse(ref)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// set a query param that indicates from what relative location to resolve a given script
+	q := u.Query()
+	q.Add("from", file.Name)
+	u.RawQuery = q.Encode()
+
+	return Create(u.String())
+}
+
+func GetType(u *url.URL) SourceType {
+	if u == nil {
+		return SourceTypeUnknown
+	}
+
+	srcType, exists := typeByScheme[u.Scheme]
+
+	if !exists {
+		return SourceTypeUnknown
+	}
+
+	return srcType
 }

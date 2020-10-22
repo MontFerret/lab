@@ -22,10 +22,6 @@ type (
 )
 
 func New(opts Options) (Case, error) {
-	if opts.File.Error != nil {
-		return nil, opts.File.Error
-	}
-
 	switch path.Ext(opts.File.Name) {
 	case ".fql":
 		return NewUnit(opts)

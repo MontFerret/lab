@@ -8,14 +8,18 @@ func NewNoop() *Noop {
 	return &Noop{}
 }
 
-func (n Noop) Read(_ context.Context) Stream {
+func (n Noop) Read(_ context.Context) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
-	onError := make(chan error)
+	onError := make(chan Error)
 
 	defer func() {
 		close(onNext)
 		close(onError)
 	}()
 
-	return NewStream(onNext, onError)
+	return onNext, onError
+}
+
+func (n Noop) Resolve(ctx context.Context, _ string) (<-chan File, <-chan Error) {
+	return n.Read(ctx)
 }

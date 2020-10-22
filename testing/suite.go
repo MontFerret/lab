@@ -3,7 +3,6 @@ package testing
 import (
 	"context"
 	"encoding/json"
-	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -117,33 +116,18 @@ func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) 
 		return manifest.Text, nil
 	}
 
-	u, err := url.Parse(manifest.Ref)
+	src, err := sources.Resolve(suite.file, manifest.Ref)
 
 	if err != nil {
-		return "", errors.Wrap(err, "parse 'src'")
+		return "", errors.Wrap(err, "resolve 'ref'")
 	}
 
-	// set a query param that indicates from what relative location to resolve a given script
-	q := u.Query()
-	q.Add("from", suite.file.Name)
-	u.RawQuery = q.Encode()
-
-	src, err := sources.New(u.String())
-
-	if err != nil {
-		return "", errors.Wrap(err, "new src source")
-	}
-
-	out := src.Read(ctx)
+	onNext, onError := src.Read(ctx)
 
 	select {
-	case e := <-out.OnError():
-		return "", e
-	case f := <-out.OnNext():
-		if f.Error != nil {
-			return "", f.Error
-		}
-
+	case e := <-onError:
+		return "", errors.Wrap(e, "resolve 'ref'")
+	case f := <-onNext:
 		return string(f.Content), nil
 	}
 }
