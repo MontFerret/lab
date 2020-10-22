@@ -8,10 +8,10 @@ import (
 )
 
 type HTTP struct {
-	url *url.URL
+	url url.URL
 }
 
-func NewHTTP(u *url.URL) (Source, error) {
+func NewHTTP(u url.URL) (Source, error) {
 	return &HTTP{u}, nil
 }
 

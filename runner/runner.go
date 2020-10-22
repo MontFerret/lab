@@ -67,31 +67,10 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 		var failed int
 		var passed int
 		var sumDuration time.Duration
-		// var done bool
-		errs := make([]error, 0, 5)
 
 		onNext, onError := src.Read(ctx)
 
-		//for !done {
-		//	select {
-		//	case file, open := <-onNext:
-		//		if !open {
-		//			done = true
-		//
-		//			break
-		//		}
-		//
-		//		break
-		//	case err, open := <-onError:
-		//		if !open {
-		//			done = true
-		//		}
-		//
-		//		break
-		//	}
-		//}
-
-		for res := range r.runTests(ctx, onNext) {
+		for res := range r.consume(ctx, onNext, onError) {
 			if res.Error != nil {
 				failed++
 			} else {
@@ -104,15 +83,10 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 
 		close(onProgress)
 
-		for e := range onError {
-			errs = append(errs, e)
-		}
-
 		onSummary <- Summary{
 			Passed:   passed,
 			Failed:   failed,
 			Duration: sumDuration,
-			Errors:   errs,
 		}
 
 		close(onSummary)
@@ -124,27 +98,49 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 	}
 }
 
-func (r *Runner) runTests(ctx Context, files <-chan sources.File) <-chan Result {
+func (r *Runner) consume(ctx Context, onNext <-chan sources.File, onError <-chan sources.Error) <-chan Result {
 	out := make(chan Result)
 
 	go func() {
 		pool := NewPool(r.poolSize)
 		var wg sync.WaitGroup
+		var done bool
 
-		for f := range files {
-			f := f
-			wg.Add(1)
+		for !done {
+			select {
+			case file, open := <-onNext:
+				if !open {
+					done = true
 
-			params := ctx.Params()
-			params = params.Clone()
-
-			pool.Go(func() {
-				if ctx.Err() == nil {
-					out <- r.runCase(ctx, f, params)
+					break
 				}
 
-				wg.Done()
-			})
+				f := file
+				wg.Add(1)
+
+				params := ctx.Params()
+				params = params.Clone()
+
+				pool.Go(func() {
+					if ctx.Err() == nil {
+						out <- r.runCase(ctx, f, params)
+					}
+
+					wg.Done()
+				})
+			case err, open := <-onError:
+				if !open {
+					done = true
+					break
+				}
+
+				out <- Result{
+					Times:    0,
+					Filename: err.Filename,
+					Duration: 0,
+					Error:    errors.New(err.Message),
+				}
+			}
 		}
 
 		wg.Wait()
@@ -165,7 +161,7 @@ func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.
 		return Result{
 			Times:    0,
 			Filename: file.Name,
-			Duration: time.Duration(0) * time.Millisecond,
+			Duration: 0,
 			Error:    err,
 		}
 	}

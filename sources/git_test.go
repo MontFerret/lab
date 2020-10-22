@@ -90,7 +90,7 @@ func TestGit(t *testing.T) {
 				Convey("Should send an error", func() {
 					u, err := url.Parse("http://localhost/user/repo")
 					So(err, ShouldBeNil)
-					src, err := sources.NewGit(u)
+					src, err := sources.NewGit(*u)
 					So(err, ShouldBeNil)
 
 					onNext, onError := src.Read(context.Background())

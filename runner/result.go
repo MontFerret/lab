@@ -14,10 +14,9 @@ type (
 		Passed   int
 		Failed   int
 		Duration time.Duration
-		Errors   []error
 	}
 )
 
 func (sum Summary) HasErrors() bool {
-	return sum.Failed > 0 || len(sum.Errors) > 0
+	return sum.Failed > 0
 }

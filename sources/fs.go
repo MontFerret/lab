@@ -17,7 +17,7 @@ type FileSystem struct {
 	filter glob.Glob
 }
 
-func NewFileSystem(u *url.URL) (Source, error) {
+func NewFileSystem(u url.URL) (Source, error) {
 	pattern := u.Query().Get("filter")
 
 	var filter glob.Glob

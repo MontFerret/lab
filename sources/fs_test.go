@@ -20,7 +20,7 @@ func TestFileSystem(t *testing.T) {
 				Convey("Should send an error", func() {
 					str := fmt.Sprintf("file://%stest.foo", os.TempDir())
 					u, _ := url.Parse(str)
-					src, err := sources.NewFileSystem(u)
+					src, err := sources.NewFileSystem(*u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -52,7 +52,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources.NewFileSystem(*u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -83,7 +83,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources.NewFileSystem(*u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -128,7 +128,7 @@ func TestFileSystem(t *testing.T) {
 
 					for i, f := range files {
 						u, _ := url.Parse(fmt.Sprintf("file://%s", f))
-						src, err := sources.NewFileSystem(u)
+						src, err := sources.NewFileSystem(*u)
 
 						So(err, ShouldBeNil)
 						So(src, ShouldNotBeNil)
@@ -187,7 +187,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s?filter=**/*.take.fql", dir))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources.NewFileSystem(*u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -250,7 +250,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources.NewFileSystem(*u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -304,7 +304,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources.NewFileSystem(*u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)

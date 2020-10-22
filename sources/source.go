@@ -13,7 +13,7 @@ type (
 		Resolve(ctx context.Context, path string) (onNext <-chan File, onError <-chan Error)
 	}
 
-	SourceFactory func(u *url.URL) (Source, error)
+	SourceFactory func(u url.URL) (Source, error)
 
 	SourceType int
 )
@@ -81,7 +81,7 @@ func Create(str string) (Source, error) {
 		return nil, errors.Errorf("unknown source provider: %s", u.Scheme)
 	}
 
-	return factory(u)
+	return factory(*u)
 }
 
 func Resolve(file File, ref string) (Source, error) {

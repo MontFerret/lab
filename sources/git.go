@@ -16,11 +16,11 @@ import (
 type Git struct {
 	mu     sync.Mutex
 	repo   *git.Repository
-	url    *url.URL
+	url    string
 	filter glob.Glob
 }
 
-func NewGit(u *url.URL) (Source, error) {
+func NewGit(u url.URL) (Source, error) {
 	var filter glob.Glob
 
 	pattern := u.Query().Get("filter")
@@ -36,8 +36,20 @@ func NewGit(u *url.URL) (Source, error) {
 	}
 
 	src := new(Git)
-	src.url = u
 	src.filter = filter
+
+	switch u.Scheme {
+	case "git+https":
+		u.Scheme = "https"
+		break
+	case "git+http":
+		u.Scheme = "http"
+		break
+	default:
+		break
+	}
+
+	src.url = u.String()
 
 	return src, nil
 }
@@ -67,7 +79,7 @@ func (g *Git) Read(ctx context.Context) (<-chan File, <-chan Error) {
 		commit, err := g.getCommit(ctx)
 
 		if err != nil {
-			onError <- NewErrorFrom(g.url.String(), err)
+			onError <- NewErrorFrom(g.url, err)
 
 			return
 		}
@@ -75,7 +87,7 @@ func (g *Git) Read(ctx context.Context) (<-chan File, <-chan Error) {
 		files, err := commit.Files()
 
 		if err != nil {
-			onError <- NewErrorFrom(g.url.String(), err)
+			onError <- NewErrorFrom(g.url, err)
 
 			return
 		}
@@ -119,7 +131,7 @@ func (g *Git) Read(ctx context.Context) (<-chan File, <-chan Error) {
 		})
 
 		if err != nil {
-			onError <- NewErrorFrom(g.url.String(), err)
+			onError <- NewErrorFrom(g.url, err)
 
 			return
 		}
@@ -177,7 +189,7 @@ func (g *Git) getCommit(ctx context.Context) (*object.Commit, error) {
 
 	if g.repo == nil {
 		r, err := git.CloneContext(ctx, memory.NewStorage(), nil, &git.CloneOptions{
-			URL: g.url.String(),
+			URL: g.url,
 		})
 
 		if err != nil {
