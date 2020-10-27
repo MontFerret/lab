@@ -10,7 +10,7 @@ import (
 type (
 	Source interface {
 		Read(ctx context.Context) (onNext <-chan File, onError <-chan Error)
-		Resolve(ctx context.Context, path string) (onNext <-chan File, onError <-chan Error)
+		Resolve(ctx context.Context, url url.URL) (onNext <-chan File, onError <-chan Error)
 	}
 
 	SourceFactory func(u url.URL) (Source, error)
@@ -69,8 +69,13 @@ func Create(str string) (Source, error) {
 		return nil, err
 	}
 
+	return CreateFrom(*u)
+}
+
+func CreateFrom(u url.URL) (Source, error) {
+	// Default Schema is file://
 	if u.Scheme == "" {
-		return nil, errors.New("source scheme is not provided")
+		return NewFileSystem(u)
 	}
 
 	srcType := GetType(u)
@@ -81,29 +86,10 @@ func Create(str string) (Source, error) {
 		return nil, errors.Errorf("unknown source provider: %s", u.Scheme)
 	}
 
-	return factory(*u)
+	return factory(u)
 }
 
-func Resolve(file File, ref string) (Source, error) {
-	u, err := url.Parse(ref)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// set a query param that indicates from what relative location to resolve a given script
-	q := u.Query()
-	q.Add("from", file.Name)
-	u.RawQuery = q.Encode()
-
-	return Create(u.String())
-}
-
-func GetType(u *url.URL) SourceType {
-	if u == nil {
-		return SourceTypeUnknown
-	}
-
+func GetType(u url.URL) SourceType {
 	srcType, exists := typeByScheme[u.Scheme]
 
 	if !exists {

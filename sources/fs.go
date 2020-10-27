@@ -32,7 +32,7 @@ func NewFileSystem(u url.URL) (Source, error) {
 		filter = f
 	}
 
-	fullPath := u.Path
+	fullPath := filepath.Join(u.Host, u.Path)
 
 	if !filepath.IsAbs(fullPath) {
 		fp, err := filepath.Abs(fullPath)
@@ -72,15 +72,25 @@ func (fs *FileSystem) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	return onNext, onError
 }
 
-func (fs *FileSystem) Resolve(ctx context.Context, name string) (<-chan File, <-chan Error) {
+func (fs *FileSystem) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
 	onError := make(chan Error)
 
 	go func() {
-		fs.traverse(ctx, filepath.Join(fs.dir, name), onNext, onError)
+		defer func() {
+			close(onNext)
+			close(onError)
+		}()
 
-		close(onNext)
-		close(onError)
+		fp, err := filepath.Abs(filepath.Join(fs.dir, filepath.Join(u.Host, u.Path)))
+
+		if err != nil {
+			onError <- NewErrorFrom(u.String(), err)
+
+			return
+		}
+
+		fs.traverse(ctx, fp, onNext, onError)
 	}()
 
 	return onNext, onError
@@ -153,6 +163,7 @@ func (fs *FileSystem) readFile(filename string, onNext chan<- File, onError chan
 	}
 
 	onNext <- File{
+		Source:  fs,
 		Name:    filename,
 		Content: content,
 	}

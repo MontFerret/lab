@@ -16,6 +16,14 @@ func NewHTTP(u url.URL) (Source, error) {
 }
 
 func (src *HTTP) Read(ctx context.Context) (<-chan File, <-chan Error) {
+	return src.call(ctx, src.url)
+}
+
+func (src *HTTP) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
+	return src.call(ctx, u)
+}
+
+func (src *HTTP) call(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
 	onError := make(chan Error)
 
@@ -29,10 +37,10 @@ func (src *HTTP) Read(ctx context.Context) (<-chan File, <-chan Error) {
 		retryClient.RetryMax = 10
 		retryClient.Logger = nil
 
-		req, err := retryablehttp.NewRequest("GET", src.url.String(), nil)
+		req, err := retryablehttp.NewRequest("GET", u.String(), nil)
 
 		if err != nil {
-			onError <- NewErrorFrom(src.url.String(), err)
+			onError <- NewErrorFrom(u.String(), err)
 
 			return
 		}
@@ -40,7 +48,7 @@ func (src *HTTP) Read(ctx context.Context) (<-chan File, <-chan Error) {
 		res, err := retryClient.Do(req.WithContext(ctx))
 
 		if err != nil {
-			onError <- NewErrorFrom(src.url.String(), err)
+			onError <- NewErrorFrom(u.String(), err)
 
 			return
 		}
@@ -50,22 +58,16 @@ func (src *HTTP) Read(ctx context.Context) (<-chan File, <-chan Error) {
 		content, err := ioutil.ReadAll(res.Body)
 
 		if err != nil {
-			onError <- NewErrorFrom(src.url.String(), err)
+			onError <- NewErrorFrom(u.String(), err)
 
 			return
 		}
 
 		onNext <- File{
-			Name:    src.url.String(),
+			Name:    u.String(),
 			Content: content,
 		}
 	}()
 
 	return onNext, onError
-}
-
-func (src *HTTP) Resolve(ctx context.Context, path string) (<-chan File, <-chan Error) {
-	// src.url.ResolveReference()
-
-	return nil, nil
 }

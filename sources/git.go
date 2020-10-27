@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/url"
+	"path/filepath"
 	"sync"
 
 	"github.com/go-git/go-git/v5"
@@ -140,7 +141,7 @@ func (g *Git) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	return onNext, onError
 }
 
-func (g *Git) Resolve(ctx context.Context, fileName string) (<-chan File, <-chan Error) {
+func (g *Git) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
 	onError := make(chan Error)
 
@@ -153,15 +154,16 @@ func (g *Git) Resolve(ctx context.Context, fileName string) (<-chan File, <-chan
 		commit, err := g.getCommit(ctx)
 
 		if err != nil {
-			onError <- NewErrorFrom(fileName, err)
+			onError <- NewErrorFrom(u.String(), err)
 
 			return
 		}
 
-		file, err := commit.File(fileName)
+		filename := filepath.Join(u.Host, u.Path)
+		file, err := commit.File(filename)
 
 		if err != nil {
-			onError <- NewErrorFrom(fileName, err)
+			onError <- NewErrorFrom(filename, err)
 
 			return
 		}
@@ -169,7 +171,7 @@ func (g *Git) Resolve(ctx context.Context, fileName string) (<-chan File, <-chan
 		contents, err := file.Contents()
 
 		if err != nil {
-			onError <- NewErrorFrom(fileName, err)
+			onError <- NewErrorFrom(filename, err)
 
 			return
 		}

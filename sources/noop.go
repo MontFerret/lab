@@ -1,6 +1,9 @@
 package sources
 
-import "context"
+import (
+	"context"
+	"net/url"
+)
 
 type Noop struct{}
 
@@ -20,6 +23,6 @@ func (n Noop) Read(_ context.Context) (<-chan File, <-chan Error) {
 	return onNext, onError
 }
 
-func (n Noop) Resolve(ctx context.Context, _ string) (<-chan File, <-chan Error) {
+func (n Noop) Resolve(ctx context.Context, _ url.URL) (<-chan File, <-chan Error) {
 	return n.Read(ctx)
 }

@@ -3,6 +3,7 @@ package testing
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -116,13 +117,13 @@ func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) 
 		return manifest.Text, nil
 	}
 
-	src, err := sources.Resolve(suite.file, manifest.Ref)
+	u, err := url.Parse(manifest.Ref)
 
 	if err != nil {
-		return "", errors.Wrap(err, "resolve 'ref'")
+		return "", errors.Wrap(err, "parse 'ref'")
 	}
 
-	onNext, onError := src.Read(ctx)
+	onNext, onError := suite.file.Source.Resolve(ctx, *u)
 
 	select {
 	case e := <-onError:

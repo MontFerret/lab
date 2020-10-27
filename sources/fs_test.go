@@ -268,7 +268,7 @@ func TestFileSystem(t *testing.T) {
 						So(f.Name, ShouldNotBeNil)
 					}
 
-					onNext, onError = src.Resolve(context.Background(), filepath.Base(f2.Name()))
+					onNext, onError = src.Resolve(context.Background(), mustParseUrl(filepath.Base(f2.Name())))
 
 					select {
 					case e := <-onError:
@@ -324,7 +324,7 @@ func TestFileSystem(t *testing.T) {
 
 					onNext, onError = src.Resolve(
 						context.Background(),
-						filepath.Join("./", filepath.Base(dir), filepath.Base(f2.Name())),
+						mustParseUrl(filepath.Join("./", filepath.Base(dir), filepath.Base(f2.Name()))),
 					)
 
 					select {

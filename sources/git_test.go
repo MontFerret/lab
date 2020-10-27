@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gobwas/glob"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -21,7 +22,35 @@ type MockFile struct {
 	Content string
 }
 
+func mustParseUrl(raw string) url.URL {
+	u, err := url.Parse(raw)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return *u
+}
+
 func TestGit(t *testing.T) {
+	apply := func(tree *git.Worktree) error {
+		_, err := tree.Commit("Commit", &git.CommitOptions{
+			All: true,
+			Author: &object.Signature{
+				Name:  "Lab",
+				Email: "lab@montferret.com",
+				When:  time.Now(),
+			},
+			Committer: &object.Signature{
+				Name:  "Lab",
+				Email: "lab@montferret.com",
+				When:  time.Now(),
+			},
+		})
+
+		return err
+	}
+
 	initRepo := func(files []MockFile) (*git.Repository, error) {
 		repo, err := git.Init(memory.NewStorage(), memfs.New())
 
@@ -63,19 +92,7 @@ func TestGit(t *testing.T) {
 			return nil, err
 		}
 
-		_, err = tree.Commit("Initial commit", &git.CommitOptions{
-			All: true,
-			Author: &object.Signature{
-				Name:  "Lab",
-				Email: "lab@montferret.com",
-				When:  time.Now(),
-			},
-			Committer: &object.Signature{
-				Name:  "Lab",
-				Email: "lab@montferret.com",
-				When:  time.Now(),
-			},
-		})
+		err = apply(tree)
 
 		if err != nil {
 			return nil, err
@@ -239,37 +256,136 @@ func TestGit(t *testing.T) {
 		})
 
 		Convey(".Resolve", func() {
-			repo, err := initRepo([]MockFile{
-				{
-					Name: "query-1.fql",
-				},
-				{
-					Name: "query-2.fql",
-				},
-				{
-					Name: "suite-1.yaml",
-				},
-				{
-					Name: "suite-2.yml",
-				},
+			Convey("Should resolve a file from the root directory", func() {
+				repo, err := initRepo([]MockFile{
+					{
+						Name: "query-1.fql",
+					},
+					{
+						Name: "query-2.fql",
+					},
+					{
+						Name: "suite-1.yaml",
+					},
+					{
+						Name: "suite-2.yml",
+					},
+				})
+
+				So(err, ShouldBeNil)
+
+				src, err := sources.NewGitFrom(repo, nil)
+				So(err, ShouldBeNil)
+
+				onNext, onError := src.Resolve(context.Background(), mustParseUrl("query-2.fql"))
+
+				So(onNext, ShouldNotBeNil)
+				So(onError, ShouldNotBeNil)
+
+				select {
+				case e := <-onError:
+					panic(e)
+				case f := <-onNext:
+					So(f.Name, ShouldEqual, "query-2.fql")
+				}
+			})
+			Convey("Should resolve a file from a nested directory", func() {
+				repo, err := initRepo([]MockFile{
+					{
+						Name: "query-1.fql",
+					},
+					{
+						Name: "query-2.fql",
+					},
+					{
+						Name: "suite-1.yaml",
+					},
+					{
+						Name: "suite-2.yml",
+					},
+				})
+
+				So(err, ShouldBeNil)
+
+				tree, err := repo.Worktree()
+				So(err, ShouldBeNil)
+
+				So(tree.Filesystem.MkdirAll("tests/", os.ModeDir), ShouldBeNil)
+
+				file, err := tree.Filesystem.Create("tests/my-test.fql")
+				So(err, ShouldBeNil)
+				_, err = file.Write([]byte("RETURN 'foo'"))
+				So(err, ShouldBeNil)
+				So(file.Close(), ShouldBeNil)
+				So(tree.AddGlob("*"), ShouldBeNil)
+				So(apply(tree), ShouldBeNil)
+
+				src, err := sources.NewGitFrom(repo, nil)
+				So(err, ShouldBeNil)
+
+				onNext, onError := src.Resolve(context.Background(), mustParseUrl("tests/my-test.fql"))
+
+				So(onNext, ShouldNotBeNil)
+				So(onError, ShouldNotBeNil)
+
+				select {
+				case e := <-onError:
+					panic(e)
+				case f := <-onNext:
+					So(f.Name, ShouldEqual, "tests/my-test.fql")
+				}
 			})
 
-			So(err, ShouldBeNil)
+			SkipConvey("Should resolve a file from a parent directory", func() {
+				repo, err := initRepo([]MockFile{
+					{
+						Name: "query-1.fql",
+					},
+					{
+						Name: "query-2.fql",
+					},
+					{
+						Name: "suite-1.yaml",
+					},
+					{
+						Name: "suite-2.yml",
+					},
+				})
 
-			src, err := sources.NewGitFrom(repo, glob.MustCompile("*.pick.fql"))
-			So(err, ShouldBeNil)
+				So(err, ShouldBeNil)
 
-			onNext, onError := src.Resolve(context.Background(), "query-2.fql")
+				tree, err := repo.Worktree()
+				So(err, ShouldBeNil)
 
-			So(onNext, ShouldNotBeNil)
-			So(onError, ShouldNotBeNil)
+				So(tree.Filesystem.MkdirAll("dir_1/", os.ModeDir), ShouldBeNil)
+				So(tree.Filesystem.MkdirAll("dir_2/", os.ModeDir), ShouldBeNil)
 
-			select {
-			case e := <-onError:
-				panic(e)
-			case f := <-onNext:
-				So(f.Name, ShouldEqual, "query-2.fql")
-			}
+				file, err := tree.Filesystem.Create("dir_1/my-test1.fql")
+				So(err, ShouldBeNil)
+				So(file.Close(), ShouldBeNil)
+
+				file2, err := tree.Filesystem.Create("dir_2/my-test2.fql")
+				So(err, ShouldBeNil)
+				So(file2.Close(), ShouldBeNil)
+
+				So(tree.AddGlob("*"), ShouldBeNil)
+				So(apply(tree), ShouldBeNil)
+
+				src, err := sources.NewGitFrom(repo, nil)
+				So(err, ShouldBeNil)
+
+				onNext, onError := src.Resolve(context.Background(), mustParseUrl("../dir_2/my-test2.fql"))
+
+				So(onNext, ShouldNotBeNil)
+				So(onError, ShouldNotBeNil)
+
+				select {
+				case e := <-onError:
+					panic(e)
+				case f := <-onNext:
+					So(f.Name, ShouldEqual, "tests/my-test.fql")
+				}
+			})
 		})
 	})
 }
