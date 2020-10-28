@@ -6,6 +6,8 @@ github.com/MontFerret/ferret v0.11.0 h1:bdAmmWYZc+esEZI1IobfjsPyzi/1l113KGZperYP
 github.com/MontFerret/ferret v0.11.0/go.mod h1:wBYWYTvqSjCi90c3PgOMcCeD2oUVkqea4WTEVWjWL3E=
 github.com/MontFerret/ferret v0.12.0 h1:ke1d5/aNfgCtKoRFn8Zf8vgD23Sqw/vaH2Zk/jPHhAE=
 github.com/MontFerret/ferret v0.12.0/go.mod h1:1fxTRNTs+EHJXvxqCrEgflQPL0g9Blk5xee2N/GQCro=
+github.com/MontFerret/ferret v0.12.1 h1:iv/FHPiuSVbcpM/wal4R6lOTC0d+W9RX1Jw8gwbau+c=
+github.com/MontFerret/ferret v0.12.1/go.mod h1:1fxTRNTs+EHJXvxqCrEgflQPL0g9Blk5xee2N/GQCro=
 github.com/PuerkitoBio/goquery v1.5.1 h1:PSPBGne8NIUWw+/7vFBV+kG2J/5MOjbzc7154OaKCSE=
 github.com/PuerkitoBio/goquery v1.5.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBKeU+7zCJoLcc=
 github.com/alcortesm/tgz v0.0.0-20161220082320-9c5fe88206d7 h1:uSoVVbwJiQipAclBbw+8quDsfcvFjOpI5iCf4p/cqCs=
