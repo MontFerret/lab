@@ -5,8 +5,6 @@ env:
 before:
   hooks:
     - go mod download
-    - echo $DOCKER_PASSWORD | docker login docker.io -u $DOCKER_USERNAME --password-stdin
-    - echo $CR_PAT | docker login ghcr.io -u $CR_USER --password-stdin
 
 builds:
   - env:
