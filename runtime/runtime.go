@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 
 	"github.com/pkg/errors"
@@ -37,6 +36,6 @@ func New(opts Options) (Runtime, error) {
 	case "bin":
 		return NewBinary(u.Host+u.Path, opts.CDPAddress, opts.Params)
 	default:
-		return nil, fmt.Errorf("invalid remote url: %s", opts.RemoteURL)
+		return NewBinary(u.Host+u.Path, opts.CDPAddress, opts.Params)
 	}
 }

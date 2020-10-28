@@ -3,6 +3,7 @@ package sources
 import (
 	"context"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -11,11 +12,14 @@ import (
 )
 
 type FileSystem struct {
-	path   string
+	dir    string
+	name   string
 	filter glob.Glob
 }
 
-func NewFileSystem(path string, pattern string) (Source, error) {
+func NewFileSystem(u url.URL) (Source, error) {
+	pattern := u.Query().Get("filter")
+
 	var filter glob.Glob
 
 	if pattern != "" {
@@ -28,10 +32,10 @@ func NewFileSystem(path string, pattern string) (Source, error) {
 		filter = f
 	}
 
-	fullPath := path
+	fullPath := filepath.Join(u.Host, u.Path)
 
-	if !filepath.IsAbs(path) {
-		fp, err := filepath.Abs(path)
+	if !filepath.IsAbs(fullPath) {
+		fp, err := filepath.Abs(fullPath)
 
 		if err != nil {
 			return nil, errors.Wrap(err, "get absolute path")
@@ -40,36 +44,65 @@ func NewFileSystem(path string, pattern string) (Source, error) {
 		fullPath = fp
 	}
 
-	return &FileSystem{fullPath, filter}, nil
+	var dir string
+	var name string
+
+	// file
+	if filepath.Ext(fullPath) != "" {
+		dir = filepath.Dir(fullPath)
+		name = filepath.Base(fullPath)
+	} else {
+		dir = fullPath
+	}
+
+	return &FileSystem{dir, name, filter}, nil
 }
 
-func (fs *FileSystem) Read(ctx context.Context) Stream {
+func (fs *FileSystem) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
-	onError := make(chan error)
+	onError := make(chan Error)
 
 	go func() {
-		if err := fs.traverse(ctx, fs.path, onNext); err != nil {
-			onError <- err
-		}
+		fs.traverse(ctx, filepath.Join(fs.dir, fs.name), onNext, onError)
 
 		close(onNext)
 		close(onError)
 	}()
 
-	return NewStream(onNext, onError)
+	return onNext, onError
 }
 
-func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- File) error {
+func (fs *FileSystem) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
+	onNext := make(chan File)
+	onError := make(chan Error)
+
+	go func() {
+		defer func() {
+			close(onNext)
+			close(onError)
+		}()
+
+		fp, err := filepath.Abs(filepath.Join(fs.dir, filepath.Join(u.Host, u.Path)))
+
+		if err != nil {
+			onError <- NewErrorFrom(u.String(), err)
+
+			return
+		}
+
+		fs.traverse(ctx, fp, onNext, onError)
+	}()
+
+	return onNext, onError
+}
+
+func (fs *FileSystem) traverse(ctx context.Context, path string, onNext chan<- File, onError chan<- Error) {
 	fi, err := os.Stat(path)
 
 	if err != nil {
-		onFile <- File{
-			Name:    path,
-			Content: nil,
-			Error:   err,
-		}
+		onError <- NewErrorFrom(path, err)
 
-		return nil
+		return
 	}
 
 	// if only a single file was given
@@ -77,36 +110,32 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 		filename := path
 
 		if !IsSupportedFile(path) {
-			onFile <- File{
-				Name:    "file://" + filename,
-				Content: nil,
-				Error:   errors.New("invalid file"),
-			}
+			onError <- NewError(path, "invalid file")
 		}
 
 		// if not matched, skip the file
 		if fs.filter != nil && !fs.filter.Match(filename) {
-			return nil
+			return
 		}
 
-		onFile <- fs.readFile(filename)
+		fs.readFile(filename, onNext, onError)
 
-		return nil
+		return
 	}
 
 	files, err := ioutil.ReadDir(path)
 
 	if err != nil {
-		return err
+		onError <- NewErrorFrom(path, err)
+
+		return
 	}
 
 	for _, file := range files {
 		filename := filepath.Join(path, file.Name())
 
 		if file.IsDir() {
-			if err := fs.traverse(ctx, filename, onFile); err != nil {
-				return err
-			}
+			fs.traverse(ctx, filename, onNext, onError)
 
 			continue
 		}
@@ -120,25 +149,22 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onFile chan<- F
 			continue
 		}
 
-		onFile <- fs.readFile(filename)
+		fs.readFile(filename, onNext, onError)
 	}
-
-	return nil
 }
 
-func (fs *FileSystem) readFile(filename string) File {
+func (fs *FileSystem) readFile(filename string, onNext chan<- File, onError chan<- Error) {
 	content, err := ioutil.ReadFile(filename)
 
 	if err != nil {
-		return File{
-			Name:    "file://" + filename,
-			Content: nil,
-			Error:   err,
-		}
+		onError <- NewErrorFrom(filename, err)
+
+		return
 	}
 
-	return File{
-		Name:    "file://" + filename,
+	onNext <- File{
+		Source:  fs,
+		Name:    filename,
 		Content: content,
 	}
 }

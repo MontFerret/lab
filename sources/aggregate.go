@@ -1,6 +1,9 @@
 package sources
 
-import "context"
+import (
+	"context"
+	"net/url"
+)
 
 type Aggregate struct {
 	sources []Source
@@ -18,29 +21,25 @@ func (a *Aggregate) Add(src Source) {
 	a.sources = append(a.sources, src)
 }
 
-func (a *Aggregate) Read(ctx context.Context) Stream {
+func (a *Aggregate) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
-	onError := make(chan error)
-
-	srcCtx, cancel := context.WithCancel(ctx)
+	onError := make(chan Error)
 
 	go func() {
 		for _, src := range a.sources {
 			var done bool
-			var err error
 
-			stream := src.Read(srcCtx)
+			next, err := src.Read(ctx)
 
 			for !done {
 				select {
 				case <-ctx.Done():
 					return
-				case e := <-stream.OnError():
-					err = e
-					done = true
+				case e := <-err:
+					onError <- e
 
 					break
-				case f, ok := <-stream.OnNext():
+				case f, ok := <-next:
 					if !ok {
 						done = true
 						break
@@ -49,16 +48,12 @@ func (a *Aggregate) Read(ctx context.Context) Stream {
 					onNext <- f
 				}
 			}
-
-			if err != nil {
-				cancel()
-
-				onError <- err
-
-				return
-			}
 		}
 	}()
 
-	return NewStream(onNext, onError)
+	return onNext, onError
+}
+
+func (a *Aggregate) Resolve(_ context.Context, _ url.URL) (<-chan File, <-chan Error) {
+	return nil, nil
 }

@@ -2,22 +2,30 @@ package sources
 
 import (
 	"context"
-	"io/ioutil"
-
 	"github.com/hashicorp/go-retryablehttp"
+	"io/ioutil"
+	"net/url"
 )
 
 type HTTP struct {
-	url string
+	url url.URL
 }
 
-func NewHTTP(url string) (Source, error) {
-	return &HTTP{url}, nil
+func NewHTTP(u url.URL) (Source, error) {
+	return &HTTP{u}, nil
 }
 
-func (src *HTTP) Read(ctx context.Context) Stream {
+func (src *HTTP) Read(ctx context.Context) (<-chan File, <-chan Error) {
+	return src.call(ctx, src.url)
+}
+
+func (src *HTTP) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
+	return src.call(ctx, u)
+}
+
+func (src *HTTP) call(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
-	onError := make(chan error)
+	onError := make(chan Error)
 
 	go func() {
 		defer func() {
@@ -29,10 +37,18 @@ func (src *HTTP) Read(ctx context.Context) Stream {
 		retryClient.RetryMax = 10
 		retryClient.Logger = nil
 
-		res, err := retryClient.Get(src.url)
+		req, err := retryablehttp.NewRequest("GET", u.String(), nil)
 
 		if err != nil {
-			onError <- err
+			onError <- NewErrorFrom(u.String(), err)
+
+			return
+		}
+
+		res, err := retryClient.Do(req.WithContext(ctx))
+
+		if err != nil {
+			onError <- NewErrorFrom(u.String(), err)
 
 			return
 		}
@@ -42,19 +58,17 @@ func (src *HTTP) Read(ctx context.Context) Stream {
 		content, err := ioutil.ReadAll(res.Body)
 
 		if err != nil {
-			onNext <- File{
-				Name:  src.url,
-				Error: err,
-			}
+			onError <- NewErrorFrom(u.String(), err)
 
 			return
 		}
 
 		onNext <- File{
-			Name:    src.url,
+			Source:  src,
+			Name:    u.String(),
 			Content: content,
 		}
 	}()
 
-	return NewStream(onNext, onError)
+	return onNext, onError
 }

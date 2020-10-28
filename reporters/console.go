@@ -56,10 +56,6 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 			Int("Failed", sum.Failed).
 			Str("Duration", sum.Duration.String())
 
-		for _, e := range sum.Errors {
-			event = event.Err(e)
-		}
-
 		event.Msg("Done")
 
 		if sum.HasErrors() {
