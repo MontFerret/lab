@@ -53,13 +53,13 @@ $ docker pull montferret/lab:latest
 The easiest way to use ``lab`` is to execute FQL scripts as is:
 
 ```bash
-$ lab file://./myscript.fql
+$ lab myscript.fql
 ```
 
 You can also pass a path to a folder that contains ``.fql`` scripts:
 
 ```bash
-$ lab file://./myscripts/
+$ lab myscripts/
 ```
 
 ### Test suites
@@ -84,7 +84,7 @@ assert:
 ```
 
 ```bash
-$ lab file://./mysuite.yaml
+$ lab mysuite.yaml
 ```
 
 In order to make testing more modular, you can refer to an existing script in suites:
@@ -109,7 +109,7 @@ assert:
 ``lab`` has an ability to server static files that can be used by your scripts.
 
 ```bash
-	lab --files=file://./tests --cdn=./website:8080
+	lab --cdn=./website:8080 tests/
 ```
 
 Which can be access via ``@lab.cdn.DIR_NAME``
@@ -127,13 +127,13 @@ assert:
 You can define multiple cdn endpoints pointing to different directories:
 
 ```bash
-	lab --files=file://./tests --cdn=./app_1:8080 --cdn=./app_2:8080
+	lab  --cdn=./app_1:8080 --cdn=./app_2:8080 tests/
 ```
 
 Additionally, you can give them custom names:
 
 ```bash
-	lab --files=file://./tests --cdn=./app_1:8080@sales --cdn=./app_2:8080@marketing
+	lab --cdn=./app_1:8080@sales --cdn=./app_2:8080@marketing tests/
 ```
 
 ## Remote Ferret runtime
