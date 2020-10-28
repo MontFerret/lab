@@ -124,6 +124,7 @@ func (g *Git) Read(ctx context.Context) (<-chan File, <-chan Error) {
 			}
 
 			onNext <- File{
+				Source:  g,
 				Name:    f.Name,
 				Content: content,
 			}
@@ -177,6 +178,7 @@ func (g *Git) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error
 		}
 
 		onNext <- File{
+			Source:  g,
 			Name:    file.Name,
 			Content: []byte(contents),
 		}

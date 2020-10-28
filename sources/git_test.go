@@ -144,6 +144,7 @@ func TestGit(t *testing.T) {
 					panic(e)
 				case f := <-onNext:
 					So(string(f.Content), ShouldNotBeEmpty)
+					So(f.Source, ShouldEqual, src)
 				}
 			})
 
@@ -192,6 +193,7 @@ func TestGit(t *testing.T) {
 						}
 
 						files = append(files, f.Name)
+						So(f.Source, ShouldEqual, src)
 					}
 				}
 
@@ -247,6 +249,7 @@ func TestGit(t *testing.T) {
 							}
 
 							files = append(files, f.Name)
+							So(f.Source, ShouldEqual, src)
 						}
 					}
 
@@ -287,6 +290,7 @@ func TestGit(t *testing.T) {
 					panic(e)
 				case f := <-onNext:
 					So(f.Name, ShouldEqual, "query-2.fql")
+					So(f.Source, ShouldEqual, src)
 				}
 			})
 			Convey("Should resolve a file from a nested directory", func() {
@@ -333,6 +337,7 @@ func TestGit(t *testing.T) {
 					panic(e)
 				case f := <-onNext:
 					So(f.Name, ShouldEqual, "tests/my-test.fql")
+					So(f.Source, ShouldEqual, src)
 				}
 			})
 
@@ -384,6 +389,7 @@ func TestGit(t *testing.T) {
 					panic(e)
 				case f := <-onNext:
 					So(f.Name, ShouldEqual, "tests/my-test.fql")
+					So(f.Source, ShouldEqual, src)
 				}
 			})
 		})

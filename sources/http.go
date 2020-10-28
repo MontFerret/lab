@@ -64,6 +64,7 @@ func (src *HTTP) call(ctx context.Context, u url.URL) (<-chan File, <-chan Error
 		}
 
 		onNext <- File{
+			Source:  src,
 			Name:    u.String(),
 			Content: content,
 		}

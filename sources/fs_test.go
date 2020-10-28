@@ -68,6 +68,7 @@ func TestFileSystem(t *testing.T) {
 					case f := <-onNext:
 						So(string(f.Content), ShouldEqual, "RETURN 'foo'")
 						So(f.Name, ShouldNotBeNil)
+						So(f.Source, ShouldEqual, src)
 					}
 				})
 
@@ -144,6 +145,7 @@ func TestFileSystem(t *testing.T) {
 						case f := <-onNext:
 							So(string(f.Content), ShouldEqual, fmt.Sprintf("RETURN %d", i))
 							So(f.Name, ShouldNotBeNil)
+							So(f.Source, ShouldEqual, src)
 						}
 					}
 				})
@@ -217,6 +219,7 @@ func TestFileSystem(t *testing.T) {
 							}
 
 							So(file, ShouldNotBeNil)
+							So(file.Source, ShouldEqual, src)
 
 							foundFiles = append(foundFiles, file)
 						}
@@ -276,6 +279,7 @@ func TestFileSystem(t *testing.T) {
 					case f := <-onNext:
 						So(string(f.Content), ShouldEqual, "RETURN 'file2'")
 						So(f.Name, ShouldNotBeNil)
+						So(f.Source, ShouldEqual, src)
 					}
 				})
 
@@ -320,6 +324,7 @@ func TestFileSystem(t *testing.T) {
 					case f := <-onNext:
 						So(string(f.Content), ShouldEqual, "RETURN 'file1'")
 						So(f.Name, ShouldNotBeNil)
+						So(f.Source, ShouldEqual, src)
 					}
 
 					onNext, onError = src.Resolve(
@@ -333,6 +338,7 @@ func TestFileSystem(t *testing.T) {
 					case f := <-onNext:
 						So(string(f.Content), ShouldEqual, "RETURN 'file2'")
 						So(f.Name, ShouldNotBeNil)
+						So(f.Source, ShouldEqual, src)
 					}
 				})
 			})
