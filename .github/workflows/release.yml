@@ -14,6 +14,10 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
+      - name: Set up env vars
+        run: |
+          export FRT_VERSION=$(sh versions.sh ferret)
+          echo "::set-env name=FERRET_VERSION::$FRT_VERSION"
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
