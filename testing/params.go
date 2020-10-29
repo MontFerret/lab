@@ -27,31 +27,16 @@ func (p *Params) SetUserValues(values map[string]interface{}) {
 }
 
 func (p *Params) ToMap() map[string]interface{} {
-	out := p.copyMap(p.user)
+	out := ToMap(p.user)
 
-	out["lab"] = p.copyMap(p.system)
+	out["lab"] = ToMap(p.system)
 
 	return out
 }
 
 func (p *Params) Clone() Params {
 	return Params{
-		system: p.copyMap(p.system),
-		user:   p.copyMap(p.user),
+		system: ToMap(p.system),
+		user:   ToMap(p.user),
 	}
-}
-
-func (p *Params) copyMap(m map[string]interface{}) map[string]interface{} {
-	cp := make(map[string]interface{})
-
-	for k, v := range m {
-		vm, ok := v.(map[string]interface{})
-		if ok {
-			cp[k] = p.copyMap(vm)
-		} else {
-			cp[k] = v
-		}
-	}
-
-	return cp
 }
