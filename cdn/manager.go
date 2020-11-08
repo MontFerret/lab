@@ -18,7 +18,7 @@ type Manager struct {
 }
 
 func New() (*Manager, error) {
-	addr, err := getOutboundIP()
+	addr, err := GetOutboundIP()
 
 	if err != nil {
 		return nil, err
@@ -34,7 +34,18 @@ func (m *Manager) IsRunning() bool {
 	return m.running
 }
 
-func (m *Manager) Add(node *Node) error {
+func (m *Manager) Bind(dir Directory) error {
+	node, err := NewNode(NodeSettings{
+		Name:   dir.Name,
+		Port:   dir.Port,
+		Dir:    dir.Path,
+		Prefix: "",
+	})
+
+	if err != nil {
+		return err
+	}
+
 	m.nodes = append(m.nodes, node)
 
 	return nil

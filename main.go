@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -29,49 +27,15 @@ var (
 	ferretVersion string
 )
 
-type Directory struct {
-	Name string
-	Path string
-	Port int
-}
-
-func toDirectories(values []string) ([]Directory, error) {
-	res := make([]Directory, 0, len(values))
+func toDirectories(values []string) ([]cdn.Directory, error) {
+	res := make([]cdn.Directory, 0, len(values))
 
 	for _, entry := range values {
-		dir := Directory{}
-		pathAndPort := strings.Split(entry, ":")
-
-		if len(pathAndPort) != 2 {
-			return nil, errors.New("invalid directory binding format")
-		}
-
-		path := pathAndPort[0]
-		port := pathAndPort[1]
-		name := ""
-
-		portAndName := strings.Split(pathAndPort[1], "@")
-
-		if len(portAndName) == 2 {
-			port = portAndName[0]
-			name = portAndName[1]
-		} else {
-			name = filepath.Base(path)
-
-			if name == "" {
-				name = "default"
-			}
-		}
-
-		portInt, err := strconv.Atoi(port)
+		dir, err := cdn.NewDirectoryFrom(entry)
 
 		if err != nil {
 			return nil, err
 		}
-
-		dir.Name = name
-		dir.Path = path
-		dir.Port = portInt
 
 		res = append(res, dir)
 	}
@@ -105,7 +69,7 @@ func toParams(values []string) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func createCDNManager(dirs []Directory) (*cdn.Manager, error) {
+func createCDNManager(dirs []cdn.Directory) (*cdn.Manager, error) {
 	m, err := cdn.New()
 
 	if err != nil {
@@ -113,12 +77,7 @@ func createCDNManager(dirs []Directory) (*cdn.Manager, error) {
 	}
 
 	for _, dir := range dirs {
-		err := m.Add(cdn.NewNode(cdn.NodeSettings{
-			Name:   dir.Name,
-			Port:   dir.Port,
-			Dir:    dir.Path,
-			Prefix: "",
-		}))
+		err := m.Bind(dir)
 
 		if err != nil {
 			return nil, err
