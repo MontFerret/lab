@@ -24,7 +24,7 @@ type (
 	}
 )
 
-func NewNode(settings NodeSettings) *Node {
+func NewNode(settings NodeSettings) (*Node, error) {
 	e := echo.New()
 	e.Debug = false
 	e.HideBanner = true
@@ -42,7 +42,7 @@ func NewNode(settings NodeSettings) *Node {
 		id:       rand.Int(),
 		settings: settings,
 		engine:   e,
-	}
+	}, nil
 }
 
 func (n *Node) ID() int {
