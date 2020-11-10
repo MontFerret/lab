@@ -154,7 +154,7 @@ Ferret: %s
 			},
 			&cli.StringSliceFlag{
 				Name:        "cdn",
-				Usage:       "file or directory to serve via HTTP (./dir:8080 as default or ./dir:8080@name as named)",
+				Usage:       "file or directory to serve via HTTP (./dir as default or ./dir@name with alias)",
 				EnvVars:     []string{"LAB_CDN"},
 				FilePath:    "",
 				Required:    false,

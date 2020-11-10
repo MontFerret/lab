@@ -14,7 +14,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux make compile
 
 # Build the final container. And install
-FROM montferret/chromium:87.0.4272.0 as runner
+FROM montferret/chromium:87.0.4272.0
 
 RUN apt-get update && apt-get install -y dumb-init
 
@@ -24,7 +24,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 # Add lab binary
 COPY --from=builder /go/src/github.com/MontFerret/lab/bin/lab .
 
+VOLUME test
+
 EXPOSE 8080
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///data"]
+CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///test"]

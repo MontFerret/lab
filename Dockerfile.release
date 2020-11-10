@@ -1,16 +1,14 @@
 # Build the final container. And install
-FROM montferret/chromium:87.0.4272.0 as runner
+FROM montferret/chromium:87.0.4272.0
 
 RUN apt-get update && apt-get install -y dumb-init
-
-WORKDIR /app
 
 # Add worker binary
 COPY lab .
 
+VOLUME test
+
 EXPOSE 8080
 
-VOLUME /data
-
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///data"]
+CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///test"]

@@ -91,7 +91,7 @@ In order to make testing more modular, you can refer to an existing script in su
 
 ```yaml
 query:
-  ref: file://../myscript.fql
+  ref: ../myscript.fql
 assert:
   text: RETURN T::NOT::EMPTY(@lab.data.query.result)
 ```
@@ -109,7 +109,7 @@ assert:
 ``lab`` has an ability to server static files that can be used by your scripts.
 
 ```bash
-	lab --cdn=./website:8080 tests/
+	lab --cdn=./website tests/
 ```
 
 Which can be access via ``@lab.cdn.DIR_NAME``
@@ -127,13 +127,13 @@ assert:
 You can define multiple cdn endpoints pointing to different directories:
 
 ```bash
-	lab  --cdn=./app_1:8080 --cdn=./app_2:8080 tests/
+	lab  --cdn=./app_1 --cdn=./app_2 tests/
 ```
 
 Additionally, you can give them custom names:
 
 ```bash
-	lab --cdn=./app_1:8080@sales --cdn=./app_2:8080@marketing tests/
+	lab --cdn=./app_1@sales --cdn=./app_2@marketing tests/
 ```
 
 ## Remote Ferret runtime
@@ -174,7 +174,7 @@ GLOBAL OPTIONS:
    --runtime-param value       params for remote Ferret runtime (--runtime-param=headers:{"KeyId": "abcd"} --runtime-param=path:"/ferret" }) [$LAB_RUNTIME_PARAM]
    --concurrency value         number of multiple tests to run at a time (default: 1) [$LAB_CONCURRENCY]
    --times value               number of times to run each test (default: 1) [$LAB_TIMES]
-   --cdn value                 file or directory to serve via HTTP (./dir:8080 as default or ./dir:8080@name as named) [$LAB_CDN]
+   --cdn value                 file or directory to serve via HTTP (./dir as default or ./dir@name as named) [$LAB_CDN]
    --param value, -p value     query parameter (--param=foo:"bar", --param=id:1) [$LAB_PARAM]
    --wait value, -w value      tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb) [$LAB_WAIT]
    --wait-timeout value        wait timeout in seconds (default: 5) [$LAB_WAIT_TIMEOUT]
