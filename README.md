@@ -35,7 +35,7 @@
 ## Quick start
 
 ```
-$ docker run --mount src="$(pwd)/mytests",target=/data,type=bind montferret/lab
+$ docker run --rm -v $PWD:/test montferret/lab
 ```
 
 ## Installation
