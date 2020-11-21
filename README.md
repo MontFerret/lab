@@ -174,6 +174,7 @@ GLOBAL OPTIONS:
    --runtime-param value       params for remote Ferret runtime (--runtime-param=headers:{"KeyId": "abcd"} --runtime-param=path:"/ferret" }) [$LAB_RUNTIME_PARAM]
    --concurrency value         number of multiple tests to run at a time (default: 1) [$LAB_CONCURRENCY]
    --times value               number of times to run each test (default: 1) [$LAB_TIMES]
+   --times-interval value      interval between test cycles in seconds (default: 0) [$LAB_TIMES_INTERVAL]
    --cdn value                 file or directory to serve via HTTP (./dir as default or ./dir@name with alias) [$LAB_CDN]
    --param value, -p value     query parameter (--param=foo:"bar", --param=id:1) [$LAB_PARAM]
    --wait value, -w value      tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb) [$LAB_WAIT]
