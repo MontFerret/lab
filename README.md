@@ -35,7 +35,7 @@
 ## Quick start
 
 ```
-$ docker run --mount src="$(pwd)/mytests",target=/data,type=bind montferret/lab
+$ docker run --rm -v $PWD:/test montferret/lab
 ```
 
 ## Installation
@@ -116,7 +116,7 @@ Which can be access via ``@lab.cdn.DIR_NAME``
 
 ```yaml
 query:
-  ref: |
+  text: |
     LET page = DOCUMENT(@lab.cdn.website, { driver: "cdp" })
     
     RETURN page.innerHTML
