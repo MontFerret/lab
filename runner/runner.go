@@ -14,17 +14,19 @@ import (
 
 type (
 	Options struct {
-		Runtime     runtime.Runtime
-		PoolSize    uint64
-		TestTimeout time.Duration
-		Times       uint64
+		Runtime       runtime.Runtime
+		PoolSize      uint64
+		TestTimeout   time.Duration
+		Times         uint64
+		TimesInterval uint64
 	}
 
 	Runner struct {
-		runtime     runtime.Runtime
-		poolSize    uint64
-		testTimeout time.Duration
-		testCount   uint64
+		runtime      runtime.Runtime
+		poolSize     uint64
+		testTimeout  time.Duration
+		testCount    uint64
+		testInterval uint64
 	}
 )
 
@@ -52,10 +54,11 @@ func New(opts Options) (*Runner, error) {
 	}
 
 	return &Runner{
-		runtime:     opts.Runtime,
-		poolSize:    poolSize,
-		testTimeout: testTimeout,
-		testCount:   times,
+		runtime:      opts.Runtime,
+		poolSize:     poolSize,
+		testTimeout:  testTimeout,
+		testCount:    times,
+		testInterval: opts.TimesInterval,
 	}, nil
 }
 
@@ -175,6 +178,11 @@ func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.
 		}
 
 		counter++
+
+		// we pause only if it's not the first execution
+		if counter > 1 && r.testInterval > 0 {
+			<-time.After(time.Duration(r.testInterval) * time.Second)
+		}
 
 		currentStart := time.Now()
 

@@ -152,6 +152,12 @@ Ferret: %s
 				EnvVars: []string{"LAB_TIMES"},
 				Value:   1,
 			},
+			&cli.Uint64Flag{
+				Name:    "times-interval",
+				Usage:   "interval between test cycles in seconds",
+				EnvVars: []string{"LAB_TIMES_INTERVAL"},
+				Value:   0,
+			},
 			&cli.StringSliceFlag{
 				Name:        "cdn",
 				Usage:       "file or directory to serve via HTTP (./dir as default or ./dir@name with alias)",
@@ -278,10 +284,11 @@ Ferret: %s
 			}
 
 			r, err := runner.New(runner.Options{
-				Runtime:     rt,
-				PoolSize:    c.Uint64("concurrency"),
-				TestTimeout: time.Duration(c.Uint64("timeout")) * time.Second,
-				Times:       c.Uint64("times"),
+				Runtime:       rt,
+				PoolSize:      c.Uint64("concurrency"),
+				TestTimeout:   time.Duration(c.Uint64("timeout")) * time.Second,
+				Times:         c.Uint64("times"),
+				TimesInterval: c.Uint64("times-interval"),
 			})
 
 			if err != nil {
