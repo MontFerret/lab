@@ -1,5 +1,12 @@
 ## Changelog
 
+### 1.3.0
+#### Added
+- Added interval time between test cycles. [#6](https://github.com/MontFerret/lab/pull/6)
+
+#### Updated
+- Upgraded Ferret to v0.13.0
+
 ### 1.2.0
 #### Added
 - Automatic port allocation. [#4](https://github.com/MontFerret/lab/pull/4)
