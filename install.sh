@@ -6,7 +6,7 @@ location=${LAB_LOCATION:-$defaultLocation}
 version=${LAB_VERSION:-$defaultVersion}
 
 # Copyright MontFerret Team 2020
-curl -sI https://github.com/MontFerret/lab/releases/latest | awk '{print tolower($0)}' | grep location: | awk -F"/" '{ printf "%s", $NF }' | tr -d '\r'
+version=$(curl -sI https://github.com/MontFerret/lab/releases/latest | awk '{print tolower($0)}' | grep location: | awk -F"/" '{ printf "%s", $NF }' | tr -d '\r')
 echo "Installing Lab $version to $location"
 
 if [ ! $version ]; then
