@@ -7,7 +7,7 @@ version=${LAB_VERSION:-$defaultVersion}
 
 echo "Installing location $location"
 # Copyright MontFerret Team 2020
-version=$(curl -sI https://github.com/MontFerret/lab/releases/latest | grep location | awk -F"/" '{ printf "%s", $NF }' | tr -d '\r')
+version=$(curl -sI https://github.com/MontFerret/lab/releases/latest | grep Location | awk -F"/" '{ printf "%s", $NF }' | tr -d '\r')
 
 if [ ! $version ]; then
     echo "Failed while attempting to install lab-cli. Please manually install:"
