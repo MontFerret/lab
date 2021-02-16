@@ -327,9 +327,76 @@ func TestFileSystem(t *testing.T) {
 						So(f.Source, ShouldEqual, src)
 					}
 
+					path, err := filepath.Rel(filepath.Dir(f1.Name()), f2.Name())
+					So(err, ShouldBeNil)
+
 					onNext, onError = src.Resolve(
 						context.Background(),
-						mustParseUrl(filepath.Join("./", filepath.Base(dir), filepath.Base(f2.Name()))),
+						mustParseUrl(path),
+					)
+
+					select {
+					case e := <-onError:
+						So(e, ShouldBeNil)
+					case f := <-onNext:
+						So(string(f.Content), ShouldEqual, "RETURN 'file2'")
+						So(f.Name, ShouldNotBeNil)
+						So(f.Source, ShouldEqual, src)
+					}
+				})
+
+				Convey("Should resolve a file from a sibling folder", func() {
+					dir1, err := ioutil.TempDir("", "lab-tests-*")
+					So(err, ShouldBeNil)
+
+					dir2, err := ioutil.TempDir("", "lab-tests-*")
+					So(err, ShouldBeNil)
+
+					f1, err := ioutil.TempFile(dir1, "lab.*.fql")
+					So(err, ShouldBeNil)
+
+					_, err = f1.WriteString("RETURN 'file1'")
+					So(err, ShouldBeNil)
+					So(f1.Close(), ShouldBeNil)
+
+					f2, err := ioutil.TempFile(dir2, "lab.*.fql")
+					So(err, ShouldBeNil)
+
+					_, err = f2.WriteString("RETURN 'file2'")
+					So(err, ShouldBeNil)
+					So(f2.Close(), ShouldBeNil)
+
+					defer func() {
+						os.Remove(f1.Name())
+						os.Remove(f2.Name())
+						os.Remove(dir1)
+					}()
+
+					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
+					src, err := sources.NewFileSystem(*u)
+
+					So(err, ShouldBeNil)
+					So(src, ShouldNotBeNil)
+
+					onNext, onError := src.Read(context.Background())
+
+					So(onNext, ShouldNotBeNil)
+					So(onError, ShouldNotBeNil)
+
+					select {
+					case e := <-onError:
+						So(e, ShouldBeNil)
+					case f := <-onNext:
+						So(string(f.Content), ShouldEqual, "RETURN 'file1'")
+						So(f.Name, ShouldNotBeNil)
+						So(f.Source, ShouldEqual, src)
+					}
+
+					path, err := filepath.Rel(dir1, f2.Name())
+					So(err, ShouldBeNil)
+					onNext, onError = src.Resolve(
+						context.Background(),
+						mustParseUrl(path),
 					)
 
 					select {
