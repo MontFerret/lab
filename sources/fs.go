@@ -17,7 +17,7 @@ type FileSystem struct {
 	filter glob.Glob
 }
 
-func NewFileSystem(u url.URL) (Source, error) {
+func NewFileSystem(u *url.URL) (Source, error) {
 	pattern := u.Query().Get("filter")
 
 	var filter glob.Glob
@@ -72,7 +72,7 @@ func (fs *FileSystem) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	return onNext, onError
 }
 
-func (fs *FileSystem) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
+func (fs *FileSystem) Resolve(ctx context.Context, u *url.URL) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
 	onError := make(chan Error)
 
@@ -82,7 +82,13 @@ func (fs *FileSystem) Resolve(ctx context.Context, u url.URL) (<-chan File, <-ch
 			close(onError)
 		}()
 
-		fp, err := filepath.Abs(filepath.Join(fs.dir, filepath.Join(u.Host, u.Path)))
+		from := u.Query().Get("from")
+
+		if from == "" {
+			from = fs.dir
+		}
+
+		fp, err := filepath.Abs(filepath.Join(ToDir(from), filepath.Join(u.Host, u.Path)))
 
 		if err != nil {
 			onError <- NewErrorFrom(u.String(), err)

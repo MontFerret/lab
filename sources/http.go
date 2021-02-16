@@ -2,16 +2,17 @@ package sources
 
 import (
 	"context"
-	"github.com/hashicorp/go-retryablehttp"
 	"io/ioutil"
 	"net/url"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type HTTP struct {
-	url url.URL
+	url *url.URL
 }
 
-func NewHTTP(u url.URL) (Source, error) {
+func NewHTTP(u *url.URL) (Source, error) {
 	return &HTTP{u}, nil
 }
 
@@ -19,11 +20,11 @@ func (src *HTTP) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	return src.call(ctx, src.url)
 }
 
-func (src *HTTP) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
+func (src *HTTP) Resolve(ctx context.Context, u *url.URL) (<-chan File, <-chan Error) {
 	return src.call(ctx, u)
 }
 
-func (src *HTTP) call(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
+func (src *HTTP) call(ctx context.Context, u *url.URL) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
 	onError := make(chan Error)
 

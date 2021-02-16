@@ -21,7 +21,7 @@ type Git struct {
 	filter glob.Glob
 }
 
-func NewGit(u url.URL) (Source, error) {
+func NewGit(u *url.URL) (Source, error) {
 	var filter glob.Glob
 
 	pattern := u.Query().Get("filter")
@@ -142,7 +142,7 @@ func (g *Git) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	return onNext, onError
 }
 
-func (g *Git) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error) {
+func (g *Git) Resolve(ctx context.Context, u *url.URL) (<-chan File, <-chan Error) {
 	onNext := make(chan File)
 	onError := make(chan Error)
 
@@ -160,7 +160,9 @@ func (g *Git) Resolve(ctx context.Context, u url.URL) (<-chan File, <-chan Error
 			return
 		}
 
-		filename := filepath.Join(u.Host, u.Path)
+		from := u.Query().Get("from")
+
+		filename := filepath.Join(filepath.Join(ToDir(from), filepath.Join(u.Host, u.Path)))
 		file, err := commit.File(filename)
 
 		if err != nil {

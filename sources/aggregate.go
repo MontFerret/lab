@@ -54,6 +54,6 @@ func (a *Aggregate) Read(ctx context.Context) (<-chan File, <-chan Error) {
 	return onNext, onError
 }
 
-func (a *Aggregate) Resolve(_ context.Context, _ url.URL) (<-chan File, <-chan Error) {
+func (a *Aggregate) Resolve(_ context.Context, _ *url.URL) (<-chan File, <-chan Error) {
 	return nil, nil
 }

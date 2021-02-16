@@ -9,8 +9,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MontFerret/lab/sources"
 	. "github.com/smartystreets/goconvey/convey"
+
+	"github.com/MontFerret/lab/runtime"
+	"github.com/MontFerret/lab/sources"
+	T "github.com/MontFerret/lab/testing"
 )
 
 func TestFileSystem(t *testing.T) {
@@ -20,7 +23,7 @@ func TestFileSystem(t *testing.T) {
 				Convey("Should send an error", func() {
 					str := fmt.Sprintf("file://%stest.foo", os.TempDir())
 					u, _ := url.Parse(str)
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -52,7 +55,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -84,7 +87,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -129,7 +132,7 @@ func TestFileSystem(t *testing.T) {
 
 					for i, f := range files {
 						u, _ := url.Parse(fmt.Sprintf("file://%s", f))
-						src, err := sources.NewFileSystem(*u)
+						src, err := sources.NewFileSystem(u)
 
 						So(err, ShouldBeNil)
 						So(src, ShouldNotBeNil)
@@ -189,7 +192,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s?filter=**/*.take.fql", dir))
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -253,7 +256,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -308,7 +311,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -374,7 +377,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -445,7 +448,7 @@ func TestFileSystem(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", relToFile))
-					src, err := sources.NewFileSystem(*u)
+					src, err := sources.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -480,6 +483,77 @@ func TestFileSystem(t *testing.T) {
 						So(f.Source, ShouldEqual, src)
 					}
 				})
+
+				Convey("Should resolve from a path different from a based one", func() {
+					dirTestsRoot, err := ioutil.TempDir("", "lab-tests-test-root-*")
+					So(err, ShouldBeNil)
+
+					dirTestsNested, err := ioutil.TempDir(dirTestsRoot, "lab-tests-test-nested-*")
+					So(err, ShouldBeNil)
+
+					dirTestsNested2x, err := ioutil.TempDir(dirTestsNested, "lab-tests-test-nested-2x-*")
+					So(err, ShouldBeNil)
+
+					dirExmRoot, err := ioutil.TempDir("", "lab-tests-examples-root-*")
+					So(err, ShouldBeNil)
+
+					f1, err := ioutil.TempFile(dirExmRoot, "lab.*.fql")
+					So(err, ShouldBeNil)
+
+					_, err = f1.WriteString("RETURN 'file1'")
+					So(err, ShouldBeNil)
+					So(f1.Close(), ShouldBeNil)
+
+					f2, err := ioutil.TempFile(dirTestsNested2x, "lab.*.yaml")
+					So(err, ShouldBeNil)
+
+					f2Content := fmt.Sprintf(`
+query:
+  ref: ../../../%s/%s
+assert:
+  text: RETURN TRUE
+`, filepath.Base(dirExmRoot), filepath.Base(f1.Name()))
+					_, err = f2.WriteString(f2Content)
+					So(err, ShouldBeNil)
+					So(f2.Close(), ShouldBeNil)
+
+					defer func() {
+						os.Remove(f1.Name())
+						os.Remove(f2.Name())
+						os.Remove(dirTestsRoot)
+						os.Remove(dirTestsNested)
+						os.Remove(dirTestsNested2x)
+						os.Remove(dirExmRoot)
+					}()
+
+					u, _ := url.Parse(fmt.Sprintf("file://%s", dirTestsRoot))
+					src, err := sources.NewFileSystem(u)
+
+					So(err, ShouldBeNil)
+					So(src, ShouldNotBeNil)
+
+					onNext, onError := src.Read(context.Background())
+
+					So(onNext, ShouldNotBeNil)
+					So(onError, ShouldNotBeNil)
+
+					rt := runtime.AsFunc(func(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+						return []byte(""), nil
+					})
+
+					for f := range onNext {
+						s, err := T.NewSuite(T.Options{
+							File:    f,
+							Timeout: 0,
+						})
+
+						So(err, ShouldBeNil)
+
+						err = s.Run(context.Background(), rt, T.NewParams())
+						So(err, ShouldBeNil)
+					}
+				})
+
 			})
 		})
 	})

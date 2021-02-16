@@ -12,3 +12,11 @@ func IsSupportedFile(name string) bool {
 		return false
 	}
 }
+
+func ToDir(path string) string {
+	if filepath.Ext(path) == "" {
+		return path
+	}
+
+	return filepath.Dir(path)
+}

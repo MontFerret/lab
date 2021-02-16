@@ -14,8 +14,14 @@ type (
 		Params     map[string]interface{}
 	}
 
+	Func func(ctx context.Context, query string, params map[string]interface{}) ([]byte, error)
+
 	Runtime interface {
 		Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error)
+	}
+
+	FuncStruct struct {
+		fn Func
 	}
 )
 
@@ -38,4 +44,12 @@ func New(opts Options) (Runtime, error) {
 	default:
 		return NewBinary(u.Host+u.Path, opts.CDPAddress, opts.Params)
 	}
+}
+
+func AsFunc(fn Func) Runtime {
+	return &FuncStruct{fn}
+}
+
+func (f FuncStruct) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+	return f.fn(ctx, query, params)
 }
