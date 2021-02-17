@@ -38,7 +38,7 @@ archives:
 dockers:
   - goos: linux
     goarch: amd64
-    binaries:
+    ids:
       - lab
     skip_push: false
     dockerfile: Dockerfile.release
