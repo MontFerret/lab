@@ -123,7 +123,7 @@ func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) 
 		return "", errors.Wrap(err, "parse 'ref'")
 	}
 
-	onNext, onError := suite.file.Source.Resolve(ctx, *u)
+	onNext, onError := suite.file.Resolve(ctx, u)
 
 	select {
 	case e := <-onError:

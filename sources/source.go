@@ -10,10 +10,10 @@ import (
 type (
 	Source interface {
 		Read(ctx context.Context) (onNext <-chan File, onError <-chan Error)
-		Resolve(ctx context.Context, url url.URL) (onNext <-chan File, onError <-chan Error)
+		Resolve(ctx context.Context, url *url.URL) (onNext <-chan File, onError <-chan Error)
 	}
 
-	SourceFactory func(u url.URL) (Source, error)
+	SourceFactory func(u *url.URL) (Source, error)
 
 	SourceType int
 )
@@ -69,10 +69,14 @@ func Create(str string) (Source, error) {
 		return nil, err
 	}
 
-	return CreateFrom(*u)
+	return CreateFrom(u)
 }
 
-func CreateFrom(u url.URL) (Source, error) {
+func CreateFrom(u *url.URL) (Source, error) {
+	if u == nil {
+		return nil, errors.New("missed url")
+	}
+
 	// Default Schema is file://
 	if u.Scheme == "" {
 		return NewFileSystem(u)
@@ -89,7 +93,7 @@ func CreateFrom(u url.URL) (Source, error) {
 	return factory(u)
 }
 
-func GetType(u url.URL) SourceType {
+func GetType(u *url.URL) SourceType {
 	srcType, exists := typeByScheme[u.Scheme]
 
 	if !exists {

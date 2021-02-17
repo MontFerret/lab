@@ -3,18 +3,21 @@ package sources_test
 import (
 	"context"
 	"fmt"
-	"github.com/gobwas/glob"
 	"net/url"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/MontFerret/lab/sources"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/gobwas/glob"
 	. "github.com/smartystreets/goconvey/convey"
+
+	"github.com/MontFerret/lab/runtime"
+	"github.com/MontFerret/lab/sources"
+	T "github.com/MontFerret/lab/testing"
 )
 
 type MockFile struct {
@@ -22,14 +25,14 @@ type MockFile struct {
 	Content string
 }
 
-func mustParseUrl(raw string) url.URL {
+func mustParseUrl(raw string) *url.URL {
 	u, err := url.Parse(raw)
 
 	if err != nil {
 		panic(err)
 	}
 
-	return *u
+	return u
 }
 
 func TestGit(t *testing.T) {
@@ -107,7 +110,7 @@ func TestGit(t *testing.T) {
 				Convey("Should send an error", func() {
 					u, err := url.Parse("http://localhost/user/repo")
 					So(err, ShouldBeNil)
-					src, err := sources.NewGit(*u)
+					src, err := sources.NewGit(u)
 					So(err, ShouldBeNil)
 
 					onNext, onError := src.Read(context.Background())
@@ -390,6 +393,67 @@ func TestGit(t *testing.T) {
 				case f := <-onNext:
 					So(f.Name, ShouldEqual, "tests/my-test.fql")
 					So(f.Source, ShouldEqual, src)
+				}
+			})
+
+			Convey("Should resolve from a path different from a based one", func() {
+				repo, err := initRepo([]MockFile{
+					{
+						Name: "query-1.fql",
+					},
+				})
+
+				So(err, ShouldBeNil)
+
+				tree, err := repo.Worktree()
+				So(err, ShouldBeNil)
+
+				So(tree.Filesystem.MkdirAll("e2e/tests/examples/", os.ModeDir), ShouldBeNil)
+				So(tree.Filesystem.MkdirAll("examples/", os.ModeDir), ShouldBeNil)
+
+				file, err := tree.Filesystem.Create("examples/my-test1.fql")
+				file.Write([]byte("RETURN TRUE"))
+				So(err, ShouldBeNil)
+				So(file.Close(), ShouldBeNil)
+
+				file2, err := tree.Filesystem.Create("e2e/tests/examples/my-test1.yaml")
+				file2.Write([]byte(`
+query:
+  ref: ../../../examples/my-test1.fql
+assert:
+  text: RETURN TRUE
+`))
+				So(err, ShouldBeNil)
+				So(file2.Close(), ShouldBeNil)
+
+				So(tree.AddGlob("*"), ShouldBeNil)
+				So(apply(tree), ShouldBeNil)
+
+				src, err := sources.NewGitFrom(repo, nil)
+				So(err, ShouldBeNil)
+
+				onNext, onError := src.Resolve(context.Background(), mustParseUrl("e2e/tests/examples/my-test1.yaml"))
+
+				So(onNext, ShouldNotBeNil)
+				So(onError, ShouldNotBeNil)
+
+				select {
+				case e := <-onError:
+					So(e, ShouldBeNil)
+				case f := <-onNext:
+					rt := runtime.AsFunc(func(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+						return []byte(""), nil
+					})
+
+					s, err := T.NewSuite(T.Options{
+						File:    f,
+						Timeout: 0,
+					})
+
+					So(err, ShouldBeNil)
+
+					err = s.Run(context.Background(), rt, T.NewParams())
+					So(err, ShouldBeNil)
 				}
 			})
 		})
