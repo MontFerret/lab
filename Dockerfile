@@ -14,7 +14,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux make compile
 
 # Build the final container. And install
-FROM montferret/chromium:87.0.4272.0
+FROM montferret/chromium:90.0.4427.0
 
 RUN apt-get update && apt-get install -y dumb-init
 

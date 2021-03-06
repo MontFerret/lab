@@ -1,5 +1,15 @@
 ## Changelog
 
+### 1.4.0
+#### Updated
+- Ferret to v0.14.0
+- Echo to v4.2.0
+- Chromium to v90.0.4427.0
+
+### 1.3.1
+#### Fixed
+- Files resolution. [#8](https://github.com/MontFerret/lab/pull/8)
+
 ### 1.3.0
 #### Added
 - Added interval time between test cycles. [#6](https://github.com/MontFerret/lab/pull/6)

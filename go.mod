@@ -3,12 +3,12 @@ module github.com/MontFerret/lab
 go 1.13
 
 require (
-	github.com/MontFerret/ferret v0.13.0
+	github.com/MontFerret/ferret v0.14.0
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/gobwas/glob v0.2.3
 	github.com/hashicorp/go-retryablehttp v0.6.8
-	github.com/labstack/echo/v4 v4.1.17
+	github.com/labstack/echo/v4 v4.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.20.0
 	github.com/smartystreets/goconvey v1.6.4
