@@ -139,7 +139,7 @@ getPackage() {
         rm -rf $targetDir
     fi
 
-    "$location/$projectName" --version
+    "$location/$projectName" version
 }
 
 getPackage
