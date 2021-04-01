@@ -168,19 +168,19 @@ COMMANDS:
 
 GLOBAL OPTIONS:
    --files value, -f value            location of FQL script files to run [$LAB_FILES]
-   --timeout value                    test timeout in seconds (default: 30) [$LAB_TIMEOUT]
+   --timeout value, -t value          test timeout in seconds (default: 30) [$LAB_TIMEOUT]
    --cdp value                        Chrome DevTools Protocol address (default: "http://127.0.0.1:9222") [$LAB_CDP]
    --reporter value                   reporter (console, simple) (default: "console") [$LAB_REPORTER]
    --runtime value, -r value          url to remote Ferret runtime (http, https or bin) [$LAB_RUNTIME]
    --runtime-param value, --rp value  params for remote Ferret runtime (--runtime-param=headers:{"KeyId": "abcd"} --runtime-param=path:"/ferret" }) [$LAB_RUNTIME_PARAM]
-   --concurrency value                number of multiple tests to run at a time (default: 1) [$LAB_CONCURRENCY]
+   --concurrency value, -c value      number of multiple tests to run at a time (default: 1) [$LAB_CONCURRENCY]
    --times value                      number of times to run each test (default: 1) [$LAB_TIMES]
+   --attempts value, -a value         number of times to re-run failed tests (default: 1) [$LAB_ATTEMPTS]
    --times-interval value             interval between test cycles in seconds (default: 0) [$LAB_TIMES_INTERVAL]
    --cdn value                        file or directory to serve via HTTP (./dir as default or ./dir@name with alias) [$LAB_CDN]
    --param value, -p value            query parameter (--param=foo:"bar", --param=id:1) [$LAB_PARAM]
    --wait value, -w value             tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb) [$LAB_WAIT]
-   --wait-timeout value               wait timeout in seconds (default: 5) [$LAB_WAIT_TIMEOUT]
+   --wait-timeout value, --wt value   wait timeout in seconds (default: 5) [$LAB_WAIT_TIMEOUT]
    --wait-attempts value              wait attempts (default: 5) [$LAB_WAIT_ATTEMPTS]
    --help, -h                         show help (default: false)
-
 ```
