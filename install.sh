@@ -1,50 +1,25 @@
 #!/bin/bash
 
+projectName="lab"
+name="Lab"
 defaultLocation="/usr/local/bin"
 defaultVersion="latest"
-location=${LAB_LOCATION:-$defaultLocation}
-version=${LAB_VERSION:-$defaultVersion}
+location=${LOCATION:-$defaultLocation}
+version=${VERSION:-$defaultVersion}
 
 # Copyright MontFerret Team 2020
-version=$(curl -sI https://github.com/MontFerret/lab/releases/latest | awk '{print tolower($0)}' | grep location: | awk -F"/" '{ printf "%s", $NF }' | tr -d '\r')
-echo "Installing Lab $version to $location"
+version=$(curl -sI https://github.com/MontFerret/$projectName/releases/latest | awk '{print tolower($0)}' | grep location: | awk -F"/" '{ printf "%s", $NF }' | tr -d '\r')
+echo "Installing $name $version to $location"
 
 if [ ! $version ]; then
-    echo "Failed while attempting to install lab-cli. Please manually install:"
+    echo "Failed while attempting to install $name. Please manually install:"
     echo ""
-    echo "1. Open your web browser and go to https://github.com/MontFerret/lab/releases"
+    echo "1. Open your web browser and go to https://github.com/MontFerret/$projectName/releases"
     echo "2. Download the latest release for your platform."
-    echo "3. chmod +x ./lab"
-    echo "4. mv ./lab $location"
+    echo "3. chmod +x ./$projectName"
+    echo "4. mv ./$projectName $location"
     exit 1
 fi
-
-hasCli() {
-    has=$(which lab)
-
-    if [ "$?" = "0" ]; then
-        echo
-        echo "You already have the lab!"
-        export n=5
-        echo "Overwriting in $n seconds... Press Control+C to cancel."
-        echo
-        sleep $n
-    fi
-
-    hasCurl=$(which curl)
-
-    if [ "$?" = "1" ]; then
-        echo "You need curl to use this script."
-        exit 1
-    fi
-
-    hasTar=$(which tar)
-
-    if [ "$?" = "1" ]; then
-        echo "You need tar to use this script."
-        exit 1
-    fi
-}
 
 checkHash(){
     sha_cmd="sha256sum"
@@ -97,17 +72,17 @@ getPackage() {
     fi
 
     suffix=$platform$arch
-    targetDir="/tmp/lab$suffix"
+    targetDir="/tmp/$projectName$suffix"
 
     if [ "$userid" != "0" ]; then
-        targetDir="$(pwd)/lab$suffix"
+        targetDir="$(pwd)/$projectName$suffix"
     fi
 
     if [ ! -d $targetDir ]; then
         mkdir $targetDir
     fi
 
-    targetFile="$targetDir/lab"
+    targetFile="$targetDir/$projectName"
 
     if [ -e $targetFile ]; then
         rm $targetFile
@@ -123,7 +98,7 @@ getPackage() {
             echo "==    following commands may need to be run manually   =="
             echo "========================================================="
             echo
-            echo "  sudo cp $targetFile $location/lab"
+            echo "  sudo cp $targetFile $location/$projectName"
             echo "  rm -rf $targetDir"
             echo
 
@@ -135,8 +110,8 @@ getPackage() {
         mkdir $location
     fi
 
-    baseUrl=https://github.com/MontFerret/lab/releases/download/$version
-    url=$baseUrl/lab$suffix.tar.gz
+    baseUrl=https://github.com/MontFerret/$projectName/releases/download/$version
+    url=$baseUrl/$projectName$suffix.tar.gz
     echo "Downloading package $url as $targetFile"
 
     curl -sSL $url | tar xz -C $targetDir
@@ -154,18 +129,17 @@ getPackage() {
     echo
     echo "Attempting to move $targetFile to $location"
 
-    mv $targetFile "$location/lab"
+    mv $targetFile "$location/$projectName"
 
     if [ "$?" = "0" ]; then
-        echo "New version of lab installed to $location"
+        echo "New version of $name installed to $location"
     fi
 
     if [ -d $targetDir ]; then
         rm -rf $targetDir
     fi
 
-    "$location/lab" --version
+    "$location/$projectName" --version
 }
 
-hasCli
 getPackage

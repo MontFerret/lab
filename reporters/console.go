@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/hako/durafmt"
 	"github.com/rs/zerolog"
 
 	"github.com/MontFerret/lab/runner"
@@ -22,19 +23,24 @@ func NewConsole(out io.Writer) *Console {
 
 func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 	for res := range stream.Progress {
+		var evt *zerolog.Event
+
 		if res.Error != nil {
-			c.logger.Error().
-				Err(res.Error).
-				Str("File", res.Filename).
-				Str("Duration", res.Duration.String()).
-				Uint64("Times", res.Times).
-				Msg("Failed")
+			evt = c.logger.Error().Err(res.Error)
 		} else {
-			c.logger.Info().
-				Str("File", res.Filename).
-				Str("Duration", res.Duration.String()).
-				Uint64("Times", res.Times).
-				Msg("Passed")
+			evt = c.logger.Info()
+		}
+
+		evt = evt.
+			Str("File", res.Filename).
+			Str("Duration", durafmt.ParseShort(res.Duration).InternationalString()).
+			Uint64("Attempts", res.Attempts).
+			Uint64("Times", res.Times)
+
+		if res.Error != nil {
+			evt.Msg("Failed")
+		} else {
+			evt.Msg("Passed")
 		}
 	}
 
@@ -51,12 +57,10 @@ func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 		}
 
 		event.
-			Timestamp().
 			Int("Passed", sum.Passed).
 			Int("Failed", sum.Failed).
-			Str("Duration", sum.Duration.String())
-
-		event.Msg("Done")
+			Str("Duration", durafmt.ParseShort(sum.Duration).InternationalString()).
+			Msg("Done")
 
 		if sum.HasErrors() {
 			return errors.New("has errors")

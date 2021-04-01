@@ -2,101 +2,24 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/MontFerret/lab/cmd"
+	"github.com/urfave/cli/v2"
 	"os"
 	"os/signal"
-	"strings"
-	"time"
-
-	"github.com/MontFerret/ferret/pkg/runtime/core"
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-	waitfor "github.com/ziflex/waitfor/pkg/runner"
-
-	"github.com/MontFerret/lab/cdn"
-	"github.com/MontFerret/lab/reporters"
-	"github.com/MontFerret/lab/runner"
-	"github.com/MontFerret/lab/runtime"
-	"github.com/MontFerret/lab/sources"
-	"github.com/MontFerret/lab/testing"
 )
 
 var (
-	version       string
-	ferretVersion string
+	version string
 )
-
-func toDirectories(values []string) ([]cdn.Directory, error) {
-	res := make([]cdn.Directory, 0, len(values))
-
-	for _, entry := range values {
-		dir, err := cdn.NewDirectoryFrom(entry)
-
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, dir)
-	}
-
-	return res, nil
-}
-
-func toParams(values []string) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
-
-	for _, entry := range values {
-		pair := strings.SplitN(entry, ":", 2)
-
-		if len(pair) < 2 {
-			return nil, core.Error(core.ErrInvalidArgument, entry)
-		}
-
-		var value interface{}
-		key := pair[0]
-
-		err := json.Unmarshal([]byte(pair[1]), &value)
-
-		if err != nil {
-			fmt.Println(pair[1])
-			return nil, err
-		}
-
-		res[key] = value
-	}
-
-	return res, nil
-}
-
-func createCDNManager(dirs []cdn.Directory) (*cdn.Manager, error) {
-	m, err := cdn.New()
-
-	if err != nil {
-		return nil, err
-	}
-
-	for _, dir := range dirs {
-		err := m.Bind(dir)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return m, nil
-}
 
 func main() {
 	app := &cli.App{
 		Name:        "lab",
 		Usage:       "run FQL test scripts",
 		Description: "Ferret test runner",
-		Version: fmt.Sprintf(`
-Runner: %s
-Ferret: %s
-`, version, ferretVersion),
-		UsageText: "lab [global options] [files...]",
+		HideVersion: true,
+		UsageText:   "lab [global options] [files...]",
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name:    "files",
@@ -106,7 +29,7 @@ Ferret: %s
 			},
 			&cli.Uint64Flag{
 				Name:        "timeout",
-				Aliases:     nil,
+				Aliases:     []string{"t"},
 				Usage:       "test timeout in seconds",
 				EnvVars:     []string{"LAB_TIMEOUT"},
 				FilePath:    "",
@@ -125,23 +48,25 @@ Ferret: %s
 			},
 			&cli.StringFlag{
 				Name:    "reporter",
-				Aliases: []string{"r"},
 				Usage:   "reporter (console, simple)",
 				EnvVars: []string{"LAB_REPORTER"},
 				Value:   "console",
 			},
 			&cli.StringFlag{
 				Name:    "runtime",
+				Aliases: []string{"r"},
 				Usage:   "url to remote Ferret runtime (http, https or bin)",
 				EnvVars: []string{"LAB_RUNTIME"},
 			},
 			&cli.StringSliceFlag{
 				Name:    "runtime-param",
+				Aliases: []string{"rp"},
 				Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\" })",
 				EnvVars: []string{"LAB_RUNTIME_PARAM"},
 			},
 			&cli.Uint64Flag{
 				Name:    "concurrency",
+				Aliases: []string{"c"},
 				Usage:   "number of multiple tests to run at a time",
 				EnvVars: []string{"LAB_CONCURRENCY"},
 				Value:   1,
@@ -150,6 +75,13 @@ Ferret: %s
 				Name:    "times",
 				Usage:   "number of times to run each test",
 				EnvVars: []string{"LAB_TIMES"},
+				Value:   1,
+			},
+			&cli.Uint64Flag{
+				Name:    "attempts",
+				Aliases: []string{"a"},
+				Usage:   "number of times to re-run failed tests",
+				EnvVars: []string{"LAB_ATTEMPTS"},
 				Value:   1,
 			},
 			&cli.Uint64Flag{
@@ -198,7 +130,7 @@ Ferret: %s
 			},
 			&cli.Uint64Flag{
 				Name:        "wait-timeout",
-				Aliases:     nil,
+				Aliases:     []string{"wt"},
 				Usage:       "wait timeout in seconds",
 				EnvVars:     []string{"LAB_WAIT_TIMEOUT"},
 				FilePath:    "",
@@ -223,148 +155,33 @@ Ferret: %s
 				HasBeenSet:  false,
 			},
 		},
-		Action: func(c *cli.Context) error {
-			waitFor := c.StringSlice("wait")
-
-			// Pass termination down the service tree
-			ctx, cancel := context.WithCancel(c.Context)
-
-			ch := make(chan os.Signal, 1)
-			signal.Notify(ch, os.Interrupt)
-			signal.Notify(ch, os.Kill)
-
-			go func() {
-				for {
-					<-ch
-					cancel()
-				}
-			}()
-
-			defer cancel()
-
-			var locations []string
-
-			if c.NArg() == 0 {
-				locations = c.StringSlice("files")
-			} else {
-				locations = c.Args().Slice()
-			}
-
-			if len(locations) == 0 {
-				cli.ShowAppHelpAndExit(c, 1)
-			}
-
-			if len(waitFor) > 0 {
-				err := waitfor.Test(
-					ctx,
-					waitFor,
-					waitfor.WithAttempts(c.Uint64("wait-attempts")),
-					waitfor.WithInterval(c.Uint64("wait-timeout")),
-				)
-
-				if err != nil {
-					return cli.Exit(errors.Wrap(err, "timeout"), 1)
-				}
-			}
-
-			runtimeParams, err := toParams(c.StringSlice("runtime-param"))
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			rt, err := runtime.New(runtime.Options{
-				RemoteURL:  c.String("runtime"),
-				CDPAddress: c.String("cdp"),
-				Params:     runtimeParams,
-			})
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			r, err := runner.New(runner.Options{
-				Runtime:       rt,
-				PoolSize:      c.Uint64("concurrency"),
-				TestTimeout:   time.Duration(c.Uint64("timeout")) * time.Second,
-				Times:         c.Uint64("times"),
-				TimesInterval: c.Uint64("times-interval"),
-			})
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			src, err := sources.New(locations...)
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			params := testing.NewParams()
-
-			userParams, err := toParams(c.StringSlice("param"))
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			params.SetUserValues(userParams)
-
-			dirs, err := toDirectories(c.StringSlice("cdn"))
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			cdnManager, err := createCDNManager(dirs)
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			cdnNodes := cdnManager.Endpoints()
-			cdnMap := make(map[string]string)
-			params.SetSystemValue("cdn", cdnMap)
-
-			for _, dir := range dirs {
-				_, found := cdnMap[dir.Name]
-
-				if found {
-					return cli.Exit(errors.Errorf("directory name is already defined: %s", dir.Name), 1)
-				}
-
-				address, found := cdnNodes[dir.Name]
-
-				if found {
-					cdnMap[dir.Name] = address
-				}
-			}
-
-			err = cdnManager.Start(ctx)
-
-			if err != nil {
-				return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
-			}
-
-			stream := r.Run(runner.NewContext(ctx, params), src)
-
-			err = reporters.
-				NewConsole(os.Stdout).
-				Report(ctx, stream)
-
-			if err != nil {
-				return cli.Exit(err, 1)
-			}
-
-			return nil
+		Action: cmd.DefaultCommand,
+		Commands: []*cli.Command{
+			cmd.VersionCommand(version),
 		},
 	}
 
-	err := app.Run(os.Args)
+	ctx, cancel := context.WithCancel(context.Background())
 
-	if err != nil {
-		fmt.Println("failed to start the app")
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	signal.Notify(ch, os.Kill)
+
+	go func() {
+		for {
+			<-ch
+			cancel()
+		}
+	}()
+
+	defer cancel()
+
+	if err := app.RunContext(ctx, os.Args); err != nil {
+		if err == context.Canceled {
+			fmt.Println("Terminated")
+		} else {
+			fmt.Println(err)
+		}
 
 		os.Exit(1)
 	}

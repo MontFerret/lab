@@ -1,5 +1,17 @@
 ## Changelog
 
+### 1.5.0
+#### Added
+- "version" command
+- "attempts" flag
+
+#### Updated
+- Ferret to v0.14.1
+- Improved time formatting
+
+#### Fixed
+- Invalid execution time
+
 ### 1.4.0
 #### Updated
 - Ferret to v0.14.0

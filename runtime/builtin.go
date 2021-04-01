@@ -12,6 +12,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+var version = "unknown"
+
 type Builtin struct {
 	compiler *compiler.Compiler
 	cdp      string
@@ -21,6 +23,10 @@ func NewBuiltin(cdp string, _ map[string]interface{}) (*Builtin, error) {
 	c := compiler.New()
 
 	return &Builtin{c, cdp}, nil
+}
+
+func (r *Builtin) Version(_ context.Context) (string, error) {
+	return version, nil
 }
 
 func (r *Builtin) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {

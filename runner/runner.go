@@ -17,6 +17,7 @@ type (
 		Runtime       runtime.Runtime
 		PoolSize      uint64
 		TestTimeout   time.Duration
+		Attempts      uint64
 		Times         uint64
 		TimesInterval uint64
 	}
@@ -25,6 +26,7 @@ type (
 		runtime      runtime.Runtime
 		poolSize     uint64
 		testTimeout  time.Duration
+		testAttempts uint64
 		testCount    uint64
 		testInterval uint64
 	}
@@ -39,6 +41,12 @@ func New(opts Options) (*Runner, error) {
 
 	if poolSize == 0 {
 		poolSize = 1
+	}
+
+	attempts := opts.Attempts
+
+	if attempts == 0 {
+		attempts = 1
 	}
 
 	times := opts.Times
@@ -56,6 +64,7 @@ func New(opts Options) (*Runner, error) {
 	return &Runner{
 		runtime:      opts.Runtime,
 		poolSize:     poolSize,
+		testAttempts: attempts,
 		testTimeout:  testTimeout,
 		testCount:    times,
 		testInterval: opts.TimesInterval,
@@ -69,7 +78,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 	go func() {
 		var failed int
 		var passed int
-		var sumDuration time.Duration
+		startTime := time.Now()
 
 		onNext, onError := src.Read(ctx)
 
@@ -80,7 +89,6 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 				passed++
 			}
 
-			sumDuration += res.Duration
 			onProgress <- res
 		}
 
@@ -89,7 +97,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 		onSummary <- Summary{
 			Passed:   passed,
 			Failed:   failed,
-			Duration: sumDuration,
+			Duration: time.Since(startTime),
 		}
 
 		close(onSummary)
@@ -111,6 +119,9 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources.File, onError <-chan
 
 		for !done {
 			select {
+			case <-ctx.Done():
+				done = true
+				break
 			case file, open := <-onNext:
 				if !open {
 					done = true
@@ -169,36 +180,47 @@ func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.
 		}
 	}
 
-	counter := uint64(0)
+	attemptCounter := uint64(0)
+	runCounter := uint64(0)
 	totalDuration := int64(0)
 
 	for {
-		if counter == r.testCount {
+		if runCounter == r.testCount {
 			break
 		}
 
-		counter++
-
 		// we pause only if it's not the first execution
-		if counter > 1 && r.testInterval > 0 {
+		if (runCounter > 0 || attemptCounter > 0) && r.testInterval > 0 {
 			<-time.After(time.Duration(r.testInterval) * time.Second)
 		}
 
+		attemptCounter++
 		currentStart := time.Now()
 
 		err = testCase.Run(ctx, r.runtime, params)
 
 		totalDuration += time.Since(currentStart).Nanoseconds()
 
-		if err != nil {
-			break
+		if err == nil {
+			// we count it only when test succeeds
+			runCounter++
+		} else {
+			if attemptCounter == r.testAttempts {
+				break
+			}
 		}
 	}
 
+	// if no successful executions
+	if runCounter == 0 {
+		runCounter = 1
+	}
+
 	return Result{
-		Times:    counter,
+		Times:    runCounter,
+		Attempts: attemptCounter,
 		Filename: file.Name,
-		Duration: time.Duration(totalDuration / int64(counter)), // average duration
+		Duration: time.Duration(totalDuration / int64(runCounter)), // average duration
 		Error:    err,
 	}
 }
