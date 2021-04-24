@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/MontFerret/ferret/pkg/compiler"
+	"github.com/MontFerret/ferret"
 	"github.com/MontFerret/ferret/pkg/drivers"
 	"github.com/MontFerret/ferret/pkg/drivers/cdp"
 	"github.com/MontFerret/ferret/pkg/drivers/http"
@@ -15,12 +15,12 @@ import (
 var version = "unknown"
 
 type Builtin struct {
-	compiler *compiler.Compiler
+	compiler *ferret.Instance
 	cdp      string
 }
 
 func NewBuiltin(cdp string, _ map[string]interface{}) (*Builtin, error) {
-	c := compiler.New()
+	c := ferret.New()
 
 	return &Builtin{c, cdp}, nil
 }

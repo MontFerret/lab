@@ -14,14 +14,14 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux make compile
 
 # Build the final container. And install
-FROM montferret/chromium:90.0.4427.0
+FROM montferret/chromium:91.0.4469.0
 
 RUN apt-get update && apt-get install -y dumb-init
 
 # Add in certs
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.c
 
-# Add lab binary
+# Add the binary
 COPY --from=builder /go/src/github.com/MontFerret/lab/bin/lab .
 
 VOLUME test
