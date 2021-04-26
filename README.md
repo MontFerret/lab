@@ -12,9 +12,6 @@
 	<a href="https://github.com/MontFerret/lab/releases">
 		<img alt="Lab release" src="https://img.shields.io/github/release/MontFerret/lab.svg">
 	</a>
-   <a href="https://microbadger.com/images/montferret/lab">
-      <img alt="Dockerimages" src="https://images.microbadger.com/badges/version/montferret/lab.svg">
-   </a>
 	<a href="https://opensource.org/licenses/Apache-2.0">
 		<img alt="Apache-2.0 License" src="http://img.shields.io/badge/license-Apache-brightgreen.svg">
 	</a>
