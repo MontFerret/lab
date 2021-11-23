@@ -1,5 +1,17 @@
 ## Changelog
 
+### 1.7.0
+#### Updated
+- Updated Chromium to 93.0.4577.0
+- Updated Ferret to 0.16.0
+- Updated other dependencies
+
+### 1.6.0
+#### Updated
+- Updated dependencies
+- Updated install.sh script
+- Updated license badge
+
 ### 1.5.0
 #### Added
 - "version" command
