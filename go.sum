@@ -5,8 +5,8 @@ github.com/Masterminds/vcs v1.13.0/go.mod h1:N09YCmOQr6RLxC6UNHzuVwAdodYbbnycGHS
 github.com/Microsoft/go-winio v0.4.14/go.mod h1:qXqCSQ3Xa7+6tgxaGTIe4Kpcdsi+P8jBhyzoq1bpyYA=
 github.com/Microsoft/go-winio v0.4.16 h1:FtSW/jqD+l4ba5iPBj9CODVtgfYAD8w2wS923g/cFDk=
 github.com/Microsoft/go-winio v0.4.16/go.mod h1:XB6nPKklQyQ7GC9LdcBEcBl8PF76WugXOPRXwdLnMv0=
-github.com/MontFerret/ferret v0.16.0 h1:CFaBE0YjB3ovCUooZLwly3pJi/IQ5Z1pGK0ORFBof5Y=
-github.com/MontFerret/ferret v0.16.0/go.mod h1:sYdL9nEVhCx+pfH2M5uQOiZtRteoURm0+VM7BurNHQw=
+github.com/MontFerret/ferret v0.16.1 h1:+f4soLtIdV7XTSkKiGwhzemH/WfDbsimJzC9Cg0I/Gk=
+github.com/MontFerret/ferret v0.16.1/go.mod h1:sYdL9nEVhCx+pfH2M5uQOiZtRteoURm0+VM7BurNHQw=
 github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 h1:YoJbenK9C67SkzkDfmQuVln04ygHj3vjZfd9FL+GmQQ=
 github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7/go.mod h1:z4/9nQmJSSwwds7ejkxaJwO37dru3geImFUdJlaLzQo=
 github.com/PuerkitoBio/goquery v1.8.0 h1:PJTF7AmFCFKk1N6V6jmKfrNH9tV5pNE6lZMkG0gta/U=
