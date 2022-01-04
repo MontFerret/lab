@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/MontFerret/ferret/pkg/runtime/core"
+	"github.com/go-waitfor/waitfor"
+	"github.com/go-waitfor/waitfor-http"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	waitfor "github.com/ziflex/waitfor/pkg/runner"
 
 	"github.com/MontFerret/lab/cdn"
 	"github.com/MontFerret/lab/reporters"
@@ -110,7 +111,11 @@ func DefaultCommand(c *cli.Context) error {
 	}
 
 	if len(waitFor) > 0 {
-		err := waitfor.Test(
+		wait := waitfor.New(
+			http.Use(),
+		)
+
+		err := wait.Test(
 			c.Context,
 			waitFor,
 			waitfor.WithAttempts(c.Uint64("wait-attempts")),
