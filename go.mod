@@ -3,7 +3,7 @@ module github.com/MontFerret/lab
 go 1.17
 
 require (
-	github.com/MontFerret/ferret v0.16.5
+	github.com/MontFerret/ferret v0.16.6
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-waitfor/waitfor v1.0.0
