@@ -1,7 +1,6 @@
 package sources
 
 type Error struct {
-	error
 	Filename string
 	Message  string
 }

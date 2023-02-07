@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -24,8 +25,8 @@ func VersionCommand(self string) *cli.Command {
 			}
 
 			fmt.Println("Version")
-			fmt.Println(fmt.Sprintf("  Self: %s", self))
-			fmt.Println(fmt.Sprintf("  Runtime: %s", rtVersion))
+			fmt.Printf("  Self: %s\n", self)
+			fmt.Printf("  Runtime: %s\n", rtVersion)
 
 			return nil
 		},

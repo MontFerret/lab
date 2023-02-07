@@ -4,12 +4,13 @@ import (
 	"context"
 	"os"
 
+	"github.com/rs/zerolog"
+
 	"github.com/MontFerret/ferret"
 	"github.com/MontFerret/ferret/pkg/drivers"
 	"github.com/MontFerret/ferret/pkg/drivers/cdp"
 	"github.com/MontFerret/ferret/pkg/drivers/http"
 	"github.com/MontFerret/ferret/pkg/runtime"
-	"github.com/rs/zerolog"
 )
 
 var version = "unknown"

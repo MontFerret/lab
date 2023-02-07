@@ -37,8 +37,6 @@ func (a *Aggregate) Read(ctx context.Context) (<-chan File, <-chan Error) {
 					return
 				case e := <-err:
 					onError <- e
-
-					break
 				case f, ok := <-next:
 					if !ok {
 						done = true

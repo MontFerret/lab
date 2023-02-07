@@ -42,10 +42,8 @@ func NewGit(u *url.URL) (Source, error) {
 	switch u.Scheme {
 	case "git+https":
 		u.Scheme = "https"
-		break
 	case "git+http":
 		u.Scheme = "http"
-		break
 	default:
 		break
 	}

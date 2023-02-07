@@ -118,7 +118,7 @@ func TestFileSystem(t *testing.T) {
 							panic(err)
 						}
 
-						_, err = f.WriteString(fmt.Sprintf("RETURN %d", i))
+						f.WriteString(fmt.Sprintf("RETURN %d", i))
 
 						files[i] = f.Name()
 						f.Close()
@@ -177,7 +177,7 @@ func TestFileSystem(t *testing.T) {
 							panic(err)
 						}
 
-						_, err = f.WriteString(fmt.Sprintf("RETURN %d", i))
+						f.WriteString(fmt.Sprintf("RETURN %d", i))
 
 						files[i] = f.Name()
 						f.Close()

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -12,7 +11,6 @@ import (
 
 type Manager struct {
 	addr    string
-	server  *http.Server
 	nodes   []*Node
 	running bool
 }

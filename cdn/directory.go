@@ -1,13 +1,14 @@
 package cdn
 
 import (
-	"github.com/pkg/errors"
 	"path/filepath"
 	"regexp"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
-var bindingExp = regexp.MustCompile("^(?P<path>[A-Za-z0-9./\\\\]+)(?P<port>:\\d+)?(?P<name>@\\w+)?")
+var bindingExp = regexp.MustCompile(`^(?P<path>[A-Za-z0-9./\\]+)(?P<port>:\d+)?(?P<name>@\w+)?`)
 
 type Directory struct {
 	Name string

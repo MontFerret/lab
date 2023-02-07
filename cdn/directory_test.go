@@ -1,9 +1,11 @@
 package cdn_test
 
 import (
-	"github.com/MontFerret/lab/cdn"
-	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
+
+	"github.com/MontFerret/lab/cdn"
 )
 
 func TestDirectory(t *testing.T) {

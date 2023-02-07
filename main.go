@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"os"
 	"os/signal"
+	"syscall"
 )
 
 var (
@@ -164,8 +165,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
-	signal.Notify(ch, os.Kill)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		for {
