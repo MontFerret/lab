@@ -31,23 +31,22 @@ Read the introductory blog post about Lab [here!](https://www.montferret.dev/blo
 - Support of multiple types of script locations (file system, git, http)
 - An arbitrary amount of HTTP endpoints for serving static files
 
-## Quick start
-
-```
-$ docker run --rm -v $PWD:/test montferret/lab
-```
-
 ## Installation
 
 ### Binary
 You can download the latest binaries from [here](https://github.com/MontFerret/lab/releases).
+
+### Shell
+```bash
+curl https://raw.githubusercontent.com/MontFerret/lab/master/install.sh | sh
+```
 
 ### Docker
 ```bash
 $ docker pull montferret/lab:latest
 ```
 
-### Quick start
+## Quick start
 
 The easiest way to use ``lab`` is to execute FQL scripts as is:
 
