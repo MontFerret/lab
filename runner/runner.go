@@ -117,16 +117,17 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources.File, onError <-chan
 		var wg sync.WaitGroup
 		var done bool
 
+	loop:
 		for !done {
 			select {
 			case <-ctx.Done():
 				done = true
-				break
+				break loop
 			case file, open := <-onNext:
 				if !open {
 					done = true
 
-					break
+					break loop
 				}
 
 				f := file
@@ -145,7 +146,8 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources.File, onError <-chan
 			case err, open := <-onError:
 				if !open {
 					done = true
-					break
+
+					break loop
 				}
 
 				out <- Result{

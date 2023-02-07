@@ -65,6 +65,11 @@ getPackage() {
     arch="_arm64"
     ;;
     esac
+    case $uname in
+    "arm64")
+    arch="_arm64"
+    ;;
+    esac
 
     if [ "$arch" = "" ]; then
         echo "$arch is not supported. Exiting"
