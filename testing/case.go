@@ -2,9 +2,10 @@ package testing
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"path"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"

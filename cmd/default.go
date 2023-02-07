@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MontFerret/ferret/pkg/runtime/core"
 	"github.com/go-waitfor/waitfor"
-	"github.com/go-waitfor/waitfor-http"
+	http "github.com/go-waitfor/waitfor-http"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+
+	"github.com/MontFerret/ferret/pkg/runtime/core"
 
 	"github.com/MontFerret/lab/cdn"
 	"github.com/MontFerret/lab/reporters"

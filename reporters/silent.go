@@ -3,6 +3,7 @@ package reporters
 import (
 	"context"
 	"errors"
+
 	"github.com/MontFerret/lab/runner"
 )
 

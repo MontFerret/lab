@@ -7,6 +7,11 @@ default: build
 
 build: vet test compile
 
+install-tools:
+	go install honnef.co/go/tools/cmd/staticcheck@latest && \
+	go install golang.org/x/tools/cmd/goimports@latest && \
+	go install github.com/mgechev/revive@latest
+
 install:
 	go get
 
@@ -26,10 +31,12 @@ doc:
 	godoc -http=:6060 -index
 
 fmt:
-	go fmt ./...
+	go fmt ./... && \
+	goimports -w -local github.com/MontFerret ./cdn ./cmd ./reporters ./runner ./runtime ./sources ./testing
 
 lint:
-	revive -config revive.toml -formatter stylish ./...
+	staticcheck ./... && \
+	revive -config revive.toml -formatter stylish -exclude ./pkg/parser/fql/... -exclude ./vendor/... ./...
 
 vet:
 	go vet ./...

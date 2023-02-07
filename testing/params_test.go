@@ -1,9 +1,11 @@
 package testing_test
 
 import (
-	"github.com/MontFerret/lab/testing"
-	. "github.com/smartystreets/goconvey/convey"
 	t "testing"
+
+	. "github.com/smartystreets/goconvey/convey"
+
+	"github.com/MontFerret/lab/testing"
 )
 
 func TestParams(t *t.T) {

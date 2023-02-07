@@ -3,9 +3,10 @@ package cdn
 import (
 	"context"
 	"fmt"
+	"math/rand"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"math/rand"
 )
 
 type (
