@@ -1,10 +1,15 @@
 #!/bin/bash
-# Copyright MontFerret Team 2020
+# Copyright MontFerret Team 2023
 # Licensed under the MIT license.
+
+report() {
+  command printf %s\\n "$*" 2>/dev/null
+}
+
 projectName="MontFerret"
 appName="lab"
 binName="lab"
-fullAppName="${projectName} $(fn_echo ${appName} | awk '{print toupper(substr($0,0,1)) substr($0,2)}')"
+fullAppName="${projectName} $(report ${appName} | awk '{print toupper(substr($0,0,1)) substr($0,2)}')"
 defaultLocation="${HOME}/.ferret"
 defaultVersion="latest"
 location=${LOCATION:-$defaultLocation}
@@ -15,10 +20,6 @@ if [ "$version" = "$defaultVersion" ]; then
 fi
 
 baseUrl=https://github.com/${projectName}/$appName/releases/download/$version
-
-report() {
-  command printf %s\\n "$*" 2>/dev/null
-}
 
 detectProfile() {
   if [ "${PROFILE-}" = '/dev/null' ]; then
@@ -148,7 +149,7 @@ getPlatformSuffix() {
 installPackage() {
   report "Installing ${fullAppName} ${version}..."
   # Download the archive to a temporary location
-  local tmpDir=$(mktemp -d -t "${projectName}.${appName}")
+  local tmpDir=$(mktemp -d -t "${projectName}.${appName}.XXXXXXX")
   local suffix=$(getPlatformSuffix)
   local fileName="${appName}${suffix}"
   local downloadDir="${tmpDir}/${fileName}@${version}"
