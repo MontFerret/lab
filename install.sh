@@ -21,6 +21,13 @@ fi
 
 baseUrl=https://github.com/${projectName}/$appName/releases/download/$version
 
+check_path() {
+    if [ -z "${1-}" ] || [ ! -f "${1}" ]; then
+        return 1
+    fi
+    fn_echo "${1}"
+}
+
 detectProfile() {
   if [ "${PROFILE-}" = '/dev/null' ]; then
     # the user has specifically requested NOT to have nvm touch their profile
