@@ -183,12 +183,12 @@ installPackage() {
 
   report "Download complete."
 
-#   checkHash "${downloadDir}"
+  checkHash "${downloadDir}"
 
-#   if [ $? -ne 0 ]; then
-#       report "Failed to check hash. Exiting..."
-#       exit 1
-#   fi
+  if [ $? -ne 0 ]; then
+      report "Failed to check hash. Exiting..."
+      exit 1
+  fi
 
   local downloadedFile="${downloadDir}/${binName}"
 
