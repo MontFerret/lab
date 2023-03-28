@@ -9,7 +9,7 @@ readonly projectName="MontFerret"
 readonly appName="lab"
 readonly binName="lab"
 readonly fullAppName="${projectName} $(echo ${appName} | awk '{print toupper(substr($0,0,1)) substr($0,2)}')"
-readonly baseUrl="https://github.com/${projectName}/$appName/releases/download"
+readonly baseUrl="https://github.com/${projectName}/${appName}/releases/download"
 
 # Declare default values
 readonly defaultLocation="${HOME}/.ferret"
@@ -116,7 +116,8 @@ update_profile() {
 
 # Check the binary hash
 check_hash() {
-  local download_dir="$1"
+  local version="$1"
+  local download_dir="$2"
   local sha_cmd="sha256sum"
 
   if ! command_exists "$sha_cmd"; then
@@ -124,7 +125,9 @@ check_hash() {
   fi
 
   if command_exists "$sha_cmd"; then
-    (cd "${download_dir}" && curl -sSL "${baseUrl}"/lab_checksums.txt | $sha_cmd -c >/dev/null)
+    local url="${baseUrl}/${version}/${appName}_checksums.txt"
+    (cd "${download_dir}" && curl -sSL "${url}" | $sha_cmd -c >/dev/null)
+
     if [ "$?" != "0" ]; then
       # rm $downloadFile
       report "Binary checksum didn't match. Exiting"
@@ -176,7 +179,7 @@ get_version_tag() {
   local version="$1"
 
   if [ "$version" = "latest" ]; then
-    local url="https://api.github.com/repos/MontFerret/lab/releases/latest"
+    local url="https://api.github.com/repos/${projectName}/${appName}/releases/latest"
 
     curl -sSL "${url}" | grep "tag_name" | cut -d '"' -f 4
   else
@@ -213,7 +216,7 @@ install() {
 
   curl -sSL "${url}" | tar xz --directory "${download_dir}"
 
-  check_hash "${download_dir}"
+  check_hash "${version}" "${download_dir}"
 
   local downloaded_file="${download_dir}/${binName}"
 
