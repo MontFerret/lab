@@ -39,8 +39,20 @@ validate_input() {
   local location="$1"
   local version="$2"
 
-  if [ -z "$location" ] || [ ! -d "$location" ]; then
+  if [ -z "$location" ]; then
     report "Invalid location: $location"
+    exit 1
+  fi
+
+  # Check if location exists
+  if [ ! -d "$location" ]; then
+    report "Location does not exist: $location"
+    exit 1
+  fi
+
+  # Check if location is writable
+  if [ ! -w "$location" ]; then
+    report "Location is not writable: $location"
     exit 1
   fi
 
@@ -195,8 +207,6 @@ install() {
   curl -sSL "${url}" | tar xz --directory "${download_dir}"
 
   local downloaded_file="${download_dir}/${binName}"
-
-  mkdir -p "${location}"
 
   report "Copying ${downloaded_file} to ${location}"
 
