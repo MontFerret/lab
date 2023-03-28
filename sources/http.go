@@ -2,7 +2,7 @@ package sources
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/url"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -56,7 +56,7 @@ func (src *HTTP) call(ctx context.Context, u *url.URL) (<-chan File, <-chan Erro
 
 		defer res.Body.Close()
 
-		content, err := ioutil.ReadAll(res.Body)
+		content, err := io.ReadAll(res.Body)
 
 		if err != nil {
 			onError <- NewErrorFrom(u.String(), err)

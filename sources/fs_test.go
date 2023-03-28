@@ -3,7 +3,6 @@ package sources_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -44,7 +43,7 @@ func TestFileSystem(t *testing.T) {
 
 			Convey("When a single file passed", func() {
 				Convey("Should read content if .fql", func() {
-					file, err := ioutil.TempFile("", "lab.*.fql")
+					file, err := os.CreateTemp("", "lab.*.fql")
 
 					So(err, ShouldBeNil)
 
@@ -76,7 +75,7 @@ func TestFileSystem(t *testing.T) {
 				})
 
 				Convey("Should return error if not .fql", func() {
-					file, err := ioutil.TempFile("", "lab.*.aql")
+					file, err := os.CreateTemp("", "lab.*.aql")
 
 					So(err, ShouldBeNil)
 
@@ -112,7 +111,7 @@ func TestFileSystem(t *testing.T) {
 					files := make([]string, 5)
 
 					for i := range files {
-						f, err := ioutil.TempFile("", "lab.*.fql")
+						f, err := os.CreateTemp("", "lab.*.fql")
 
 						if err != nil {
 							panic(err)
@@ -158,7 +157,7 @@ func TestFileSystem(t *testing.T) {
 				Convey("Should filter out files", func() {
 					files := make([]string, 5)
 
-					dir, err := ioutil.TempDir("", "lab_test")
+					dir, err := os.MkdirTemp("", "lab_test")
 
 					if err != nil {
 						panic(err)
@@ -171,7 +170,7 @@ func TestFileSystem(t *testing.T) {
 							name = "lab.*.take.fql"
 						}
 
-						f, err := ioutil.TempFile(dir, name)
+						f, err := os.CreateTemp(dir, name)
 
 						if err != nil {
 							panic(err)
@@ -236,14 +235,14 @@ func TestFileSystem(t *testing.T) {
 		Convey(".Resolve", func() {
 			Convey("When a local file passed", func() {
 				Convey("Should resolve a file from the same folder", func() {
-					f1, err := ioutil.TempFile("", "lab.*.fql")
+					f1, err := os.CreateTemp("", "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f1.WriteString("RETURN 'file1'")
 					So(err, ShouldBeNil)
 					So(f1.Close(), ShouldBeNil)
 
-					f2, err := ioutil.TempFile("", "lab.*.fql")
+					f2, err := os.CreateTemp("", "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f2.WriteString("RETURN 'file2'")
@@ -287,17 +286,17 @@ func TestFileSystem(t *testing.T) {
 				})
 
 				Convey("Should resolve a file from a different folder", func() {
-					dir, err := ioutil.TempDir("", "lab-tests")
+					dir, err := os.MkdirTemp("", "lab-tests")
 					So(err, ShouldBeNil)
 
-					f1, err := ioutil.TempFile("", "lab.*.fql")
+					f1, err := os.CreateTemp("", "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f1.WriteString("RETURN 'file1'")
 					So(err, ShouldBeNil)
 					So(f1.Close(), ShouldBeNil)
 
-					f2, err := ioutil.TempFile(dir, "lab.*.fql")
+					f2, err := os.CreateTemp(dir, "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f2.WriteString("RETURN 'file2'")
@@ -349,20 +348,20 @@ func TestFileSystem(t *testing.T) {
 				})
 
 				Convey("Should resolve a file from a sibling folder", func() {
-					dir1, err := ioutil.TempDir("", "lab-tests-*")
+					dir1, err := os.MkdirTemp("", "lab-tests-*")
 					So(err, ShouldBeNil)
 
-					dir2, err := ioutil.TempDir("", "lab-tests-*")
+					dir2, err := os.MkdirTemp("", "lab-tests-*")
 					So(err, ShouldBeNil)
 
-					f1, err := ioutil.TempFile(dir1, "lab.*.fql")
+					f1, err := os.CreateTemp(dir1, "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f1.WriteString("RETURN 'file1'")
 					So(err, ShouldBeNil)
 					So(f1.Close(), ShouldBeNil)
 
-					f2, err := ioutil.TempFile(dir2, "lab.*.fql")
+					f2, err := os.CreateTemp(dir2, "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f2.WriteString("RETURN 'file2'")
@@ -414,20 +413,20 @@ func TestFileSystem(t *testing.T) {
 				})
 
 				Convey("Should resolve a file using only rel paths", func() {
-					dir1, err := ioutil.TempDir("", "lab-tests-*")
+					dir1, err := os.MkdirTemp("", "lab-tests-*")
 					So(err, ShouldBeNil)
 
-					dir2, err := ioutil.TempDir("", "lab-tests-*")
+					dir2, err := os.MkdirTemp("", "lab-tests-*")
 					So(err, ShouldBeNil)
 
-					f1, err := ioutil.TempFile(dir1, "lab.*.fql")
+					f1, err := os.CreateTemp(dir1, "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f1.WriteString("RETURN 'file1'")
 					So(err, ShouldBeNil)
 					So(f1.Close(), ShouldBeNil)
 
-					f2, err := ioutil.TempFile(dir2, "lab.*.fql")
+					f2, err := os.CreateTemp(dir2, "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f2.WriteString("RETURN 'file2'")
@@ -485,26 +484,26 @@ func TestFileSystem(t *testing.T) {
 				})
 
 				Convey("Should resolve from a path different from a based one", func() {
-					dirTestsRoot, err := ioutil.TempDir("", "lab-tests-test-root-*")
+					dirTestsRoot, err := os.MkdirTemp("", "lab-tests-test-root-*")
 					So(err, ShouldBeNil)
 
-					dirTestsNested, err := ioutil.TempDir(dirTestsRoot, "lab-tests-test-nested-*")
+					dirTestsNested, err := os.MkdirTemp(dirTestsRoot, "lab-tests-test-nested-*")
 					So(err, ShouldBeNil)
 
-					dirTestsNested2x, err := ioutil.TempDir(dirTestsNested, "lab-tests-test-nested-2x-*")
+					dirTestsNested2x, err := os.MkdirTemp(dirTestsNested, "lab-tests-test-nested-2x-*")
 					So(err, ShouldBeNil)
 
-					dirExmRoot, err := ioutil.TempDir("", "lab-tests-examples-root-*")
+					dirExmRoot, err := os.MkdirTemp("", "lab-tests-examples-root-*")
 					So(err, ShouldBeNil)
 
-					f1, err := ioutil.TempFile(dirExmRoot, "lab.*.fql")
+					f1, err := os.CreateTemp(dirExmRoot, "lab.*.fql")
 					So(err, ShouldBeNil)
 
 					_, err = f1.WriteString("RETURN 'file1'")
 					So(err, ShouldBeNil)
 					So(f1.Close(), ShouldBeNil)
 
-					f2, err := ioutil.TempFile(dirTestsNested2x, "lab.*.yaml")
+					f2, err := os.CreateTemp(dirTestsNested2x, "lab.*.yaml")
 					So(err, ShouldBeNil)
 
 					f2Content := fmt.Sprintf(`

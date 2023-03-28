@@ -2,7 +2,6 @@ package sources
 
 import (
 	"context"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -129,7 +128,7 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onNext chan<- F
 		return
 	}
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 
 	if err != nil {
 		onError <- NewErrorFrom(path, err)
@@ -160,7 +159,7 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onNext chan<- F
 }
 
 func (fs *FileSystem) readFile(filename string, onNext chan<- File, onError chan<- Error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 
 	if err != nil {
 		onError <- NewErrorFrom(filename, err)
