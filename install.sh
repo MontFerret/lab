@@ -114,28 +114,6 @@ update_profile() {
   fi
 }
 
-# Check the binary hash
-check_hash() {
-  local version="$1"
-  local download_dir="$2"
-  local sha_cmd="sha256sum"
-
-  if ! command_exists "$sha_cmd"; then
-    sha_cmd="shasum -a 256"
-  fi
-
-  if command_exists "$sha_cmd"; then
-    local url="${baseUrl}/${version}/${appName}_checksums.txt"
-    (cd "${download_dir}" && curl -sSL "${url}" | $sha_cmd -c >/dev/null)
-
-    if [ "$?" != "0" ]; then
-      # rm $downloadFile
-      report "Binary checksum didn't match. Exiting"
-      exit 1
-    fi
-  fi
-}
-
 # Get the platform-specific filename suffix
 get_platform_suffix() {
   local platform_name="$(uname)"
@@ -215,8 +193,6 @@ install() {
   report "Downloading package $url as $download_file"
 
   curl -sSL "${url}" | tar xz --directory "${download_dir}"
-
-  check_hash "${version}" "${download_dir}"
 
   local downloaded_file="${download_dir}/${binName}"
 
