@@ -3,7 +3,7 @@ package sources
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"path/filepath"
 	"sync"
@@ -113,7 +113,7 @@ func (g *Git) Read(ctx context.Context) (<-chan File, <-chan Error) {
 
 			defer reader.Close()
 
-			content, err := ioutil.ReadAll(reader)
+			content, err := io.ReadAll(reader)
 
 			if err != nil {
 				onError <- NewErrorFrom(f.Name, err)
