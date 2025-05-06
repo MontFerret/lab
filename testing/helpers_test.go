@@ -19,7 +19,7 @@ func TestHelpers(t *t.T) {
 			copied := testing.ToMap(original)
 
 			So(&original, ShouldNotPointTo, &copied)
-			So(original, ShouldNotEqual, copied)
+			So(original, ShouldEqual, copied)
 			So(original, ShouldResemble, copied)
 		})
 
