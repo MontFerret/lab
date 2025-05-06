@@ -35,7 +35,12 @@ func (a *Aggregate) Read(ctx context.Context) (<-chan File, <-chan Error) {
 				select {
 				case <-ctx.Done():
 					return
-				case e := <-err:
+				case e, ok := <-err:
+					if !ok {
+						done = true
+						break
+					}
+
 					onError <- e
 				case f, ok := <-next:
 					if !ok {
@@ -47,6 +52,9 @@ func (a *Aggregate) Read(ctx context.Context) (<-chan File, <-chan Error) {
 				}
 			}
 		}
+
+		close(onNext)
+		close(onError)
 	}()
 
 	return onNext, onError
