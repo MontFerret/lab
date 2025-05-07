@@ -5,12 +5,13 @@ on:
     types:
       - created
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
