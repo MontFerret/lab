@@ -109,4 +109,4 @@ bin
 *.log
 *.orig
 dist
-coverage.txt
+coverage.txtlab
