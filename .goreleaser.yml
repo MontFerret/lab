@@ -25,8 +25,9 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X main.version={{ .Version }}
-      - -s -w -X github.com/MontFerret/lab/v2/pkg/runtime.version={{ .Env.FERRET_VERSION }}
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X github.com/MontFerret/lab/v2/pkg/runtime.version={{ .Env.FERRET_VERSION }}
 
 archives:
     - name_template: >-
