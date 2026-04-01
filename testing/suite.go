@@ -116,6 +116,10 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 
 func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) (*source.Source, error) {
 	if manifest.Text != "" {
+		if manifest.Ref == "" {
+			return source.NewAnonymous(manifest.Text), nil
+		}
+
 		return source.New(manifest.Ref, manifest.Text), nil
 	}
 
