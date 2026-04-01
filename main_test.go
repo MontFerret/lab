@@ -108,30 +108,51 @@ func TestRootWithoutArgsShowsHelp(t *testing.T) {
 	assertNotContains(t, stderr, "Implicit script execution")
 }
 
-func TestRootPositionalScriptShowsMigrationError(t *testing.T) {
+func TestRootPositionalScriptShowsRootHelp(t *testing.T) {
 	script := writeScript(t)
 
+	helpStdout, helpStderr, helpErr := runCLI(t)
 	stdout, stderr, err := runCLI(t, script)
 
-	assertExitCode(t, err, 1)
+	if helpErr != nil {
+		t.Fatalf("expected no error from root help, got %v", helpErr)
+	}
 
-	assertContains(t, stderr, "Implicit script execution is no longer supported")
-	assertContains(t, stderr, "lab run")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
 	assertContains(t, stdout, "lab [command] [command options]")
+	assertContains(t, stdout, "run")
+	assertContains(t, stdout, "version")
 	assertNotContains(t, stdout, "Done")
+
+	if stdout != helpStdout {
+		t.Fatalf("expected positional root invocation to match root help output, got %q and %q", stdout, helpStdout)
+	}
+
+	if stderr != helpStderr {
+		t.Fatalf("expected positional root invocation stderr to match root help stderr, got %q and %q", stderr, helpStderr)
+	}
 }
 
-func TestRootFilesFlagShowsMigrationError(t *testing.T) {
+func TestRootFilesFlagShowsUsageError(t *testing.T) {
 	script := writeScript(t)
 
 	stdout, stderr, err := runCLI(t, "-f", script)
 
-	assertExitCode(t, err, 1)
+	assertErrorMessage(t, err, "flag provided but not defined: -f")
 
-	assertContains(t, stderr, "Implicit script execution is no longer supported")
-	assertContains(t, stderr, "lab run")
+	assertContains(t, stdout, "Incorrect Usage: flag provided but not defined: -f")
 	assertContains(t, stdout, "lab [command] [command options]")
+	assertContains(t, stdout, "run")
+	assertContains(t, stdout, "version")
 	assertNotContains(t, stdout, "Done")
+	assertContains(t, stdout, "--help, -h")
+	assertContains(t, stdout, "OPTIONS:")
+	if stderr != "" {
+		t.Fatalf("expected stderr to be empty, got %q", stderr)
+	}
 }
 
 func TestRootHelpShowsCommandsOnly(t *testing.T) {
@@ -233,5 +254,17 @@ func assertExitCode(t *testing.T, err error, expected int) {
 
 	if exitErr.ExitCode() != expected {
 		t.Fatalf("expected exit code %d, got %d", expected, exitErr.ExitCode())
+	}
+}
+
+func assertErrorMessage(t *testing.T, err error, expected string) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatalf("expected error %q, got nil", expected)
+	}
+
+	if err.Error() != expected {
+		t.Fatalf("expected error %q, got %q", expected, err.Error())
 	}
 }
