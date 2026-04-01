@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/go-waitfor/waitfor"
@@ -13,91 +11,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	cdn2 "github.com/MontFerret/lab/v2/pkg/cdn"
 	"github.com/MontFerret/lab/v2/pkg/reporters"
 	runner2 "github.com/MontFerret/lab/v2/pkg/runner"
-	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	"github.com/MontFerret/lab/v2/pkg/testing"
-
-	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 )
-
-const implicitRunRemovedMessage = "Implicit script execution is no longer supported; use `lab run ...` instead."
-
-func toDirectories(values []string) ([]cdn2.Directory, error) {
-	res := make([]cdn2.Directory, 0, len(values))
-
-	for _, entry := range values {
-		dir, err := cdn2.NewDirectoryFrom(entry)
-
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, dir)
-	}
-
-	return res, nil
-}
-
-func toParams(values []string) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
-
-	for _, entry := range values {
-		pair := strings.SplitN(entry, ":", 2)
-
-		if len(pair) < 2 {
-			return nil, ferretrt.Error(ferretrt.ErrInvalidArgument, entry)
-		}
-
-		var value interface{}
-		key := pair[0]
-
-		err := json.Unmarshal([]byte(pair[1]), &value)
-
-		if err != nil {
-			fmt.Println(pair[1])
-			return nil, err
-		}
-
-		res[key] = value
-	}
-
-	return res, nil
-}
-
-func createCDNManager(dirs []cdn2.Directory) (*cdn2.Manager, error) {
-	m, err := cdn2.New()
-
-	if err != nil {
-		return nil, err
-	}
-
-	for _, dir := range dirs {
-		err := m.Bind(dir)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return m, nil
-}
-
-func newRuntime(c *cli.Context, params map[string]interface{}) (runtime.Runtime, error) {
-	rt, err := runtime.New(runtime.Options{
-		Type:       c.String("runtime"),
-		CDPAddress: cdpAddressFromContext(c),
-		Params:     params,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return rt, nil
-}
 
 func RunAction(c *cli.Context) error {
 	locations, ok := locationsFromContext(c)
@@ -114,31 +32,11 @@ func RunAction(c *cli.Context) error {
 }
 
 func RootAction(c *cli.Context) error {
-	if c.NArg() == 0 {
-		return cli.ShowAppHelp(c)
-	}
-
-	return showImplicitRunRemoved(c)
+	return cli.ShowAppHelp(c)
 }
 
-func RootUsageError(c *cli.Context, err error, isSubcommand bool) error {
-	if isSubcommand {
-		return showSubcommandUsageError(c, err)
-	}
-
-	return showImplicitRunRemoved(c)
-}
-
-func locationsFromContext(c *cli.Context) ([]string, bool) {
-	if c.NArg() == 0 {
-		locations := c.StringSlice("files")
-
-		return locations, len(locations) > 0
-	}
-
-	locations := c.Args().Slice()
-
-	return locations, len(locations) > 0
+func RootUsageError(c *cli.Context, err error, _ bool) error {
+	return showSubcommandUsageError(c, err)
 }
 
 func runScripts(c *cli.Context, locations []string) error {
@@ -244,26 +142,6 @@ func runScripts(c *cli.Context, locations []string) error {
 		Report(c.Context, stream)
 }
 
-func cdpAddressFromContext(c *cli.Context) string {
-	if c != nil {
-		if address := c.String("cdp"); address != "" {
-			return address
-		}
-	}
-
-	return defaultCDPAddress
-}
-
-func showImplicitRunRemoved(c *cli.Context) error {
-	fmt.Fprintln(appErrWriter(c), implicitRunRemovedMessage)
-
-	if err := cli.ShowAppHelp(c); err != nil {
-		return err
-	}
-
-	return cli.Exit("", 1)
-}
-
 func showSubcommandUsageError(c *cli.Context, err error) error {
 	fmt.Fprintf(appWriter(c), "Incorrect Usage: %s\n\n", err.Error())
 
@@ -280,12 +158,4 @@ func appWriter(c *cli.Context) io.Writer {
 	}
 
 	return os.Stdout
-}
-
-func appErrWriter(c *cli.Context) io.Writer {
-	if c != nil && c.App != nil && c.App.ErrWriter != nil {
-		return c.App.ErrWriter
-	}
-
-	return os.Stderr
 }
