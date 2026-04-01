@@ -6,7 +6,7 @@ FROM golang:alpine AS builder
 # Make is requiered for build.
 RUN apk update && apk add --no-cache git make ca-certificates
 
-WORKDIR /go/src/github.com/MontFerret/lab
+WORKDIR /go/src/github.com/MontFerret/lab/v2
 
 COPY . .
 
@@ -19,14 +19,17 @@ FROM montferret/chromium:111.0.5563.0
 RUN apt-get update && apt-get install -y dumb-init
 
 # Add in certs
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.c
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Add the binary
-COPY --from=builder /go/src/github.com/MontFerret/lab/bin/lab .
+COPY --from=builder /go/src/github.com/MontFerret/lab/v2/bin/lab .
+COPY docker-entrypoint.sh .
+
+RUN chmod +x ./lab ./docker-entrypoint.sh
 
 VOLUME test
 
 EXPOSE 8080
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///test"]
+ENTRYPOINT ["dumb-init", "--", "./docker-entrypoint.sh"]
+CMD ["run", "--wait", "http://127.0.0.1:9222/json/version", "--files=file:///test"]

@@ -5,10 +5,13 @@ RUN apt-get update && apt-get install -y dumb-init
 
 # Add the binary
 COPY lab .
+COPY docker-entrypoint.sh .
+
+RUN chmod +x ./lab ./docker-entrypoint.sh
 
 VOLUME test
 
 EXPOSE 8080
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///test"]
+ENTRYPOINT ["dumb-init", "--", "./docker-entrypoint.sh"]
+CMD ["run", "--wait", "http://127.0.0.1:9222/json/version", "--files=file:///test"]

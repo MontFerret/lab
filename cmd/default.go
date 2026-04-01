@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
+	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/go-waitfor/waitfor"
@@ -12,104 +11,36 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	cdn2 "github.com/MontFerret/lab/pkg/cdn"
-	"github.com/MontFerret/lab/pkg/reporters"
-	runner2 "github.com/MontFerret/lab/pkg/runner"
-	"github.com/MontFerret/lab/pkg/runtime"
-	"github.com/MontFerret/lab/pkg/sources"
-	"github.com/MontFerret/lab/pkg/testing"
-
-	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/pkg/reporters"
+	"github.com/MontFerret/lab/v2/pkg/runner"
+	"github.com/MontFerret/lab/v2/pkg/sources"
+	"github.com/MontFerret/lab/v2/pkg/testing"
 )
 
-func toDirectories(values []string) ([]cdn2.Directory, error) {
-	res := make([]cdn2.Directory, 0, len(values))
+func RunAction(c *cli.Context) error {
+	locations, ok := locationsFromContext(c)
 
-	for _, entry := range values {
-		dir, err := cdn2.NewDirectoryFrom(entry)
-
-		if err != nil {
-			return nil, err
+	if !ok {
+		if err := showCurrentCommandHelp(c); err != nil {
+			return err
 		}
 
-		res = append(res, dir)
+		return cli.Exit("", 1)
 	}
 
-	return res, nil
+	return runScripts(c, locations)
 }
 
-func toParams(values []string) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
-
-	for _, entry := range values {
-		pair := strings.SplitN(entry, ":", 2)
-
-		if len(pair) < 2 {
-			return nil, ferretrt.Error(ferretrt.ErrInvalidArgument, entry)
-		}
-
-		var value interface{}
-		key := pair[0]
-
-		err := json.Unmarshal([]byte(pair[1]), &value)
-
-		if err != nil {
-			fmt.Println(pair[1])
-			return nil, err
-		}
-
-		res[key] = value
-	}
-
-	return res, nil
+func RootAction(c *cli.Context) error {
+	return cli.ShowAppHelp(c)
 }
 
-func createCDNManager(dirs []cdn2.Directory) (*cdn2.Manager, error) {
-	m, err := cdn2.New()
-
-	if err != nil {
-		return nil, err
-	}
-
-	for _, dir := range dirs {
-		err := m.Bind(dir)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return m, nil
+func RootUsageError(c *cli.Context, err error, _ bool) error {
+	return showSubcommandUsageError(c, err)
 }
 
-func newRuntime(c *cli.Context, params map[string]interface{}) (runtime.Runtime, error) {
-	rt, err := runtime.New(runtime.Options{
-		Type:       c.String("runtime"),
-		CDPAddress: c.String("cdp"),
-		Params:     params,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return rt, nil
-}
-
-func DefaultCommand(c *cli.Context) error {
+func runScripts(c *cli.Context, locations []string) error {
 	waitFor := c.StringSlice("wait")
-
-	var locations []string
-
-	if c.NArg() == 0 {
-		locations = c.StringSlice("files")
-	} else {
-		locations = c.Args().Slice()
-	}
-
-	if len(locations) == 0 {
-		cli.ShowAppHelpAndExit(c, 1)
-	}
 
 	if len(waitFor) > 0 {
 		wait := waitfor.New(
@@ -140,7 +71,7 @@ func DefaultCommand(c *cli.Context) error {
 		return cli.Exit(err, 1)
 	}
 
-	r, err := runner2.New(runner2.Options{
+	r, err := runner.New(runner.Options{
 		Runtime:       rt,
 		PoolSize:      c.Uint64("concurrency"),
 		Attempts:      c.Uint64("attempts"),
@@ -205,8 +136,71 @@ func DefaultCommand(c *cli.Context) error {
 		return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
 	}
 
-	stream := r.Run(runner2.NewContext(c.Context, params), src)
+	stream := r.Run(runner.NewContext(c.Context, params), src)
 
-	return reporters.NewConsole(os.Stdout).
+	return reporters.NewConsole(appWriter(c)).
 		Report(c.Context, stream)
+}
+
+func showSubcommandUsageError(c *cli.Context, err error) error {
+	fmt.Fprintf(appWriter(c), "Incorrect Usage: %s\n\n", err.Error())
+
+	if helpErr := cli.ShowSubcommandHelp(c); helpErr != nil {
+		return helpErr
+	}
+
+	return err
+}
+
+func showCurrentCommandHelp(c *cli.Context) error {
+	command := commandFromParentContext(c)
+
+	if command == nil {
+		return cli.ShowSubcommandHelp(c)
+	}
+
+	templ := command.CustomHelpTemplate
+
+	if templ == "" {
+		templ = cli.CommandHelpTemplate
+	}
+
+	cli.HelpPrinter(appWriter(c), templ, command)
+
+	return nil
+}
+
+func commandFromParentContext(c *cli.Context) *cli.Command {
+	if c == nil || c.Command == nil {
+		return nil
+	}
+
+	lineage := c.Lineage()
+
+	if len(lineage) < 2 || lineage[1] == nil || lineage[1].App == nil {
+		return nil
+	}
+
+	parent := lineage[1]
+	commands := parent.App.Commands
+
+	if parent.Command != nil && parent.Command.Subcommands != nil {
+		commands = parent.Command.Subcommands
+	}
+
+	for _, command := range commands {
+		if command.HasName(c.Command.Name) {
+			return command
+		}
+	}
+
+	return nil
+}
+
+func appWriter(c *cli.Context) io.Writer {
+	if c != nil && c.App != nil && c.App.Writer != nil {
+		return c.App.Writer
+	}
+
+	return os.Stdout
 }

@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/MontFerret/lab/pkg/runtime"
-	"github.com/MontFerret/lab/pkg/sources"
+	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/pkg/sources"
 
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )

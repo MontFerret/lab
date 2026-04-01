@@ -5,7 +5,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	testing2 "github.com/MontFerret/lab/pkg/testing"
+	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 func TestParams(t *t.T) {

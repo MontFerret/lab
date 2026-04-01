@@ -8,7 +8,7 @@ import (
 	"github.com/hako/durafmt"
 	"github.com/rs/zerolog"
 
-	"github.com/MontFerret/lab/pkg/runner"
+	"github.com/MontFerret/lab/v2/pkg/runner"
 )
 
 type Console struct {

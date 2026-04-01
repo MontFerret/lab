@@ -5,7 +5,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/lab/pkg/testing"
+	"github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 func TestHelpers(t *t.T) {
