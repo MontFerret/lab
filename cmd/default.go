@@ -23,7 +23,7 @@ import (
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 )
 
-const deprecatedRunWarning = "Warning: bare script execution is deprecated; use `lab run ...` instead."
+const implicitRunRemovedMessage = "Implicit script execution is no longer supported; use `lab run ...` instead."
 
 func toDirectories(values []string) ([]cdn2.Directory, error) {
 	res := make([]cdn2.Directory, 0, len(values))
@@ -88,7 +88,7 @@ func createCDNManager(dirs []cdn2.Directory) (*cdn2.Manager, error) {
 func newRuntime(c *cli.Context, params map[string]interface{}) (runtime.Runtime, error) {
 	rt, err := runtime.New(runtime.Options{
 		Type:       c.String("runtime"),
-		CDPAddress: c.String("cdp"),
+		CDPAddress: cdpAddressFromContext(c),
 		Params:     params,
 	})
 
@@ -97,22 +97,6 @@ func newRuntime(c *cli.Context, params map[string]interface{}) (runtime.Runtime,
 	}
 
 	return rt, nil
-}
-
-func DefaultCommand(c *cli.Context) error {
-	locations, ok := locationsFromContext(c)
-
-	if !ok {
-		if err := cli.ShowAppHelp(c); err != nil {
-			return err
-		}
-
-		return cli.Exit("", 1)
-	}
-
-	fmt.Fprintln(appErrWriter(c), deprecatedRunWarning)
-
-	return runScripts(c, locations)
 }
 
 func RunAction(c *cli.Context) error {
@@ -127,6 +111,22 @@ func RunAction(c *cli.Context) error {
 	}
 
 	return runScripts(c, locations)
+}
+
+func RootAction(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return cli.ShowAppHelp(c)
+	}
+
+	return showImplicitRunRemoved(c)
+}
+
+func RootUsageError(c *cli.Context, err error, isSubcommand bool) error {
+	if isSubcommand {
+		return showSubcommandUsageError(c, err)
+	}
+
+	return showImplicitRunRemoved(c)
 }
 
 func locationsFromContext(c *cli.Context) ([]string, bool) {
@@ -242,6 +242,36 @@ func runScripts(c *cli.Context, locations []string) error {
 
 	return reporters.NewConsole(appWriter(c)).
 		Report(c.Context, stream)
+}
+
+func cdpAddressFromContext(c *cli.Context) string {
+	if c != nil {
+		if address := c.String("cdp"); address != "" {
+			return address
+		}
+	}
+
+	return defaultCDPAddress
+}
+
+func showImplicitRunRemoved(c *cli.Context) error {
+	fmt.Fprintln(appErrWriter(c), implicitRunRemovedMessage)
+
+	if err := cli.ShowAppHelp(c); err != nil {
+		return err
+	}
+
+	return cli.Exit("", 1)
+}
+
+func showSubcommandUsageError(c *cli.Context, err error) error {
+	fmt.Fprintf(appWriter(c), "Incorrect Usage: %s\n\n", err.Error())
+
+	if helpErr := cli.ShowSubcommandHelp(c); helpErr != nil {
+		return helpErr
+	}
+
+	return err
 }
 
 func appWriter(c *cli.Context) io.Writer {

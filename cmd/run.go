@@ -2,6 +2,8 @@ package cmd
 
 import "github.com/urfave/cli/v2"
 
+const defaultCDPAddress = "http://127.0.0.1:9222"
+
 func RunCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "run",
@@ -31,7 +33,7 @@ func RunFlags(hidden bool) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:    "cdp",
-			Value:   "http://127.0.0.1:9222",
+			Value:   defaultCDPAddress,
 			Usage:   "Chrome DevTools Protocol address",
 			EnvVars: []string{"LAB_CDP"},
 			Hidden:  hidden,

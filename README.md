@@ -169,7 +169,7 @@ lab --help
 
 The simplest way to run Ferret scripts with Lab:
 
-`lab run` is the canonical command. Bare invocation such as `lab tests/` still works during the deprecation window, but it prints a warning and will be removed in a future release.
+`lab run` is required for script execution. Root invocation such as `lab tests/` or `lab -f tests/` is not supported.
 
 ```bash
 # Execute a single FQL script
@@ -184,6 +184,8 @@ lab run --concurrency=4 myscripts/
 # Run tests multiple times
 lab run --times=3 myscript.fql
 ```
+
+Use `lab version --runtime=...` when you want to inspect the version reported by a specific remote or binary runtime.
 
 ### 📝 **Your First Test**
 

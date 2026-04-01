@@ -8,8 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/MontFerret/lab/v2/cmd"
 	"github.com/urfave/cli/v2"
+
+	"github.com/MontFerret/lab/v2/cmd"
 )
 
 var (
@@ -52,15 +53,15 @@ func main() {
 
 func newApp(version string, out io.Writer, errOut io.Writer) *cli.App {
 	return &cli.App{
-		Name:        "lab",
-		Usage:       "run FQL test scripts",
-		Description: "Ferret test runner",
-		HideVersion: true,
-		UsageText:   "lab [command] [command options]",
-		Writer:      out,
-		ErrWriter:   errOut,
-		Action:      cmd.DefaultCommand,
-		Flags:       cmd.RunFlags(true),
+		Name:         "lab",
+		Usage:        "run FQL test scripts",
+		Description:  "Ferret test runner",
+		HideVersion:  true,
+		UsageText:    "lab [command] [command options]",
+		Writer:       out,
+		ErrWriter:    errOut,
+		Action:       cmd.RootAction,
+		OnUsageError: cmd.RootUsageError,
 		Commands: []*cli.Command{
 			cmd.RunCommand(),
 			cmd.VersionCommand(version),
