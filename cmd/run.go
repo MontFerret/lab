@@ -55,7 +55,7 @@ func RunFlags(hidden bool) []cli.Flag {
 		&cli.StringSliceFlag{
 			Name:    "runtime-param",
 			Aliases: []string{"rp"},
-			Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\" })",
+			Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\")",
 			EnvVars: []string{"LAB_RUNTIME_PARAM"},
 			Hidden:  hidden,
 		},
