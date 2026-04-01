@@ -15,11 +15,11 @@ import (
 	"github.com/gobwas/glob"
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/ferret/v2/pkg/source"
+	"github.com/MontFerret/lab/pkg/runtime"
+	"github.com/MontFerret/lab/pkg/sources"
+	testing2 "github.com/MontFerret/lab/pkg/testing"
 
-	"github.com/MontFerret/lab/runtime"
-	"github.com/MontFerret/lab/sources"
-	T "github.com/MontFerret/lab/testing"
+	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 type MockFile struct {
@@ -447,14 +447,14 @@ assert:
 						return []byte(""), nil
 					})
 
-					s, err := T.NewSuite(T.Options{
+					s, err := testing2.NewSuite(testing2.Options{
 						File:    f,
 						Timeout: 0,
 					})
 
 					So(err, ShouldBeNil)
 
-					err = s.Run(context.Background(), rt, T.NewParams())
+					err = s.Run(context.Background(), rt, testing2.NewParams())
 					So(err, ShouldBeNil)
 				}
 			})

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/MontFerret/lab/runner"
+	"github.com/MontFerret/lab/pkg/runner"
 )
 
 type Silent struct{}

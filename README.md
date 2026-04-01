@@ -20,6 +20,10 @@
 
 **Lab** is a powerful, flexible test runner designed specifically for [Ferret](https://www.github.com/MontFerret/ferret) scripts. It enables automated testing of web scraping, browser automation, and API testing scenarios using Ferret Query Language (FQL).
 
+> **📢 Notice:** This branch contains the upcoming **Lab for Ferret v2**. For the stable v1 release, please visit [CLI v1](https://github.com/MontFerret/lab/tree/v1).
+
+---
+
 **🚀 Perfect for:**
 - End-to-end web application testing
 - Web scraping validation and monitoring  

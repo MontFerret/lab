@@ -2,15 +2,20 @@
 # Make sure to check the documentation at http://goreleaser.com
 version: 2
 
-env:
-  - GO111MODULE=on
+release:
+  draft: true
 
 before:
   hooks:
     - go mod download
 
 builds:
-  - env:
+  -
+    # Path to main.go file or main package.
+    # Default is `.`.
+    main: ./main.go
+    binary: lab
+    env:
       - CGO_ENABLED=0
     goos:
       - linux

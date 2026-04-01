@@ -1,6 +1,8 @@
 package runner
 
-import "github.com/MontFerret/lab/sources"
+import (
+	"github.com/MontFerret/lab/pkg/sources"
+)
 
 type Settings struct {
 	CDPAddress string

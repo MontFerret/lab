@@ -12,20 +12,21 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
+	cdn2 "github.com/MontFerret/lab/pkg/cdn"
+	"github.com/MontFerret/lab/pkg/reporters"
+	runner2 "github.com/MontFerret/lab/pkg/runner"
+	"github.com/MontFerret/lab/pkg/runtime"
+	"github.com/MontFerret/lab/pkg/sources"
+	"github.com/MontFerret/lab/pkg/testing"
+
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
-	"github.com/MontFerret/lab/cdn"
-	"github.com/MontFerret/lab/reporters"
-	"github.com/MontFerret/lab/runner"
-	"github.com/MontFerret/lab/runtime"
-	"github.com/MontFerret/lab/sources"
-	"github.com/MontFerret/lab/testing"
 )
 
-func toDirectories(values []string) ([]cdn.Directory, error) {
-	res := make([]cdn.Directory, 0, len(values))
+func toDirectories(values []string) ([]cdn2.Directory, error) {
+	res := make([]cdn2.Directory, 0, len(values))
 
 	for _, entry := range values {
-		dir, err := cdn.NewDirectoryFrom(entry)
+		dir, err := cdn2.NewDirectoryFrom(entry)
 
 		if err != nil {
 			return nil, err
@@ -63,8 +64,8 @@ func toParams(values []string) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func createCDNManager(dirs []cdn.Directory) (*cdn.Manager, error) {
-	m, err := cdn.New()
+func createCDNManager(dirs []cdn2.Directory) (*cdn2.Manager, error) {
+	m, err := cdn2.New()
 
 	if err != nil {
 		return nil, err
@@ -139,7 +140,7 @@ func DefaultCommand(c *cli.Context) error {
 		return cli.Exit(err, 1)
 	}
 
-	r, err := runner.New(runner.Options{
+	r, err := runner2.New(runner2.Options{
 		Runtime:       rt,
 		PoolSize:      c.Uint64("concurrency"),
 		Attempts:      c.Uint64("attempts"),
@@ -204,9 +205,8 @@ func DefaultCommand(c *cli.Context) error {
 		return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
 	}
 
-	stream := r.Run(runner.NewContext(c.Context, params), src)
+	stream := r.Run(runner2.NewContext(c.Context, params), src)
 
-	return reporters.
-		NewConsole(os.Stdout).
+	return reporters.NewConsole(os.Stdout).
 		Report(c.Context, stream)
 }

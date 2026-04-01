@@ -5,16 +5,16 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/lab/testing"
+	testing2 "github.com/MontFerret/lab/pkg/testing"
 )
 
 func TestParams(t *t.T) {
 	Convey("Params", t, func() {
 		Convey(".ToMap", func() {
 			Convey("Should respect serialization tags", func() {
-				params := testing.NewParams()
-				params.SetSystemValue("data", testing.DataContext{
-					Query: testing.DataContextValues{
+				params := testing2.NewParams()
+				params.SetSystemValue("data", testing2.DataContext{
+					Query: testing2.DataContextValues{
 						Result: map[string]interface{}{
 							"Foo": "Bar",
 						},

@@ -30,8 +30,14 @@ type (
 )
 
 func New(opts Options) (Runtime, error) {
+	params := opts.Params
+
+	if params == nil {
+		params = make(map[string]any)
+	}
+
 	if opts.Type == "" {
-		return NewBuiltin(opts.CDPAddress, opts.Params)
+		return NewBuiltin(opts.CDPAddress, params)
 	}
 
 	u, err := url.Parse(opts.Type)
@@ -42,11 +48,11 @@ func New(opts Options) (Runtime, error) {
 
 	switch u.Scheme {
 	case "http", "https":
-		return NewRemote(opts.Type, opts.Params)
+		return NewRemote(opts.Type, params)
 	case "bin":
-		return NewBinary(u.Host+u.Path, opts.CDPAddress, opts.Params)
+		return NewBinary(u.Host+u.Path, opts.CDPAddress, params)
 	default:
-		return NewBuiltin(opts.CDPAddress, opts.Params)
+		return NewBuiltin(opts.CDPAddress, params)
 	}
 }
 

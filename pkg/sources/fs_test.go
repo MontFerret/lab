@@ -10,11 +10,11 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/ferret/v2/pkg/source"
+	"github.com/MontFerret/lab/pkg/runtime"
+	sources2 "github.com/MontFerret/lab/pkg/sources"
+	testing2 "github.com/MontFerret/lab/pkg/testing"
 
-	"github.com/MontFerret/lab/runtime"
-	"github.com/MontFerret/lab/sources"
-	T "github.com/MontFerret/lab/testing"
+	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 func TestFileSystem(t *testing.T) {
@@ -24,7 +24,7 @@ func TestFileSystem(t *testing.T) {
 				Convey("Should send an error", func() {
 					str := fmt.Sprintf("file://%stest.foo", os.TempDir())
 					u, _ := url.Parse(str)
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -56,7 +56,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -88,7 +88,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -133,7 +133,7 @@ func TestFileSystem(t *testing.T) {
 
 					for i, f := range files {
 						u, _ := url.Parse(fmt.Sprintf("file://%s", f))
-						src, err := sources.NewFileSystem(u)
+						src, err := sources2.NewFileSystem(u)
 
 						So(err, ShouldBeNil)
 						So(src, ShouldNotBeNil)
@@ -193,7 +193,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s?filter=**/*.take.fql", dir))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -203,7 +203,7 @@ func TestFileSystem(t *testing.T) {
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					foundFiles := make([]sources.File, 0, len(files))
+					foundFiles := make([]sources2.File, 0, len(files))
 
 					var done bool
 
@@ -257,7 +257,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -312,7 +312,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -378,7 +378,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -449,7 +449,7 @@ func TestFileSystem(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", relToFile))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -528,7 +528,7 @@ assert:
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", dirTestsRoot))
-					src, err := sources.NewFileSystem(u)
+					src, err := sources2.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -543,14 +543,14 @@ assert:
 					})
 
 					for f := range onNext {
-						s, err := T.NewSuite(T.Options{
+						s, err := testing2.NewSuite(testing2.Options{
 							File:    f,
 							Timeout: 0,
 						})
 
 						So(err, ShouldBeNil)
 
-						err = s.Run(context.Background(), rt, T.NewParams())
+						err = s.Run(context.Background(), rt, testing2.NewParams())
 						So(err, ShouldBeNil)
 					}
 				})

@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/MontFerret/lab/runtime"
-	"github.com/MontFerret/lab/sources"
+	"github.com/MontFerret/lab/pkg/runtime"
+	"github.com/MontFerret/lab/pkg/sources"
 )
 
 type (

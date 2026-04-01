@@ -3,7 +3,7 @@ package reporters
 import (
 	"context"
 
-	"github.com/MontFerret/lab/runner"
+	"github.com/MontFerret/lab/pkg/runner"
 )
 
 type Reporter interface {
