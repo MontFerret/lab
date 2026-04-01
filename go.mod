@@ -1,6 +1,6 @@
 module github.com/MontFerret/lab
 
-go 1.26.1
+go 1.25
 
 require (
 	github.com/MontFerret/contrib/modules/csv v0.0.0-20260401140623-49c476b0b6da
