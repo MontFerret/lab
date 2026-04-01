@@ -11,7 +11,6 @@ var version = "unknown"
 
 type Builtin struct {
 	engine *ferret.Engine
-	cdp    string
 }
 
 func NewBuiltin(cdp string, params map[string]any) (*Builtin, error) {
@@ -30,7 +29,7 @@ func NewBuiltin(cdp string, params map[string]any) (*Builtin, error) {
 		return nil, err
 	}
 
-	return &Builtin{c, cdp}, nil
+	return &Builtin{c}, nil
 }
 
 func (r *Builtin) Version(_ context.Context) (string, error) {
