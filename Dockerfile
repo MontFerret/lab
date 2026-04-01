@@ -29,4 +29,4 @@ VOLUME test
 EXPOSE 8080
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab --wait http://127.0.0.1:9222/json/version --files=file:///test"]
+CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab run --wait http://127.0.0.1:9222/json/version --files=file:///test"]
