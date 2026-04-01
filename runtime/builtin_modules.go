@@ -16,8 +16,8 @@ import (
 	"github.com/MontFerret/ferret/v2"
 )
 
-func newModules(opts Options) ([]ferret.Module, error) {
-	webmods, err := newWebModules(opts)
+func newModules(cdpAddress string) ([]ferret.Module, error) {
+	webmods, err := newWebModules(cdpAddress)
 
 	if err != nil {
 		return nil, err
@@ -32,13 +32,13 @@ func newModules(opts Options) ([]ferret.Module, error) {
 	return append(webmods, datamods...), nil
 }
 
-func newWebModules(opts Options) ([]ferret.Module, error) {
+func newWebModules(cdpAddress string) ([]ferret.Module, error) {
 	htmlmod, err := html.New(
 		html.WithDefaultDriver(
 			http.NewDriver(),
 		),
 		html.WithDrivers(
-			cdp.NewDriver(cdp.WithAddress(opts.CDPAddress)),
+			cdp.NewDriver(cdp.WithAddress(cdpAddress)),
 		),
 	)
 

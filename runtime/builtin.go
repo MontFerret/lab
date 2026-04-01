@@ -15,7 +15,16 @@ type Builtin struct {
 }
 
 func NewBuiltin(cdp string, params map[string]any) (*Builtin, error) {
-	c, err := ferret.New(ferret.WithParams(params))
+	mods, err := newModules(cdp)
+
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := ferret.New(
+		ferret.WithModules(mods...),
+		ferret.WithParams(params),
+	)
 
 	if err != nil {
 		return nil, err
