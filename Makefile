@@ -42,15 +42,4 @@ vet:
 	go vet ./...
 
 release:
-ifeq ($(RELEASE_VERSION), )
-	$(error "Release version is required (RELEASE_VERSION)")
-else ifeq ($(FERRET_VERSION), )
-	$(error "Ferret version is required")
-else ifeq ($(GITHUB_TOKEN), )
-	$(error "GitHub token is required (GITHUB_TOKEN)")
-else
-	rm -rf ./dist && \
-	git tag -a v$(RELEASE_VERSION) -m "New $(RELEASE_VERSION) version" && \
-	git push origin v$(RELEASE_VERSION) && \
-	goreleaser
-endif
+	./scripts/release.sh $(TAG)
