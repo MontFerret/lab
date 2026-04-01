@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MontFerret/ferret/v2/pkg/source"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -441,7 +442,7 @@ assert:
 				case e := <-onError:
 					So(e, ShouldBeNil)
 				case f := <-onNext:
-					rt := runtime.AsFunc(func(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+					rt := runtime.AsFunc(func(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error) {
 						return []byte(""), nil
 					})
 
