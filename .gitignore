@@ -110,4 +110,3 @@ bin
 *.orig
 dist
 coverage.txt
-lab

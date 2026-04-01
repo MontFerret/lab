@@ -1,6 +1,8 @@
 VERSION ?= $(shell sh ./scripts/versions.sh lab)
 FERRET_VERSION = $(shell sh ./scripts/versions.sh ferret)
 DIR_BIN = ./bin
+DIR_PKG = ./pkg
+DIR_CMD = ./cmd
 NAME = lab
 
 default: build
@@ -18,10 +20,10 @@ install:
 compile:
 	go build -v -o ${DIR_BIN}/${NAME} \
 		-ldflags "-X main.version=${VERSION} -X github.com/MontFerret/lab/runtime.version=${FERRET_VERSION}" \
-	./main.go
+	${DIR_CLI}/main.go
 
 test:
-	go test ./...
+	go test ${DIR_PKG}/...
 
 cover:
 	go test -race -coverprofile=coverage.txt -covermode=atomic ... && \
@@ -32,7 +34,7 @@ doc:
 
 fmt:
 	go fmt ./... && \
-	goimports -w -local github.com/MontFerret ./cdn ./cmd ./reporters ./runner ./runtime ./sources ./testing
+	goimports -w -local github.com/MontFerret ${DIR_PKG} ${DIR_CMD} main.go
 
 lint:
 	staticcheck ./... && \

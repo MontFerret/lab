@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/MontFerret/lab/testing"
+	"github.com/MontFerret/lab/pkg/testing"
 )
 
 type Context struct {

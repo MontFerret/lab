@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/MontFerret/lab/cmd"
-	"github.com/urfave/cli/v2"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/urfave/cli/v2"
+
+	"github.com/MontFerret/lab/cmd"
 )
 
 var (

@@ -7,9 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/MontFerret/lab/runtime"
-	"github.com/MontFerret/lab/sources"
-	"github.com/MontFerret/lab/testing"
+	"github.com/MontFerret/lab/pkg/runtime"
+	sources2 "github.com/MontFerret/lab/pkg/sources"
+	testing2 "github.com/MontFerret/lab/pkg/testing"
 )
 
 type (
@@ -71,7 +71,7 @@ func New(opts Options) (*Runner, error) {
 	}, nil
 }
 
-func (r *Runner) Run(ctx Context, src sources.Source) Stream {
+func (r *Runner) Run(ctx Context, src sources2.Source) Stream {
 	onProgress := make(chan Result)
 	onSummary := make(chan Summary)
 
@@ -109,7 +109,7 @@ func (r *Runner) Run(ctx Context, src sources.Source) Stream {
 	}
 }
 
-func (r *Runner) consume(ctx Context, onNext <-chan sources.File, onError <-chan sources.Error) <-chan Result {
+func (r *Runner) consume(ctx Context, onNext <-chan sources2.File, onError <-chan sources2.Error) <-chan Result {
 	out := make(chan Result)
 
 	go func() {
@@ -167,8 +167,8 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources.File, onError <-chan
 	return out
 }
 
-func (r *Runner) runCase(ctx context.Context, file sources.File, params testing.Params) Result {
-	testCase, err := testing.New(testing.Options{
+func (r *Runner) runCase(ctx context.Context, file sources2.File, params testing2.Params) Result {
+	testCase, err := testing2.New(testing2.Options{
 		File:    file,
 		Timeout: r.testTimeout,
 	})
