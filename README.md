@@ -132,6 +132,8 @@ docker run --rm -v $(pwd):/workspace montferret/lab:latest \
     run --concurrency=4 --reporter=simple /workspace/tests/
 ```
 
+The container entrypoint is Lab-aware, so `docker run <image> run ...` and `docker run <image> version` invoke the Lab binary directly, while raw commands such as `docker run <image> /bin/sh -c 'echo ok'` still pass through to the container shell.
+
 **Docker Compose Example:**
 ```yaml
 version: '3.8'

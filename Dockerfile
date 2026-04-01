@@ -23,10 +23,13 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 
 # Add the binary
 COPY --from=builder /go/src/github.com/MontFerret/lab/v2/bin/lab .
+COPY docker-entrypoint.sh .
+
+RUN chmod +x ./lab ./docker-entrypoint.sh
 
 VOLUME test
 
 EXPOSE 8080
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/sh", "-c", "./entrypoint.sh & ./lab run --wait http://127.0.0.1:9222/json/version --files=file:///test"]
+ENTRYPOINT ["dumb-init", "--", "./docker-entrypoint.sh"]
+CMD ["run", "--wait", "http://127.0.0.1:9222/json/version", "--files=file:///test"]
