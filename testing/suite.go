@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
+	"github.com/MontFerret/ferret/v2/pkg/source"
+
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
 )
@@ -112,24 +114,24 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 	return err
 }
 
-func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) (string, error) {
+func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) (*source.Source, error) {
 	if manifest.Text != "" {
-		return manifest.Text, nil
+		return source.New(manifest.Ref, manifest.Text), nil
 	}
 
 	u, err := url.Parse(manifest.Ref)
 
 	if err != nil {
-		return "", errors.Wrap(err, "parse 'ref'")
+		return nil, errors.Wrap(err, "parse 'ref'")
 	}
 
 	onNext, onError := suite.file.Resolve(ctx, u)
 
 	select {
 	case e := <-onError:
-		return "", errors.Wrap(e, "resolve 'ref'")
+		return nil, errors.Wrap(e, "resolve 'ref'")
 	case f := <-onNext:
-		return string(f.Content), nil
+		return source.New(f.Name, string(f.Content)), nil
 	}
 }
 

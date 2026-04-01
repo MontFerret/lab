@@ -12,8 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/MontFerret/ferret/pkg/runtime/core"
-
+	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 	"github.com/MontFerret/lab/cdn"
 	"github.com/MontFerret/lab/reporters"
 	"github.com/MontFerret/lab/runner"
@@ -45,7 +44,7 @@ func toParams(values []string) (map[string]interface{}, error) {
 		pair := strings.SplitN(entry, ":", 2)
 
 		if len(pair) < 2 {
-			return nil, core.Error(core.ErrInvalidArgument, entry)
+			return nil, ferretrt.Error(ferretrt.ErrInvalidArgument, entry)
 		}
 
 		var value interface{}
