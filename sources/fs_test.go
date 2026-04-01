@@ -10,6 +10,8 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
+	"github.com/MontFerret/ferret/v2/pkg/source"
+
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
 	T "github.com/MontFerret/lab/testing"
@@ -536,7 +538,7 @@ assert:
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					rt := runtime.AsFunc(func(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+					rt := runtime.AsFunc(func(_ context.Context, _ *source.Source, _ map[string]interface{}) ([]byte, error) {
 						return []byte(""), nil
 					})
 

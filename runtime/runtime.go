@@ -5,21 +5,23 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
+
+	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 type (
 	Options struct {
 		Type       string
 		CDPAddress string
-		Params     map[string]interface{}
+		Params     map[string]any
 	}
 
-	Func func(ctx context.Context, query string, params map[string]interface{}) ([]byte, error)
+	Func func(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error)
 
 	Runtime interface {
 		Version(ctx context.Context) (string, error)
 
-		Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error)
+		Run(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error)
 	}
 
 	FuncStruct struct {
@@ -56,6 +58,6 @@ func (f FuncStruct) Version(_ context.Context) (string, error) {
 	return version, nil
 }
 
-func (f FuncStruct) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+func (f FuncStruct) Run(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error) {
 	return f.fn(ctx, query, params)
 }

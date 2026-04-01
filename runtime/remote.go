@@ -9,6 +9,8 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
+
+	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 type (
@@ -138,9 +140,9 @@ func (rt *Remote) Version(ctx context.Context) (string, error) {
 	return info.Version.Ferret, nil
 }
 
-func (rt *Remote) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+func (rt *Remote) Run(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error) {
 	body, err := json.Marshal(remoteQuery{
-		Text:   query,
+		Text:   query.Content(),
 		Params: params,
 	})
 

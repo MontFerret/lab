@@ -9,20 +9,22 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 type Binary struct {
 	path         string
 	cdpAddress   string
-	sharedParams map[string]interface{}
+	sharedParams map[string]any
 }
 
-func NewBinary(path string, cdpAddress string, params map[string]interface{}) (*Binary, error) {
+func NewBinary(path string, cdpAddress string, params map[string]any) (*Binary, error) {
 	return &Binary{path, cdpAddress, params}, nil
 }
 
 func (rt *Binary) Version(ctx context.Context) (string, error) {
-	cmd := exec.CommandContext(ctx, rt.path, "--version")
+	cmd := exec.CommandContext(ctx, rt.path, "version")
 
 	out, err := cmd.CombinedOutput()
 
@@ -37,9 +39,9 @@ func (rt *Binary) Version(ctx context.Context) (string, error) {
 	return strings.ReplaceAll(string(out), "\n", ""), nil
 }
 
-func (rt *Binary) Run(ctx context.Context, query string, params map[string]interface{}) ([]byte, error) {
+func (rt *Binary) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
 	args := make([]string, 0, 10)
-	args = append(args, "--cdp="+rt.cdpAddress)
+	args = append(args, "--browser-address="+rt.cdpAddress)
 
 	sharedArgs, err := rt.paramsToArg(rt.sharedParams)
 
@@ -57,7 +59,7 @@ func (rt *Binary) Run(ctx context.Context, query string, params map[string]inter
 	args = append(args, queryArgs...)
 
 	var q bytes.Buffer
-	q.WriteString(query)
+	q.WriteString(query.Content())
 
 	cmd := exec.CommandContext(ctx, rt.path, args...)
 	cmd.Stdin = &q
@@ -75,7 +77,7 @@ func (rt *Binary) Run(ctx context.Context, query string, params map[string]inter
 	return out, nil
 }
 
-func (rt *Binary) paramsToArg(params map[string]interface{}) ([]string, error) {
+func (rt *Binary) paramsToArg(params map[string]any) ([]string, error) {
 	args := make([]string, 0, len(params))
 
 	for k, v := range params {
