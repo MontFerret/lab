@@ -125,11 +125,11 @@ Run Lab in a container without installing it locally:
 docker pull montferret/lab:latest
 
 # Run a simple test
-docker run --rm -v $(pwd):/workspace montferret/lab:latest /workspace/tests/
+docker run --rm -v $(pwd):/workspace montferret/lab:latest run /workspace/tests/
 
 # With custom options
 docker run --rm -v $(pwd):/workspace montferret/lab:latest \
-    --concurrency=4 --reporter=simple /workspace/tests/
+    run --concurrency=4 --reporter=simple /workspace/tests/
 ```
 
 **Docker Compose Example:**
@@ -141,7 +141,7 @@ services:
     volumes:
       - ./tests:/workspace/tests
       - ./static:/workspace/static
-    command: ["--cdn=/workspace/static", "/workspace/tests/"]
+    command: ["run", "--cdn=/workspace/static", "/workspace/tests/"]
 ```
 
 ### 🛠️ **Build from Source**
@@ -169,18 +169,20 @@ lab --help
 
 The simplest way to run Ferret scripts with Lab:
 
+`lab run` is the canonical command. Bare invocation such as `lab tests/` still works during the deprecation window, but it prints a warning and will be removed in a future release.
+
 ```bash
 # Execute a single FQL script
-lab myscript.fql
+lab run myscript.fql
 
 # Run all FQL scripts in a directory
-lab myscripts/
+lab run myscripts/
 
 # Run with increased concurrency
-lab --concurrency=4 myscripts/
+lab run --concurrency=4 myscripts/
 
 # Run tests multiple times
-lab --times=3 myscript.fql
+lab run --times=3 myscript.fql
 ```
 
 ### 📝 **Your First Test**
@@ -209,7 +211,7 @@ RETURN {
 
 Run it:
 ```bash
-lab example.fql
+lab run example.fql
 ```
 
 ### 🎨 **Using Chrome DevTools Protocol**
@@ -221,16 +223,16 @@ For browser automation, you'll need a Chrome/Chromium instance running in headle
 google-chrome --headless --remote-debugging-port=9222
 
 # Run your tests (default CDP address)
-lab --cdp=http://127.0.0.1:9222 browser-tests/
+lab run --cdp=http://127.0.0.1:9222 browser-tests/
 
 # Or use a custom CDP address
-lab --cdp=http://localhost:9223 browser-tests/
+lab run --cdp=http://localhost:9223 browser-tests/
 ```
 
 ### 📊 **Example Output**
 
 ```
-$ lab example.fql
+$ lab run example.fql
 ✓ example.fql (1.23s)
   └─ Assertions: 1 passed, 0 failed
 
@@ -264,7 +266,7 @@ assert:
 
 Save as `github-test.yaml` and run:
 ```bash
-lab github-test.yaml
+lab run github-test.yaml
 ```
 
 ### 🔗 **Reference External Scripts**
@@ -364,7 +366,7 @@ assert:
 
 Run with parameters:
 ```bash
-lab --param=testUrl:"https://example.com" \
+lab run --param=testUrl:"https://example.com" \
     --param=pageTimeout:5000 \
     --param=selector:"h1" \
     test-suite.yaml
@@ -411,14 +413,14 @@ Lab supports multiple source locations for maximum flexibility:
 #### **Local Files**
 ```bash
 # Single file
-lab /path/to/test.fql
+lab run /path/to/test.fql
 
 # Directory with glob patterns
-lab "tests/**/*.fql"
-lab tests/integration/
+lab run "tests/**/*.fql"
+lab run tests/integration/
 
 # Multiple paths
-lab --files=tests/unit/ --files=tests/integration/ --files=scripts/smoke.fql
+lab run --files=tests/unit/ --files=tests/integration/ --files=scripts/smoke.fql
 ```
 
 #### **Git Repositories**
@@ -426,16 +428,16 @@ Fetch and execute tests directly from Git repositories:
 
 ```bash
 # HTTPS Git repository
-lab git+https://github.com/username/test-repo.git//tests/
+lab run git+https://github.com/username/test-repo.git//tests/
 
 # HTTP Git repository  
-lab git+http://git.example.com/tests.git//integration/
+lab run git+http://git.example.com/tests.git//integration/
 
 # Specific branch or tag
-lab git+https://github.com/username/tests.git@v1.2.0//suite.yaml
+lab run git+https://github.com/username/tests.git@v1.2.0//suite.yaml
 
 # Private repositories (requires authentication)
-lab git+https://username:token@github.com/private/repo.git//tests/
+lab run git+https://username:token@github.com/private/repo.git//tests/
 ```
 
 #### **HTTP Sources**
@@ -443,10 +445,10 @@ Download scripts from web URLs:
 
 ```bash
 # Direct script URL
-lab https://raw.githubusercontent.com/user/repo/main/test.fql
+lab run https://raw.githubusercontent.com/user/repo/main/test.fql
 
 # Multiple HTTP sources
-lab https://example.com/tests/suite1.yaml https://example.com/tests/suite2.yaml
+lab run https://example.com/tests/suite1.yaml https://example.com/tests/suite2.yaml
 ```
 
 ### 🌐 **Static File Serving (CDN)**
@@ -456,7 +458,7 @@ Lab includes a built-in HTTP server for serving static content during tests:
 #### **Basic CDN Usage**
 ```bash
 # Serve files from ./website directory
-lab --cdn=./website tests/
+lab run --cdn=./website tests/
 
 # Access in your FQL scripts
 LET doc = DOCUMENT(@lab.cdn.website, { driver: "cdp" })
@@ -465,7 +467,7 @@ LET doc = DOCUMENT(@lab.cdn.website, { driver: "cdp" })
 #### **Multiple CDN Endpoints**
 ```bash
 # Serve multiple directories
-lab --cdn=./app --cdn=./api-mocks tests/
+lab run --cdn=./app --cdn=./api-mocks tests/
 ```
 
 FQL Script:
@@ -478,7 +480,7 @@ LET apiData = DOCUMENT(@lab.cdn.api-mocks + "/users.json")
 #### **Custom CDN Aliases**
 ```bash
 # Give custom names to your content
-lab --cdn=./frontend@app --cdn=./mockdata@api tests/
+lab run --cdn=./frontend@app --cdn=./mockdata@api tests/
 ```
 
 FQL Script:
@@ -491,7 +493,7 @@ LET userData = DOCUMENT(@lab.cdn.api + "/user/123.json")
 #### **Advanced CDN Example**
 ```bash
 # Complex setup with multiple content sources
-lab \
+lab run \
   --cdn=./dist@webapp \
   --cdn=./test-fixtures@fixtures \
   --cdn=./mock-apis@mocks \
@@ -506,10 +508,10 @@ Lab can execute tests against remote Ferret instances instead of using the built
 #### **HTTP/HTTPS Runtime**
 ```bash
 # Connect to remote Ferret service
-lab --runtime=https://ferret.example.com/api tests/
+lab run --runtime=https://ferret.example.com/api tests/
 
 # With custom headers and path
-lab \
+lab run \
   --runtime=https://ferret.example.com \
   --runtime-param=headers:'{"Authorization": "Bearer token123"}' \
   --runtime-param=path:"/v1/execute" \
@@ -531,10 +533,10 @@ Use custom Ferret CLI installations:
 
 ```bash
 # Use specific Ferret binary
-lab --runtime=bin:./custom-ferret tests/
+lab run --runtime=bin:./custom-ferret tests/
 
 # With additional parameters
-lab \
+lab run \
   --runtime=bin:/usr/local/bin/ferret-v0.18 \
   --runtime-param=timeout:30 \
   tests/
@@ -545,10 +547,10 @@ Test against multiple runtime versions:
 
 ```bash
 # Test with built-in runtime
-lab tests/ > builtin-results.txt
+lab run tests/ > builtin-results.txt
 
 # Test with remote runtime
-lab --runtime=https://ferret-v0.17.example.com tests/ > remote-v0.17-results.txt
+lab run --runtime=https://ferret-v0.17.example.com tests/ > remote-v0.17-results.txt
 
 # Compare results
 diff builtin-results.txt remote-v0.17-results.txt
@@ -559,28 +561,28 @@ diff builtin-results.txt remote-v0.17-results.txt
 #### **Parallel Execution**
 ```bash
 # Run up to 8 tests simultaneously
-lab --concurrency=8 tests/
+lab run --concurrency=8 tests/
 
 # Balance between speed and resource usage
-lab --concurrency=4 --timeout=60 large-test-suite/
+lab run --concurrency=4 --timeout=60 large-test-suite/
 ```
 
 #### **Test Repetition & Retry**
 ```bash
 # Run each test 3 times for reliability testing
-lab --times=3 tests/flaky/
+lab run --times=3 tests/flaky/
 
 # Retry failed tests up to 2 additional times
-lab --attempts=3 tests/
+lab run --attempts=3 tests/
 
 # Add delay between test cycles
-lab --times=5 --times-interval=10 stress-tests/
+lab run --times=5 --times-interval=10 stress-tests/
 ```
 
 #### **Conditional Execution**
 ```bash
 # Wait for services to be available before running tests
-lab \
+lab run \
   --wait=http://127.0.0.1:9222/json/version \
   --wait=postgres://localhost:5432/testdb \
   --wait-timeout=30 \
@@ -590,6 +592,8 @@ lab \
 ## Configuration Reference
 
 ### 🎛️ **Command Line Flags**
+
+These flags apply to `lab run`.
 
 | Flag | Short | Environment Variable | Default | Description |
 |------|-------|---------------------|---------|-------------|
@@ -627,7 +631,7 @@ export LAB_RUNTIME=https://ferret-api.example.com
 export LAB_RUNTIME_PARAM='headers:{"API-Key":"secret123"}'
 
 # Run tests
-lab tests/
+lab run tests/
 ```
 
 ### 📝 **Configuration Examples**
@@ -644,7 +648,7 @@ export LAB_REPORTER=simple
 export LAB_ATTEMPTS=3
 
 # Wait for services
-lab \
+lab run \
   --wait=http://app:3000/health \
   --wait=postgres://db:5432/testdb \
   --wait-timeout=60 \
@@ -661,7 +665,7 @@ export LAB_TIMEOUT=30
 export LAB_CONCURRENCY=1
 
 # Serve local assets and run tests
-lab \
+lab run \
   --cdn=./dist@app \
   --cdn=./fixtures@data \
   tests/dev/
@@ -673,7 +677,7 @@ lab \
 # load-test.sh
 
 # High concurrency for performance testing
-lab \
+lab run \
   --concurrency=20 \
   --times=100 \
   --times-interval=1 \
@@ -687,7 +691,7 @@ Configure remote Ferret runtime behavior:
 
 ```bash
 # HTTP runtime with custom headers
-lab \
+lab run \
   --runtime=https://ferret.api.com \
   --runtime-param='headers:{"Authorization":"Bearer token"}' \
   --runtime-param='path:"/v2/execute"' \
@@ -695,7 +699,7 @@ lab \
   tests/
 
 # Binary runtime with custom flags
-lab \
+lab run \
   --runtime=bin:/usr/local/bin/ferret \
   --runtime-param='flags:["--timeout=60", "--verbose"]' \
   tests/
@@ -933,13 +937,13 @@ cleanup:
 #### **Concurrency Guidelines**
 ```bash
 # Local development: Low concurrency
-lab --concurrency=2 tests/
+lab run --concurrency=2 tests/
 
 # CI environments: Medium concurrency  
-lab --concurrency=4 tests/
+lab run --concurrency=4 tests/
 
 # Dedicated test infrastructure: High concurrency
-lab --concurrency=8 tests/
+lab run --concurrency=8 tests/
 ```
 
 #### **Resource Management**
@@ -951,11 +955,11 @@ lab --concurrency=8 tests/
 #### **Test Efficiency**
 ```bash
 # Run faster tests first
-lab tests/smoke/ && lab tests/integration/ && lab tests/e2e/
+lab run tests/smoke/ && lab run tests/integration/ && lab run tests/e2e/
 
 # Use tags for test categorization
-lab tests/critical/ --timeout=60
-lab tests/extended/ --timeout=300 --concurrency=1
+lab run --timeout=60 tests/critical/
+lab run --timeout=300 --concurrency=1 tests/extended/
 ```
 
 ### 🔒 **Security Considerations**
@@ -968,7 +972,7 @@ lab tests/extended/ --timeout=300 --concurrency=1
 ```bash
 # Good: Use environment variables
 export TEST_API_KEY="your-key-here"
-lab --param=apiKey:$TEST_API_KEY tests/
+lab run --param=apiKey:$TEST_API_KEY tests/
 
 # Bad: Hardcode in scripts
 # Don't do this: LET apiKey = "secret-key-123"
@@ -996,7 +1000,7 @@ Error: Failed to connect to CDP at http://127.0.0.1:9222
 
 3. **Use custom CDP address:**
    ```bash
-   lab --cdp=http://localhost:9223 tests/
+   lab run --cdp=http://localhost:9223 tests/
    ```
 
 #### **Test Timeouts**
@@ -1007,7 +1011,7 @@ Error: Test timed out after 30 seconds
 **Solutions:**
 1. **Increase timeout:**
    ```bash
-   lab --timeout=60 tests/
+   lab run --timeout=60 tests/
    ```
 
 2. **Optimize test scripts:**
@@ -1032,13 +1036,13 @@ Error: Failed to clone repository
 
 2. **Authentication for private repos:**
    ```bash
-   lab git+https://username:token@github.com/private/repo.git//tests/
+   lab run git+https://username:token@github.com/private/repo.git//tests/
    ```
 
 3. **Use SSH for private repos:**
    ```bash
    # Set up SSH keys, then:
-   lab git+ssh://git@github.com/private/repo.git//tests/
+   lab run git+ssh://git@github.com/private/repo.git//tests/
    ```
 
 #### **CDN Port Conflicts**
@@ -1049,7 +1053,7 @@ Error: Failed to start CDN server on port 8080
 **Solutions:**
 1. **Lab automatically finds free ports**, but you can specify:**
    ```bash
-   lab --cdn=./static@app:8081 tests/
+   lab run --cdn=./static@app:8081 tests/
    ```
 
 2. **Check for port conflicts:**
@@ -1076,19 +1080,19 @@ Error: Failed to start CDN server on port 8080
 ```bash
 # Enable detailed logging (if available)
 export LOG_LEVEL=debug
-lab tests/
+lab run tests/
 
 # Use simple reporter for cleaner output
-lab --reporter=simple tests/
+lab run --reporter=simple tests/
 ```
 
 #### **Test Individual Scripts**
 ```bash
 # Test one file at a time
-lab specific-test.fql
+lab run specific-test.fql
 
 # Run with retries disabled
-lab --attempts=1 problematic-test.fql
+lab run --attempts=1 problematic-test.fql
 ```
 
 #### **Validate Test Syntax**

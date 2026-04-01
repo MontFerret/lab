@@ -24,9 +24,9 @@ func VersionCommand(self string) *cli.Command {
 				return err
 			}
 
-			fmt.Println("Version")
-			fmt.Printf("  Self: %s\n", self)
-			fmt.Printf("  Runtime: %s\n", rtVersion)
+			fmt.Fprintln(appWriter(c), "Version")
+			fmt.Fprintf(appWriter(c), "  Self: %s\n", self)
+			fmt.Fprintf(appWriter(c), "  Runtime: %s\n", rtVersion)
 
 			return nil
 		},

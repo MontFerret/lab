@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,8 @@ import (
 
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 )
+
+const deprecatedRunWarning = "Warning: bare script execution is deprecated; use `lab run ...` instead."
 
 func toDirectories(values []string) ([]cdn2.Directory, error) {
 	res := make([]cdn2.Directory, 0, len(values))
@@ -97,19 +100,49 @@ func newRuntime(c *cli.Context, params map[string]interface{}) (runtime.Runtime,
 }
 
 func DefaultCommand(c *cli.Context) error {
-	waitFor := c.StringSlice("wait")
+	locations, ok := locationsFromContext(c)
 
-	var locations []string
+	if !ok {
+		if err := cli.ShowAppHelp(c); err != nil {
+			return err
+		}
 
+		return cli.Exit("", 1)
+	}
+
+	fmt.Fprintln(appErrWriter(c), deprecatedRunWarning)
+
+	return runScripts(c, locations)
+}
+
+func RunAction(c *cli.Context) error {
+	locations, ok := locationsFromContext(c)
+
+	if !ok {
+		if err := cli.ShowCommandHelp(c, "run"); err != nil {
+			return err
+		}
+
+		return cli.Exit("", 1)
+	}
+
+	return runScripts(c, locations)
+}
+
+func locationsFromContext(c *cli.Context) ([]string, bool) {
 	if c.NArg() == 0 {
-		locations = c.StringSlice("files")
-	} else {
-		locations = c.Args().Slice()
+		locations := c.StringSlice("files")
+
+		return locations, len(locations) > 0
 	}
 
-	if len(locations) == 0 {
-		cli.ShowAppHelpAndExit(c, 1)
-	}
+	locations := c.Args().Slice()
+
+	return locations, len(locations) > 0
+}
+
+func runScripts(c *cli.Context, locations []string) error {
+	waitFor := c.StringSlice("wait")
 
 	if len(waitFor) > 0 {
 		wait := waitfor.New(
@@ -207,6 +240,22 @@ func DefaultCommand(c *cli.Context) error {
 
 	stream := r.Run(runner2.NewContext(c.Context, params), src)
 
-	return reporters.NewConsole(os.Stdout).
+	return reporters.NewConsole(appWriter(c)).
 		Report(c.Context, stream)
+}
+
+func appWriter(c *cli.Context) io.Writer {
+	if c != nil && c.App != nil && c.App.Writer != nil {
+		return c.App.Writer
+	}
+
+	return os.Stdout
+}
+
+func appErrWriter(c *cli.Context) io.Writer {
+	if c != nil && c.App != nil && c.App.ErrWriter != nil {
+		return c.App.ErrWriter
+	}
+
+	return os.Stderr
 }
