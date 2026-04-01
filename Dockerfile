@@ -19,7 +19,7 @@ FROM montferret/chromium:111.0.5563.0
 RUN apt-get update && apt-get install -y dumb-init
 
 # Add in certs
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.c
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Add the binary
 COPY --from=builder /go/src/github.com/MontFerret/lab/v2/bin/lab .
