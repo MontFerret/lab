@@ -11,8 +11,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
+	"github.com/MontFerret/lab/v2/pkg/runner"
+
 	"github.com/MontFerret/lab/v2/pkg/reporters"
-	runner2 "github.com/MontFerret/lab/v2/pkg/runner"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	"github.com/MontFerret/lab/v2/pkg/testing"
 )
@@ -71,7 +72,7 @@ func runScripts(c *cli.Context, locations []string) error {
 		return cli.Exit(err, 1)
 	}
 
-	r, err := runner2.New(runner2.Options{
+	r, err := runner.New(runner.Options{
 		Runtime:       rt,
 		PoolSize:      c.Uint64("concurrency"),
 		Attempts:      c.Uint64("attempts"),
@@ -136,7 +137,7 @@ func runScripts(c *cli.Context, locations []string) error {
 		return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
 	}
 
-	stream := r.Run(runner2.NewContext(c.Context, params), src)
+	stream := r.Run(runner.NewContext(c.Context, params), src)
 
 	return reporters.NewConsole(appWriter(c)).
 		Report(c.Context, stream)
