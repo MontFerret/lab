@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"os"
 
 	"github.com/MontFerret/ferret/v2"
 	"github.com/MontFerret/ferret/v2/pkg/source"
@@ -14,6 +15,12 @@ type Builtin struct {
 }
 
 func NewBuiltin(cdp string, params map[string]any) (*Builtin, error) {
+	dir, err := os.Getwd()
+
+	if err != nil {
+		return nil, err
+	}
+
 	mods, err := newModules(cdp)
 
 	if err != nil {
@@ -21,6 +28,7 @@ func NewBuiltin(cdp string, params map[string]any) (*Builtin, error) {
 	}
 
 	c, err := ferret.New(
+		ferret.WithFSRoot(dir),
 		ferret.WithModules(mods...),
 		ferret.WithParams(params),
 	)
