@@ -11,9 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/MontFerret/lab/v2/pkg/runner"
-
 	"github.com/MontFerret/lab/v2/pkg/reporters"
+	"github.com/MontFerret/lab/v2/pkg/runner"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	"github.com/MontFerret/lab/v2/pkg/testing"
 )
