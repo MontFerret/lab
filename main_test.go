@@ -40,6 +40,29 @@ func TestRunCommandExecutesFilesFlag(t *testing.T) {
 	assertContains(t, stdout, "Done")
 }
 
+func TestRunCommandWithoutFilesShowsHelp(t *testing.T) {
+	stdout, stderr, err := runCLI(t, "run")
+	helpStdout, helpStderr, helpErr := runCLI(t, "run", "--help")
+
+	assertExitCode(t, err, 1)
+
+	if helpErr != nil {
+		t.Fatalf("expected no error from help, got %v", helpErr)
+	}
+
+	assertContains(t, stdout, "lab run [options] [files...]")
+	assertContains(t, stdout, "--files value")
+	assertNotContains(t, stderr, "No help topic for 'run'")
+
+	if stdout != helpStdout {
+		t.Fatalf("expected bare run help to match --help output, got %q and %q", stdout, helpStdout)
+	}
+
+	if stderr != helpStderr {
+		t.Fatalf("expected bare run stderr to match --help stderr, got %q and %q", stderr, helpStderr)
+	}
+}
+
 func TestVersionCommand(t *testing.T) {
 	stdout, stderr, err := runCLI(t, "version")
 

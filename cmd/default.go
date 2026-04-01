@@ -21,7 +21,7 @@ func RunAction(c *cli.Context) error {
 	locations, ok := locationsFromContext(c)
 
 	if !ok {
-		if err := cli.ShowCommandHelp(c, "run"); err != nil {
+		if err := showCurrentCommandHelp(c); err != nil {
 			return err
 		}
 
@@ -150,6 +150,51 @@ func showSubcommandUsageError(c *cli.Context, err error) error {
 	}
 
 	return err
+}
+
+func showCurrentCommandHelp(c *cli.Context) error {
+	command := commandFromParentContext(c)
+
+	if command == nil {
+		return cli.ShowSubcommandHelp(c)
+	}
+
+	templ := command.CustomHelpTemplate
+
+	if templ == "" {
+		templ = cli.CommandHelpTemplate
+	}
+
+	cli.HelpPrinter(appWriter(c), templ, command)
+
+	return nil
+}
+
+func commandFromParentContext(c *cli.Context) *cli.Command {
+	if c == nil || c.Command == nil {
+		return nil
+	}
+
+	lineage := c.Lineage()
+
+	if len(lineage) < 2 || lineage[1] == nil || lineage[1].App == nil {
+		return nil
+	}
+
+	parent := lineage[1]
+	commands := parent.App.Commands
+
+	if parent.Command != nil && parent.Command.Subcommands != nil {
+		commands = parent.Command.Subcommands
+	}
+
+	for _, command := range commands {
+		if command.HasName(c.Command.Name) {
+			return command
+		}
+	}
+
+	return nil
 }
 
 func appWriter(c *cli.Context) io.Writer {
