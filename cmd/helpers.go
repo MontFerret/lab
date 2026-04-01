@@ -44,8 +44,7 @@ func toParams(values []string) (map[string]interface{}, error) {
 		err := json.Unmarshal([]byte(pair[1]), &value)
 
 		if err != nil {
-			fmt.Println(pair[1])
-			return nil, err
+			return nil, fmt.Errorf("failed to parse JSON for param %q: %w", key, err)
 		}
 
 		res[key] = value
