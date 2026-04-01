@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MontFerret/ferret/v2/pkg/source"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/gobwas/glob"
 	. "github.com/smartystreets/goconvey/convey"
+
+	"github.com/MontFerret/ferret/v2/pkg/source"
 
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"

@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MontFerret/ferret/v2/pkg/source"
 	. "github.com/smartystreets/goconvey/convey"
+
+	"github.com/MontFerret/ferret/v2/pkg/source"
 
 	"github.com/MontFerret/lab/runtime"
 	"github.com/MontFerret/lab/sources"
