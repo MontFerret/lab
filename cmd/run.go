@@ -55,7 +55,7 @@ func RunFlags(hidden bool) []cli.Flag {
 		&cli.StringSliceFlag{
 			Name:    "runtime-param",
 			Aliases: []string{"rp"},
-			Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\" })",
+			Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\")",
 			EnvVars: []string{"LAB_RUNTIME_PARAM"},
 			Hidden:  hidden,
 		},
@@ -105,7 +105,7 @@ func RunFlags(hidden bool) []cli.Flag {
 		&cli.StringSliceFlag{
 			Name:    "wait",
 			Aliases: []string{"w"},
-			Usage:   "tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://locahost:5432/mydb)",
+			Usage:   "tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://localhost:5432/mydb)",
 			EnvVars: []string{"LAB_WAIT"},
 			Hidden:  hidden,
 		},
