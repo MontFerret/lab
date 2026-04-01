@@ -3,6 +3,7 @@ package testing
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -76,13 +77,13 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 	ctx, cancel := context.WithTimeout(ctx, suite.timeout)
 	defer cancel()
 
-	query, err := suite.resolveScript(ctx, suite.manifest.Query)
+	query, err := suite.resolveScript(ctx, "query", suite.manifest.Query)
 
 	if err != nil {
 		return errors.Wrap(err, "resolve query script")
 	}
 
-	assertion, err := suite.resolveScript(ctx, suite.manifest.Assert)
+	assertion, err := suite.resolveScript(ctx, "assert", suite.manifest.Assert)
 
 	if err != nil {
 		return errors.Wrap(err, "resolve assertion script")
@@ -114,9 +115,9 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 	return err
 }
 
-func (suite *Suite) resolveScript(ctx context.Context, manifest ScriptManifest) (*source.Source, error) {
+func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manifest ScriptManifest) (*source.Source, error) {
 	if manifest.Text != "" {
-		return source.New(suite.file.Name, manifest.Text), nil
+		return source.New(fmt.Sprintf("%s -> %s", suite.file.Name, scriptType), manifest.Text), nil
 	}
 
 	u, err := url.Parse(manifest.Ref)
