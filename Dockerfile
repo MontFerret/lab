@@ -6,7 +6,7 @@ FROM golang:alpine AS builder
 # Make is requiered for build.
 RUN apk update && apk add --no-cache git make ca-certificates
 
-WORKDIR /go/src/github.com/MontFerret/lab
+WORKDIR /go/src/github.com/MontFerret/lab/v2
 
 COPY . .
 
@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y dumb-init
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.c
 
 # Add the binary
-COPY --from=builder /go/src/github.com/MontFerret/lab/bin/lab .
+COPY --from=builder /go/src/github.com/MontFerret/lab/v2/bin/lab .
 
 VOLUME test
 

@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/MontFerret/lab/cmd"
+	"github.com/MontFerret/lab/v2/cmd"
 	"github.com/urfave/cli/v2"
 )
 

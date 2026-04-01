@@ -5,7 +5,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/lab/pkg/cdn"
+	"github.com/MontFerret/lab/v2/pkg/cdn"
 )
 
 func TestDirectory(t *testing.T) {

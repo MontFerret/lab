@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/MontFerret/ferret/v2/pkg/source"
-	"github.com/MontFerret/lab/pkg/runtime"
-	"github.com/MontFerret/lab/pkg/sources"
+	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/pkg/sources"
 )
 
 type Unit struct {

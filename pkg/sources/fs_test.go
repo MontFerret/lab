@@ -10,9 +10,9 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/lab/pkg/runtime"
-	sources2 "github.com/MontFerret/lab/pkg/sources"
-	testing2 "github.com/MontFerret/lab/pkg/testing"
+	"github.com/MontFerret/lab/v2/pkg/runtime"
+	sources2 "github.com/MontFerret/lab/v2/pkg/sources"
+	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
 
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )

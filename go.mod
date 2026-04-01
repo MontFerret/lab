@@ -1,4 +1,4 @@
-module github.com/MontFerret/lab
+module github.com/MontFerret/lab/v2
 
 go 1.25.6
 

@@ -13,12 +13,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	cdn2 "github.com/MontFerret/lab/pkg/cdn"
-	"github.com/MontFerret/lab/pkg/reporters"
-	runner2 "github.com/MontFerret/lab/pkg/runner"
-	"github.com/MontFerret/lab/pkg/runtime"
-	"github.com/MontFerret/lab/pkg/sources"
-	"github.com/MontFerret/lab/pkg/testing"
+	cdn2 "github.com/MontFerret/lab/v2/pkg/cdn"
+	"github.com/MontFerret/lab/v2/pkg/reporters"
+	runner2 "github.com/MontFerret/lab/v2/pkg/runner"
+	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/pkg/sources"
+	"github.com/MontFerret/lab/v2/pkg/testing"
 
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 )
