@@ -16,7 +16,7 @@ func ServeCommand() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name:    "cdn",
-				Usage:   "file or directory to serve via HTTP (./dir as default or ./dir@name with alias)",
+				Usage:   "directory to serve via HTTP (./dir as default or ./dir@name with alias)",
 				Sources: cli.EnvVars("LAB_CDN"),
 			},
 		},
