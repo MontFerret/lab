@@ -49,16 +49,16 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 		return cli.Exit(err, 1)
 	}
 
+	err = cdnManager.Start(ctx)
+	if err != nil {
+		return cli.Exit(errors.Wrap(err, "failed to start static server"), 1)
+	}
+
 	endpoints := cdnManager.Endpoints()
 	w := appWriter(cmd)
 
 	for name, addr := range endpoints {
 		fmt.Fprintf(w, "Serving %q at %s\n", name, addr)
-	}
-
-	err = cdnManager.Start(ctx)
-	if err != nil {
-		return cli.Exit(errors.Wrap(err, "failed to start static server"), 1)
 	}
 
 	// Block until context is cancelled (e.g. Ctrl+C)
