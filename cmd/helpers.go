@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 	cdn2 "github.com/MontFerret/lab/v2/pkg/cdn"
@@ -71,10 +71,10 @@ func createCDNManager(dirs []cdn2.Directory) (*cdn2.Manager, error) {
 	return m, nil
 }
 
-func newRuntime(c *cli.Context, params map[string]interface{}) (runtime.Runtime, error) {
+func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtime, error) {
 	rt, err := runtime.New(runtime.Options{
-		Type:       c.String("runtime"),
-		CDPAddress: cdpAddressFromContext(c),
+		Type:       cmd.String("runtime"),
+		CDPAddress: cdpAddressFromCommand(cmd),
 		Params:     params,
 	})
 
@@ -85,9 +85,9 @@ func newRuntime(c *cli.Context, params map[string]interface{}) (runtime.Runtime,
 	return rt, nil
 }
 
-func cdpAddressFromContext(c *cli.Context) string {
-	if c != nil {
-		if address := c.String("cdp"); address != "" {
+func cdpAddressFromCommand(cmd *cli.Command) string {
+	if cmd != nil {
+		if address := cmd.String("cdp"); address != "" {
 			return address
 		}
 	}
@@ -95,14 +95,14 @@ func cdpAddressFromContext(c *cli.Context) string {
 	return defaultCDPAddress
 }
 
-func locationsFromContext(c *cli.Context) ([]string, bool) {
-	if c.NArg() == 0 {
-		locations := c.StringSlice("files")
+func locationsFromCommand(cmd *cli.Command) ([]string, bool) {
+	if cmd.NArg() == 0 {
+		locations := cmd.StringSlice("files")
 
 		return locations, len(locations) > 0
 	}
 
-	locations := c.Args().Slice()
+	locations := cmd.Args().Slice()
 
 	return locations, len(locations) > 0
 }
