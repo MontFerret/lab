@@ -32,11 +32,11 @@ func RunAction(ctx context.Context, cmd *cli.Command) error {
 	return runScripts(ctx, cmd, locations)
 }
 
-func RootAction(ctx context.Context, cmd *cli.Command) error {
+func RootAction(_ context.Context, cmd *cli.Command) error {
 	return cli.ShowAppHelp(cmd)
 }
 
-func RootUsageError(ctx context.Context, cmd *cli.Command, err error, _ bool) error {
+func RootUsageError(_ context.Context, cmd *cli.Command, err error, _ bool) error {
 	return showSubcommandUsageError(cmd, err)
 }
 
