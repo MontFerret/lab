@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
@@ -64,5 +65,8 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 	// Block until context is cancelled (e.g. Ctrl+C)
 	<-ctx.Done()
 
-	return cdnManager.Stop(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	return cdnManager.Stop(ctx)
 }
