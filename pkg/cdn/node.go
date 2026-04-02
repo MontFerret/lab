@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -29,7 +30,11 @@ func NewNode(settings NodeSettings) (*Node, error) {
 	e := echo.New()
 	e.Debug = false
 	e.HideBanner = true
-	e.Use(middleware.CORS())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodOptions},
+		AllowHeaders: []string{"*"},
+	}))
 
 	prefix := "/"
 

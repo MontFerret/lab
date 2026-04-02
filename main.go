@@ -63,6 +63,7 @@ func newApp(version string, out io.Writer, errOut io.Writer) *cli.Command {
 		OnUsageError: cmd.RootUsageError,
 		Commands: []*cli.Command{
 			cmd.RunCommand(),
+			cmd.ServeCommand(),
 			cmd.VersionCommand(version),
 		},
 	}
