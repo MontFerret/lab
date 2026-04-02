@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func TestRunCommandExecutesScript(t *testing.T) {
@@ -51,7 +51,7 @@ func TestRunCommandWithoutFilesShowsHelp(t *testing.T) {
 	}
 
 	assertContains(t, stdout, "lab run [options] [files...]")
-	assertContains(t, stdout, "--files value")
+	assertContains(t, stdout, "--files string")
 	assertNotContains(t, stderr, "No help topic for 'run'")
 
 	if stdout != helpStdout {
@@ -165,8 +165,8 @@ func TestRootHelpShowsCommandsOnly(t *testing.T) {
 	assertContains(t, stdout, "lab [command] [command options]")
 	assertContains(t, stdout, "run")
 	assertContains(t, stdout, "version")
-	assertNotContains(t, stdout, "--files value")
-	assertNotContains(t, stdout, "--timeout value")
+	assertNotContains(t, stdout, "--files string")
+	assertNotContains(t, stdout, "--timeout uint")
 	assertNotContains(t, stderr, "deprecated")
 }
 
@@ -178,9 +178,9 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	}
 
 	assertContains(t, stdout, "lab run [options] [files...]")
-	assertContains(t, stdout, "--files value")
-	assertContains(t, stdout, "--timeout value")
-	assertContains(t, stdout, "--runtime value")
+	assertContains(t, stdout, "--files string")
+	assertContains(t, stdout, "--timeout uint")
+	assertContains(t, stdout, "--runtime string")
 	assertNotContains(t, stderr, "deprecated")
 }
 
@@ -192,9 +192,9 @@ func TestVersionHelpRemainsMinimal(t *testing.T) {
 	}
 
 	assertContains(t, stdout, "lab version [options]")
-	assertContains(t, stdout, "--runtime value")
-	assertNotContains(t, stdout, "--timeout value")
-	assertNotContains(t, stdout, "--files value")
+	assertContains(t, stdout, "--runtime string")
+	assertNotContains(t, stdout, "--timeout uint")
+	assertNotContains(t, stdout, "--files string")
 	assertNotContains(t, stderr, "deprecated")
 }
 
@@ -205,8 +205,8 @@ func runCLI(t *testing.T, args ...string) (string, string, error) {
 	var stderr bytes.Buffer
 
 	app := newApp("test-version", &stdout, &stderr)
-	app.ExitErrHandler = func(_ *cli.Context, _ error) {}
-	err := app.RunContext(context.Background(), append([]string{"lab"}, args...))
+	app.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+	err := app.Run(context.Background(), append([]string{"lab"}, args...))
 
 	return stdout.String(), stderr.String(), err
 }

@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/MontFerret/lab/v2/cmd"
 )
@@ -34,7 +34,7 @@ func main() {
 
 	defer cancel()
 
-	if err := app.RunContext(ctx, os.Args); err != nil {
+	if err := app.Run(ctx, os.Args); err != nil {
 		if err == context.Canceled {
 			fmt.Fprintln(app.ErrWriter, "Terminated")
 		} else if err.Error() != "" {
@@ -51,12 +51,11 @@ func main() {
 	}
 }
 
-func newApp(version string, out io.Writer, errOut io.Writer) *cli.App {
-	return &cli.App{
+func newApp(version string, out io.Writer, errOut io.Writer) *cli.Command {
+	return &cli.Command{
 		Name:         "lab",
 		Usage:        "run FQL test scripts",
 		Description:  "Ferret test runner",
-		HideVersion:  true,
 		UsageText:    "lab [command] [command options]",
 		Writer:       out,
 		ErrWriter:    errOut,

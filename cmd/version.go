@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func VersionCommand(self string) *cli.Command {
@@ -16,25 +17,25 @@ func VersionCommand(self string) *cli.Command {
 				Name:    "runtime",
 				Aliases: []string{"r"},
 				Usage:   "url to remote Ferret runtime (http, https or bin)",
-				EnvVars: []string{"LAB_RUNTIME"},
+				Sources: cli.EnvVars("LAB_RUNTIME"),
 			},
 		},
-		Action: func(c *cli.Context) error {
-			rt, err := newRuntime(c, nil)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			rt, err := newRuntime(cmd, nil)
 
 			if err != nil {
 				return err
 			}
 
-			rtVersion, err := rt.Version(c.Context)
+			rtVersion, err := rt.Version(ctx)
 
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintln(appWriter(c), "Version")
-			fmt.Fprintf(appWriter(c), "  Self: %s\n", self)
-			fmt.Fprintf(appWriter(c), "  Runtime: %s\n", rtVersion)
+			fmt.Fprintln(appWriter(cmd), "Version")
+			fmt.Fprintf(appWriter(cmd), "  Self: %s\n", self)
+			fmt.Fprintf(appWriter(cmd), "  Runtime: %s\n", rtVersion)
 
 			return nil
 		},

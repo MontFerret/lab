@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"github.com/go-waitfor/waitfor"
 	http "github.com/go-waitfor/waitfor-http"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/MontFerret/lab/v2/pkg/reporters"
 	"github.com/MontFerret/lab/v2/pkg/runner"
@@ -17,30 +18,30 @@ import (
 	"github.com/MontFerret/lab/v2/pkg/testing"
 )
 
-func RunAction(c *cli.Context) error {
-	locations, ok := locationsFromContext(c)
+func RunAction(ctx context.Context, cmd *cli.Command) error {
+	locations, ok := locationsFromCommand(cmd)
 
 	if !ok {
-		if err := showCurrentCommandHelp(c); err != nil {
+		if err := showCurrentCommandHelp(cmd); err != nil {
 			return err
 		}
 
 		return cli.Exit("", 1)
 	}
 
-	return runScripts(c, locations)
+	return runScripts(ctx, cmd, locations)
 }
 
-func RootAction(c *cli.Context) error {
-	return cli.ShowAppHelp(c)
+func RootAction(ctx context.Context, cmd *cli.Command) error {
+	return cli.ShowAppHelp(cmd)
 }
 
-func RootUsageError(c *cli.Context, err error, _ bool) error {
-	return showSubcommandUsageError(c, err)
+func RootUsageError(ctx context.Context, cmd *cli.Command, err error, _ bool) error {
+	return showSubcommandUsageError(cmd, err)
 }
 
-func runScripts(c *cli.Context, locations []string) error {
-	waitFor := c.StringSlice("wait")
+func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error {
+	waitFor := cmd.StringSlice("wait")
 
 	if len(waitFor) > 0 {
 		wait := waitfor.New(
@@ -48,10 +49,10 @@ func runScripts(c *cli.Context, locations []string) error {
 		)
 
 		err := wait.Test(
-			c.Context,
+			ctx,
 			waitFor,
-			waitfor.WithAttempts(c.Uint64("wait-attempts")),
-			waitfor.WithInterval(c.Uint64("wait-timeout")),
+			waitfor.WithAttempts(cmd.Uint64("wait-attempts")),
+			waitfor.WithInterval(cmd.Uint64("wait-timeout")),
 		)
 
 		if err != nil {
@@ -59,13 +60,13 @@ func runScripts(c *cli.Context, locations []string) error {
 		}
 	}
 
-	runtimeParams, err := toParams(c.StringSlice("runtime-param"))
+	runtimeParams, err := toParams(cmd.StringSlice("runtime-param"))
 
 	if err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	rt, err := newRuntime(c, runtimeParams)
+	rt, err := newRuntime(cmd, runtimeParams)
 
 	if err != nil {
 		return cli.Exit(err, 1)
@@ -73,11 +74,11 @@ func runScripts(c *cli.Context, locations []string) error {
 
 	r, err := runner.New(runner.Options{
 		Runtime:       rt,
-		PoolSize:      c.Uint64("concurrency"),
-		Attempts:      c.Uint64("attempts"),
-		TestTimeout:   time.Duration(c.Uint64("timeout")) * time.Second,
-		Times:         c.Uint64("times"),
-		TimesInterval: c.Uint64("times-interval"),
+		PoolSize:      cmd.Uint64("concurrency"),
+		Attempts:      cmd.Uint64("attempts"),
+		TestTimeout:   time.Duration(cmd.Uint64("timeout")) * time.Second,
+		Times:         cmd.Uint64("times"),
+		TimesInterval: cmd.Uint64("times-interval"),
 	})
 
 	if err != nil {
@@ -92,7 +93,7 @@ func runScripts(c *cli.Context, locations []string) error {
 
 	params := testing.NewParams()
 
-	userParams, err := toParams(c.StringSlice("param"))
+	userParams, err := toParams(cmd.StringSlice("param"))
 
 	if err != nil {
 		return cli.Exit(err, 1)
@@ -100,7 +101,7 @@ func runScripts(c *cli.Context, locations []string) error {
 
 	params.SetUserValues(userParams)
 
-	dirs, err := toDirectories(c.StringSlice("cdn"))
+	dirs, err := toDirectories(cmd.StringSlice("cdn"))
 
 	if err != nil {
 		return cli.Exit(err, 1)
@@ -130,76 +131,46 @@ func runScripts(c *cli.Context, locations []string) error {
 		}
 	}
 
-	err = cdnManager.Start(c.Context)
+	err = cdnManager.Start(ctx)
 
 	if err != nil {
 		return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
 	}
 
-	stream := r.Run(runner.NewContext(c.Context, params), src)
+	stream := r.Run(runner.NewContext(ctx, params), src)
 
-	return reporters.NewConsole(appWriter(c)).
-		Report(c.Context, stream)
+	return reporters.NewConsole(appWriter(cmd)).
+		Report(ctx, stream)
 }
 
-func showSubcommandUsageError(c *cli.Context, err error) error {
-	fmt.Fprintf(appWriter(c), "Incorrect Usage: %s\n\n", err.Error())
+func showSubcommandUsageError(cmd *cli.Command, err error) error {
+	fmt.Fprintf(appWriter(cmd), "Incorrect Usage: %s\n\n", err.Error())
 
-	if helpErr := cli.ShowSubcommandHelp(c); helpErr != nil {
+	if helpErr := cli.ShowSubcommandHelp(cmd); helpErr != nil {
 		return helpErr
 	}
 
 	return err
 }
 
-func showCurrentCommandHelp(c *cli.Context) error {
-	command := commandFromParentContext(c)
-
-	if command == nil {
-		return cli.ShowSubcommandHelp(c)
-	}
-
-	templ := command.CustomHelpTemplate
+func showCurrentCommandHelp(cmd *cli.Command) error {
+	templ := cmd.CustomHelpTemplate
 
 	if templ == "" {
 		templ = cli.CommandHelpTemplate
 	}
 
-	cli.HelpPrinter(appWriter(c), templ, command)
+	cli.HelpPrinter(appWriter(cmd), templ, cmd)
 
 	return nil
 }
 
-func commandFromParentContext(c *cli.Context) *cli.Command {
-	if c == nil || c.Command == nil {
-		return nil
-	}
-
-	lineage := c.Lineage()
-
-	if len(lineage) < 2 || lineage[1] == nil || lineage[1].App == nil {
-		return nil
-	}
-
-	parent := lineage[1]
-	commands := parent.App.Commands
-
-	if parent.Command != nil && parent.Command.Subcommands != nil {
-		commands = parent.Command.Subcommands
-	}
-
-	for _, command := range commands {
-		if command.HasName(c.Command.Name) {
-			return command
+func appWriter(cmd *cli.Command) io.Writer {
+	if cmd != nil {
+		root := cmd.Root()
+		if root.Writer != nil {
+			return root.Writer
 		}
-	}
-
-	return nil
-}
-
-func appWriter(c *cli.Context) io.Writer {
-	if c != nil && c.App != nil && c.App.Writer != nil {
-		return c.App.Writer
 	}
 
 	return os.Stdout
