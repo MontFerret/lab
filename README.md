@@ -74,6 +74,7 @@ Read the introductory blog post about Lab [here!](https://www.montferret.dev/blo
 
 ### 🌍 **Static Content Serving**
 - **Built-in HTTP server** - Serve static files for testing web applications
+- **Dedicated `serve` command** - Run the static file server without executing tests
 - **Multiple CDN endpoints** - Host different content on various paths
 - **Custom aliases** - Name your content endpoints for better organization
 - **Dynamic port allocation** - Automatically find available ports
@@ -458,6 +459,17 @@ lab run https://example.com/tests/suite1.yaml https://example.com/tests/suite2.y
 ### 🌐 **Static File Serving (CDN)**
 
 Lab includes a built-in HTTP server for serving static content during tests:
+
+#### **Standalone Static Server**
+Use `lab serve` when you want to expose local directories over HTTP without running a test suite:
+
+```bash
+# Serve a single directory
+lab serve ./website
+
+# Serve multiple directories with aliases
+lab serve ./frontend@app ./mockdata@api
+```
 
 #### **Basic CDN Usage**
 ```bash
