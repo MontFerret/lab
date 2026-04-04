@@ -4,14 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/MontFerret/lab/v2/pkg/reporters"
-	"github.com/MontFerret/lab/v2/pkg/runner"
-	"github.com/MontFerret/lab/v2/pkg/sources"
-	"github.com/MontFerret/lab/v2/pkg/testing"
 	"github.com/go-waitfor/waitfor"
 	http "github.com/go-waitfor/waitfor-http"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
+
+	"github.com/MontFerret/lab/v2/pkg/reporters"
+	"github.com/MontFerret/lab/v2/pkg/runner"
+	"github.com/MontFerret/lab/v2/pkg/sources"
+	"github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 const defaultCDPAddress = "http://127.0.0.1:9222"
