@@ -75,7 +75,7 @@ Read the introductory blog post about Lab [here!](https://www.montferret.dev/blo
 ### 🌍 **Static Content Serving**
 - **Built-in HTTP server** - Serve static files for testing web applications
 - **Dedicated `serve` command** - Run the static file server without executing tests
-- **Multiple CDN endpoints** - Host different content on various paths
+- **Multiple static endpoints** - Host different directories at separate URLs
 - **Custom aliases** - Name your content endpoints for better organization
 - **Dynamic port allocation** - Automatically find available ports
 
@@ -144,7 +144,7 @@ services:
     volumes:
       - ./tests:/workspace/tests
       - ./static:/workspace/static
-    command: ["run", "--cdn=/workspace/static", "/workspace/tests/"]
+    command: ["run", "--serve", "/workspace/static", "/workspace/tests/"]
 ```
 
 ### 🛠️ **Build from Source**
@@ -456,12 +456,12 @@ lab run https://raw.githubusercontent.com/user/repo/main/test.fql
 lab run https://example.com/tests/suite1.yaml https://example.com/tests/suite2.yaml
 ```
 
-### 🌐 **Static File Serving (CDN)**
+### 🌐 **Static File Serving**
 
-Lab includes a built-in HTTP server for serving static content during tests:
+Lab can serve local directories over HTTP during test execution. Served endpoints are available in FQL scripts under `@lab.static.<alias>`.
 
 #### **Standalone Static Server**
-Use `lab serve` when you want to expose local directories over HTTP without running a test suite:
+Use `lab serve` when you want to expose local directories over HTTP without running a test suite. Positional entries are the primary syntax, and repeated `--serve` flags are also supported for symmetry with `lab run`.
 
 ```bash
 # Serve a single directory
@@ -471,48 +471,48 @@ lab serve ./website
 lab serve ./frontend@app ./mockdata@api
 ```
 
-#### **Basic CDN Usage**
+#### **Basic Static Serving**
 ```bash
 # Serve files from ./website directory
-lab run --cdn=./website tests/
+lab run --serve ./website tests/
 
 # Access in your FQL scripts
-LET doc = DOCUMENT(@lab.cdn.website, { driver: "cdp" })
+LET doc = DOCUMENT(@lab.static.website, { driver: "cdp" })
 ```
 
-#### **Multiple CDN Endpoints**
+#### **Multiple Static Endpoints**
 ```bash
 # Serve multiple directories
-lab run --cdn=./app --cdn=./api-mocks tests/
+lab run --serve ./app --serve ./api-mocks tests/
 ```
 
 FQL Script:
 ```sql
 // Access different endpoints
-LET appPage = DOCUMENT(@lab.cdn.app, { driver: "cdp" })
-LET apiData = DOCUMENT(@lab.cdn.api-mocks + "/users.json")
+LET appPage = DOCUMENT(@lab.static.app, { driver: "cdp" })
+LET apiData = IO::NET::HTTP::GET(@lab.static["api-mocks"] + "/users.json")
 ```
 
-#### **Custom CDN Aliases**
+#### **Custom Static Aliases**
 ```bash
 # Give custom names to your content
-lab run --cdn=./frontend@app --cdn=./mockdata@api tests/
+lab run --serve ./frontend@app --serve ./mockdata@api tests/
 ```
 
 FQL Script:
 ```sql
 // Use custom aliases
-LET homePage = DOCUMENT(@lab.cdn.app + "/index.html", { driver: "cdp" })
-LET userData = DOCUMENT(@lab.cdn.api + "/user/123.json")
+LET homePage = DOCUMENT(@lab.static.app + "/index.html", { driver: "cdp" })
+LET userData = IO::NET::HTTP::GET(@lab.static.api + "/user/123.json")
 ```
 
-#### **Advanced CDN Example**
+#### **Advanced Static Server Example**
 ```bash
 # Complex setup with multiple content sources
 lab run \
-  --cdn=./dist@webapp \
-  --cdn=./test-fixtures@fixtures \
-  --cdn=./mock-apis@mocks \
+  --serve ./dist@webapp \
+  --serve ./test-fixtures@fixtures \
+  --serve ./mock-apis@mocks \
   --concurrency=3 \
   tests/e2e/
 ```
@@ -623,7 +623,7 @@ These flags apply to `lab run`.
 | `--times` | - | `LAB_TIMES` | `1` | Number of times to run each test |
 | `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
 | `--times-interval` | - | `LAB_TIMES_INTERVAL` | `0` | Interval between test cycles (seconds) |
-| `--cdn` | - | `LAB_CDN` | - | Directory to serve via HTTP |
+| `--serve` | - | `LAB_SERVE` | - | Served directory mapping exposed over HTTP |
 | `--param` | `-p` | `LAB_PARAM` | - | Query parameters for tests |
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
 | `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
@@ -682,8 +682,8 @@ export LAB_CONCURRENCY=1
 
 # Serve local assets and run tests
 lab run \
-  --cdn=./dist@app \
-  --cdn=./fixtures@data \
+  --serve ./dist@app \
+  --serve ./fixtures@data \
   tests/dev/
 ```
 
@@ -739,10 +739,10 @@ Lab is built with a modular architecture that separates concerns and enables fle
                                 │
                                 ▼
                        ┌─────────────────┐
-                       │   CDN Server    │
+                       │  Static Server  │
                        │                 │
-                       │ • Static Files  │
-                       │ • Multi-tenant  │
+                       │ • Served Dirs   │
+                       │ • Static URLs   │
                        │ • Auto Ports    │
                        └─────────────────┘
 ```
@@ -769,11 +769,11 @@ Orchestrates test execution:
 - **Resource Management**: Controls timeouts and resource allocation
 - **Lifecycle Management**: Handles setup, execution, and cleanup phases
 
-#### **CDN Server (`cdn/`)**
-Built-in HTTP server for static content:
-- **Multi-endpoint**: Serve multiple directories simultaneously
-- **Dynamic Ports**: Automatic port allocation to avoid conflicts
-- **Alias Support**: Custom naming for endpoints
+#### **Static Server (`staticserver/`)**
+Built-in HTTP server for local static assets:
+- **Multiple endpoints**: Serve multiple directories simultaneously
+- **Dynamic ports**: Automatic port allocation to avoid conflicts
+- **Alias support**: Custom names for served directories
 
 #### **Reporters (`reporters/`)**
 Output formatting and result presentation:
@@ -790,13 +790,13 @@ Test suite definition and validation:
 
 1. **Input Processing**: Parse command-line arguments and environment variables
 2. **Source Resolution**: Fetch test files from specified sources
-3. **CDN Initialization**: Start HTTP servers for static content (if needed)  
+3. **Static Server Initialization**: Start HTTP servers for served directories (if needed)  
 4. **Runtime Setup**: Initialize Ferret runtime (built-in or remote)
 5. **Test Discovery**: Find and parse test files and suites
 6. **Parallel Execution**: Run tests according to concurrency settings
 7. **Result Collection**: Gather execution results and timing data
 8. **Reporting**: Format and output results via selected reporter
-9. **Cleanup**: Stop CDN servers and clean up resources
+9. **Cleanup**: Stop static file servers and clean up resources
 
 ### 🎯 **Design Principles**
 
@@ -866,7 +866,7 @@ make cover
 lab/
 ├── main.go              # Application entry point
 ├── cmd/                 # CLI command implementations
-├── cdn/                 # Static file server
+├── staticserver/        # Static file server
 ├── reporters/           # Output formatters
 ├── runner/              # Test execution orchestration  
 ├── runtime/             # Ferret runtime implementations
@@ -966,7 +966,7 @@ lab run --concurrency=8 tests/
 - Use appropriate timeouts for different test types
 - Implement proper cleanup in test suites
 - Monitor memory usage with large test suites
-- Use CDN for shared static assets
+- Use the static server for shared static assets
 
 #### **Test Efficiency**
 ```bash
@@ -1061,15 +1061,15 @@ Error: Failed to clone repository
    lab run git+ssh://git@github.com/private/repo.git//tests/
    ```
 
-#### **CDN Port Conflicts**
+#### **Static Server Port Conflicts**
 ```
-Error: Failed to start CDN server on port 8080
+Error: failed to start static file server on port 8080
 ```
 
 **Solutions:**
 1. **Lab automatically finds free ports**, but you can specify:**
    ```bash
-   lab run --cdn=./static@app:8081 tests/
+   lab run --serve ./static@app:8081 tests/
    ```
 
 2. **Check for port conflicts:**
@@ -1086,7 +1086,7 @@ Error: Failed to start CDN server on port 8080
 
 #### **Slow Test Execution**
 - Enable parallel execution: `--concurrency=4`
-- Use local CDN for static assets
+- Use the static server for local assets
 - Optimize FQL scripts for better performance
 - Profile tests to identify bottlenecks
 

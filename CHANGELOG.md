@@ -95,7 +95,7 @@
 - Support of expected failure (my-test.fail.fql). [1aafc18](https://github.com/MontFerret/lab/commit/1aafc18f5a0789ba272841c47da9ca8e487b4f6c)
 
 ### Fixed
-- Execution of CDN. [bccb2af](https://github.com/MontFerret/lab/commit/bccb2af2548ef8e4eba2ced860aa67e523e4449d)
+- Execution of static server. [bccb2af](https://github.com/MontFerret/lab/commit/bccb2af2548ef8e4eba2ced860aa67e523e4449d)
 - Filtering. [d84ab66](https://github.com/MontFerret/lab/commit/d84ab66e021ccf5e13b86cb6166368b371461795)
 - Graceful termination. [1aafc18](https://github.com/MontFerret/lab/commit/1aafc18f5a0789ba272841c47da9ca8e487b4f6c)
 

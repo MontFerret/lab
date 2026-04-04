@@ -90,9 +90,9 @@ func RunFlags(hidden bool) []cli.Flag {
 			Hidden:  hidden,
 		},
 		&cli.StringSliceFlag{
-			Name:    "cdn",
-			Usage:   "file or directory to serve via HTTP (./dir as default or ./dir@name with alias)",
-			Sources: cli.EnvVars("LAB_CDN"),
+			Name:    "serve",
+			Usage:   "serve a local directory over HTTP during test execution (<path>, <path>:<port>, <path>@<alias>, <path>@<alias>:<port>)",
+			Sources: cli.EnvVars("LAB_SERVE"),
 			Hidden:  hidden,
 		},
 		&cli.StringSliceFlag{

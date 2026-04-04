@@ -12,13 +12,13 @@ import (
 func ServeCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "serve",
-		Usage:     "Serve static files via HTTP",
-		UsageText: "lab serve [options] [directories...]",
+		Usage:     "Serve one or more local directories over HTTP",
+		UsageText: "lab serve [entries...]",
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
-				Name:    "cdn",
-				Usage:   "directory to serve via HTTP (./dir as default or ./dir@name with alias)",
-				Sources: cli.EnvVars("LAB_CDN"),
+				Name:    "serve",
+				Usage:   "served directory mapping (<path>, <path>:<port>, <path>@<alias>, <path>@<alias>:<port>)",
+				Sources: cli.EnvVars("LAB_SERVE"),
 			},
 		},
 		Action: ServeAction,
@@ -26,8 +26,7 @@ func ServeCommand() *cli.Command {
 }
 
 func ServeAction(ctx context.Context, cmd *cli.Command) error {
-	// Collect directories from both positional args and --cdn flag
-	values := cmd.StringSlice("cdn")
+	values := cmd.StringSlice("serve")
 	if cmd.NArg() > 0 {
 		values = append(values, cmd.Args().Slice()...)
 	}
@@ -40,22 +39,21 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 		return cli.Exit("", 1)
 	}
 
-	dirs, err := toDirectories(values)
+	entries, err := toServeEntries(values)
 	if err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	cdnManager, err := createCDNManager(dirs)
+	manager, err := createStaticServerManager(entries)
 	if err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	err = cdnManager.Start(ctx)
-	if err != nil {
-		return cli.Exit(errors.Wrap(err, "failed to start static server"), 1)
+	if err := manager.Start(ctx); err != nil {
+		return cli.Exit(errors.Wrap(err, "failed to start static file server"), 1)
 	}
 
-	endpoints := cdnManager.Endpoints()
+	endpoints := manager.Endpoints()
 	w := appWriter(cmd)
 
 	for name, addr := range endpoints {
@@ -68,5 +66,5 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	return cdnManager.Stop(ctx)
+	return manager.Stop(ctx)
 }

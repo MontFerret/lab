@@ -101,40 +101,33 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 
 	params.SetUserValues(userParams)
 
-	dirs, err := toDirectories(cmd.StringSlice("cdn"))
-
+	serveEntries, err := toServeEntries(cmd.StringSlice("serve"))
 	if err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	cdnManager, err := createCDNManager(dirs)
+	staticURLs := make(map[string]interface{})
+	params.SetSystemValue("static", staticURLs)
 
+	manager, err := createStaticServerManager(serveEntries)
 	if err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	cdnNodes := cdnManager.Endpoints()
-	cdnMap := make(map[string]string)
-	params.SetSystemValue("cdn", cdnMap)
-
-	for _, dir := range dirs {
-		_, found := cdnMap[dir.Name]
-
-		if found {
-			return cli.Exit(errors.Errorf("directory name is already defined: %s", dir.Name), 1)
+	if manager != nil {
+		if err := manager.Start(ctx); err != nil {
+			return cli.Exit(errors.Wrap(err, "failed to start static file server"), 1)
 		}
 
-		address, found := cdnNodes[dir.Name]
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = manager.Stop(stopCtx)
+		}()
 
-		if found {
-			cdnMap[dir.Name] = address
+		for alias, address := range manager.Endpoints() {
+			staticURLs[alias] = address
 		}
-	}
-
-	err = cdnManager.Start(ctx)
-
-	if err != nil {
-		return cli.Exit(errors.Wrap(err, "failed to start local server for CDN"), 1)
 	}
 
 	stream := r.Run(runner.NewContext(ctx, params), src)
