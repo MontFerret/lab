@@ -8,7 +8,7 @@ is_lab_invocation() {
 	fi
 
 	case "$1" in
-		run | version | help)
+		run | serve | version | help)
 			return 0
 			;;
 		-*)
