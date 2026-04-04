@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,25 @@ import (
 
 	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
 )
+
+type safeBuffer struct {
+	mu  sync.RWMutex
+	buf bytes.Buffer
+}
+
+func (b *safeBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *safeBuffer) String() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.buf.String()
+}
 
 func TestRunCommandExecutesScript(t *testing.T) {
 	script := writeScript(t)
@@ -400,14 +420,14 @@ func runCLIWithEnv(t *testing.T, env map[string]string, args ...string) (string,
 	return runCLI(t, args...)
 }
 
-func startCLI(t *testing.T, args ...string) (*bytes.Buffer, *bytes.Buffer, <-chan error, context.CancelFunc) {
+func startCLI(t *testing.T, args ...string) (*safeBuffer, *safeBuffer, <-chan error, context.CancelFunc) {
 	t.Helper()
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
+	stdout := &safeBuffer{}
+	stderr := &safeBuffer{}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	app := newApp("test-version", &stdout, &stderr)
+	app := newApp("test-version", stdout, stderr)
 	app.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
 	done := make(chan error, 1)
@@ -415,7 +435,7 @@ func startCLI(t *testing.T, args ...string) (*bytes.Buffer, *bytes.Buffer, <-cha
 		done <- app.Run(ctx, append([]string{"lab"}, args...))
 	}()
 
-	return &stdout, &stderr, done, cancel
+	return stdout, stderr, done, cancel
 }
 
 func writeScript(t *testing.T) string {
@@ -434,7 +454,7 @@ func writeNamedScript(t *testing.T, name string, content string) string {
 	return path
 }
 
-func waitForServeURL(t *testing.T, stdout *bytes.Buffer, alias string) string {
+func waitForServeURL(t *testing.T, stdout *safeBuffer, alias string) string {
 	t.Helper()
 
 	pattern := regexp.MustCompile(regexp.QuoteMeta(fmt.Sprintf("Serving %q at ", alias)) + `(http://127\.0\.0\.1:\d+)`)
