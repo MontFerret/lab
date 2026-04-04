@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -105,4 +107,27 @@ func locationsFromCommand(cmd *cli.Command) ([]string, bool) {
 	locations := cmd.Args().Slice()
 
 	return locations, len(locations) > 0
+}
+
+func showCurrentCommandHelp(cmd *cli.Command) error {
+	templ := cmd.CustomHelpTemplate
+
+	if templ == "" {
+		templ = cli.CommandHelpTemplate
+	}
+
+	cli.HelpPrinter(appWriter(cmd), templ, cmd)
+
+	return nil
+}
+
+func appWriter(cmd *cli.Command) io.Writer {
+	if cmd != nil {
+		root := cmd.Root()
+		if root.Writer != nil {
+			return root.Writer
+		}
+	}
+
+	return os.Stdout
 }

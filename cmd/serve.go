@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 )
 
@@ -60,7 +59,7 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if err := manager.Start(ctx); err != nil {
-		return cli.Exit(errors.Wrap(err, "failed to start static file server"), 1)
+		return cli.Exit(err, 1)
 	}
 
 	endpoints := manager.Endpoints()
