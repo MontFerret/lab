@@ -5,7 +5,7 @@
 		<img alt="Go Report Status" src="https://goreportcard.com/badge/github.com/MontFerret/lab">
 	</a>
 <!-- 	<a href="https://codecov.io/gh/MontFerret/lab">
-		<img alt="Code coverage" src="https://codecov.io/gh/MontFerret/lab/branch/master/graph/badge.svg" />
+		<img alt="Code coverage" src="https://codecov.io/gh/MontFerret/lab/branch/main/graph/badge.svg" />
 	</a> -->
 	<a href="https://discord.gg/kzet32U">
 		<img alt="Discord Chat" src="https://img.shields.io/discord/501533080880676864.svg">
@@ -34,7 +34,7 @@
 Read the introductory blog post about Lab [here!](https://www.montferret.dev/blog/say-hello-to-lab/)
 
 <p align="center">
-<img alt="lab" src="https://raw.githubusercontent.com/MontFerret/lab/master/assets/landing.png" style="margin-left: auto; margin-right: auto;" width="495px" height="501px" />
+<img alt="lab" src="https://raw.githubusercontent.com/MontFerret/lab/main/assets/landing.png" style="margin-left: auto; margin-right: auto;" width="495px" height="501px" />
 </p>
 
 ## Table of Contents
@@ -74,6 +74,7 @@ Read the introductory blog post about Lab [here!](https://www.montferret.dev/blo
 
 ### 🌍 **Static Content Serving**
 - **Built-in HTTP server** - Serve static files for testing web applications
+- **Dedicated `serve` command** - Run the static file server without executing tests
 - **Multiple CDN endpoints** - Host different content on various paths
 - **Custom aliases** - Name your content endpoints for better organization
 - **Dynamic port allocation** - Automatically find available ports
@@ -108,7 +109,7 @@ Download the `.zip` file from releases and extract `lab.exe` to your PATH.
 The easiest way to install Lab on Unix-like systems:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MontFerret/lab/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MontFerret/lab/main/install.sh | sh
 ```
 
 This script automatically:
@@ -458,6 +459,17 @@ lab run https://example.com/tests/suite1.yaml https://example.com/tests/suite2.y
 ### 🌐 **Static File Serving (CDN)**
 
 Lab includes a built-in HTTP server for serving static content during tests:
+
+#### **Standalone Static Server**
+Use `lab serve` when you want to expose local directories over HTTP without running a test suite:
+
+```bash
+# Serve a single directory
+lab serve ./website
+
+# Serve multiple directories with aliases
+lab serve ./frontend@app ./mockdata@api
+```
 
 #### **Basic CDN Usage**
 ```bash
