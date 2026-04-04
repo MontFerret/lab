@@ -20,6 +20,16 @@ func ServeCommand() *cli.Command {
 				Usage:   "served directory mapping (<path>, <path>:<port>, <path>@<alias>, <path>@<alias>:<port>)",
 				Sources: cli.EnvVars("LAB_SERVE"),
 			},
+			&cli.StringFlag{
+				Name:    "serve-bind",
+				Usage:   "host to bind static servers to (host only, no port)",
+				Sources: cli.EnvVars("LAB_SERVE_BIND"),
+			},
+			&cli.StringFlag{
+				Name:    "serve-host",
+				Usage:   "host to advertise for static server URLs (host only, no port)",
+				Sources: cli.EnvVars("LAB_SERVE_HOST"),
+			},
 		},
 		Action: ServeAction,
 	}
@@ -44,7 +54,7 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 		return cli.Exit(err, 1)
 	}
 
-	manager, err := createStaticServerManager(entries)
+	manager, err := createStaticServerManagerFromCommand(cmd, entries)
 	if err != nil {
 		return cli.Exit(err, 1)
 	}

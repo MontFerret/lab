@@ -14,10 +14,12 @@ import (
 
 type (
 	NodeSettings struct {
-		Name   string
-		Port   int
-		Dir    string
-		Prefix string
+		Name          string
+		Port          int
+		Dir           string
+		Prefix        string
+		BindHost      string
+		AdvertiseHost string
 	}
 
 	Node struct {
@@ -73,7 +75,7 @@ func (n *Node) Start(_ context.Context) error {
 		return nil
 	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", loopbackAddress, n.settings.Port))
+	listener, err := net.Listen("tcp", net.JoinHostPort(n.settings.BindHost, fmt.Sprintf("%d", n.settings.Port)))
 	if err != nil {
 		return err
 	}
@@ -96,5 +98,5 @@ func (n *Node) Stop(ctx context.Context) error {
 }
 
 func (n *Node) String() string {
-	return fmt.Sprintf("http://%s:%d", loopbackAddress, n.Port())
+	return endpointURL(n.settings.AdvertiseHost, n.Port())
 }

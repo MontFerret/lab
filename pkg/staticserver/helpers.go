@@ -2,8 +2,8 @@ package staticserver
 
 import "net"
 
-func GetFreePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+func GetFreePort(host string) (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, "0"))
 	if err != nil {
 		return 0, err
 	}

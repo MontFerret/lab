@@ -41,12 +41,15 @@ func toParams(values []string) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func createStaticServerManager(entries staticserver.ServeEntries) (*staticserver.Manager, error) {
+func createStaticServerManagerFromCommand(cmd *cli.Command, entries staticserver.ServeEntries) (*staticserver.Manager, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
 
-	manager := staticserver.NewManager()
+	manager, err := staticserver.NewManager(staticServerSettingsFromCommand(cmd))
+	if err != nil {
+		return nil, err
+	}
 
 	for _, entry := range entries {
 		if err := manager.Bind(entry); err != nil {
@@ -55,6 +58,17 @@ func createStaticServerManager(entries staticserver.ServeEntries) (*staticserver
 	}
 
 	return manager, nil
+}
+
+func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
+	if cmd == nil {
+		return staticserver.Settings{}
+	}
+
+	return staticserver.Settings{
+		BindHost:      cmd.String("serve-bind"),
+		AdvertiseHost: cmd.String("serve-host"),
+	}
 }
 
 func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtime, error) {

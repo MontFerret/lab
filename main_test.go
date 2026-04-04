@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -203,6 +204,8 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	assertContains(t, stdout, "lab run [options] [files...]")
 	assertContains(t, stdout, "--files string")
 	assertContains(t, stdout, "--serve string")
+	assertContains(t, stdout, "--serve-bind string")
+	assertContains(t, stdout, "--serve-host string")
 	assertContains(t, stdout, "--timeout uint")
 	assertContains(t, stdout, "--runtime string")
 	assertNotContains(t, stdout, "--cdn")
@@ -243,6 +246,8 @@ func TestServeHelpUsesStaticServerTerminology(t *testing.T) {
 	assertContains(t, stdout, "Serve one or more local directories over HTTP")
 	assertContains(t, stdout, "lab serve [entries...]")
 	assertContains(t, stdout, "--serve string")
+	assertContains(t, stdout, "--serve-bind string")
+	assertContains(t, stdout, "--serve-host string")
 	assertNotContains(t, stdout, "CDN")
 	assertNotContains(t, stdout, "--cdn")
 	assertEqual(t, stderr, "")
@@ -293,6 +298,24 @@ func TestServeCommandMergesPositionalAndFlaggedEntries(t *testing.T) {
 	}
 }
 
+func TestServeCommandSupportsAdvertisedHost(t *testing.T) {
+	root := t.TempDir()
+	appDir := filepath.Join(root, "app")
+	mustMkdir(t, appDir)
+
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--serve-bind", "0.0.0.0", "--serve-host", "example.test", appDir+"@app")
+	defer cancel()
+
+	waitForServeURLWithHost(t, stdout, "app", `example\.test`)
+	assertEqual(t, stderr.String(), "")
+
+	cancel()
+
+	if err := <-done; err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
 func TestRunCommandWithServeFetchesStaticContent(t *testing.T) {
 	root := t.TempDir()
 	appDir := filepath.Join(root, "app")
@@ -307,6 +330,67 @@ RETURN T::EQ(content, "hello")
 	stdout, stderr, err := runCLI(t, "run", "--serve", appDir+"@app", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandAdvertisesConfiguredStaticHostToRemoteRuntime(t *testing.T) {
+	root := t.TempDir()
+	appDir := filepath.Join(root, "app")
+	mustMkdir(t, appDir)
+
+	type remoteRunRequest struct {
+		Params struct {
+			Lab struct {
+				Static map[string]string `json:"static"`
+			} `json:"lab"`
+		} `json:"params"`
+	}
+
+	requests := make(chan remoteRunRequest, 1)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST request, got %s", r.Method)
+		}
+
+		if r.URL.Path != "/" {
+			t.Fatalf("expected / request, got %s", r.URL.Path)
+		}
+
+		var req remoteRunRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+
+		requests <- req
+		_, _ = w.Write([]byte("1"))
+	}))
+	defer srv.Close()
+
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime", srv.URL,
+		"--serve", appDir+"@app",
+		"--serve-host", "example.test",
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	select {
+	case req := <-requests:
+		addr := req.Params.Lab.Static["app"]
+		assertMatches(t, addr, `^http://example\.test:\d+$`)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for remote runtime request")
 	}
 
 	assertContains(t, stdout, "Passed")
@@ -457,7 +541,13 @@ func writeNamedScript(t *testing.T, name string, content string) string {
 func waitForServeURL(t *testing.T, stdout *safeBuffer, alias string) string {
 	t.Helper()
 
-	pattern := regexp.MustCompile(regexp.QuoteMeta(fmt.Sprintf("Serving %q at ", alias)) + `(http://127\.0\.0\.1:\d+)`)
+	return waitForServeURLWithHost(t, stdout, alias, `127\.0\.0\.1`)
+}
+
+func waitForServeURLWithHost(t *testing.T, stdout *safeBuffer, alias string, hostPattern string) string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(regexp.QuoteMeta(fmt.Sprintf("Serving %q at ", alias)) + `(http://` + hostPattern + `:\d+)`)
 	deadline := time.Now().Add(5 * time.Second)
 
 	for time.Now().Before(deadline) {
@@ -515,6 +605,14 @@ func assertContains(t *testing.T, output string, expected string) {
 
 	if !strings.Contains(output, expected) {
 		t.Fatalf("expected output to contain %q, got %q", expected, output)
+	}
+}
+
+func assertMatches(t *testing.T, value string, pattern string) {
+	t.Helper()
+
+	if !regexp.MustCompile(pattern).MatchString(value) {
+		t.Fatalf("expected %q to match %q", value, pattern)
 	}
 }
 

@@ -109,7 +109,7 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 	staticURLs := make(map[string]interface{})
 	params.SetSystemValue("static", staticURLs)
 
-	manager, err := createStaticServerManager(serveEntries)
+	manager, err := createStaticServerManagerFromCommand(cmd, serveEntries)
 	if err != nil {
 		return cli.Exit(err, 1)
 	}

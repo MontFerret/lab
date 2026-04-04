@@ -3,26 +3,30 @@ package staticserver
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 )
-
-const loopbackAddress = "127.0.0.1"
 
 type (
 	StaticEndpoints map[string]string
 
 	Manager struct {
-		nodes   []*Node
-		running bool
+		settings Settings
+		nodes    []*Node
+		running  bool
 	}
 )
 
-func NewManager() *Manager {
-	return &Manager{
-		nodes: make([]*Node, 0, 10),
+func NewManager(settings Settings) (*Manager, error) {
+	resolved, err := ResolveSettings(settings)
+	if err != nil {
+		return nil, err
 	}
+
+	return &Manager{
+		settings: resolved,
+		nodes:    make([]*Node, 0, 10),
+	}, nil
 }
 
 func (m *Manager) IsRunning() bool {
@@ -32,7 +36,7 @@ func (m *Manager) IsRunning() bool {
 func (m *Manager) Bind(entry ServeEntry) error {
 	port := entry.Port
 	if port == 0 {
-		assigned, err := GetFreePort()
+		assigned, err := GetFreePort(m.settings.BindHost)
 		if err != nil {
 			return err
 		}
@@ -41,10 +45,12 @@ func (m *Manager) Bind(entry ServeEntry) error {
 	}
 
 	node, err := NewNode(NodeSettings{
-		Name:   entry.Alias,
-		Port:   port,
-		Dir:    entry.Path,
-		Prefix: "",
+		Name:          entry.Alias,
+		Port:          port,
+		Dir:           entry.Path,
+		Prefix:        "",
+		BindHost:      m.settings.BindHost,
+		AdvertiseHost: m.settings.AdvertiseHost,
 	})
 	if err != nil {
 		return err
@@ -59,7 +65,7 @@ func (m *Manager) Endpoints() StaticEndpoints {
 	endpoints := make(StaticEndpoints, len(m.nodes))
 
 	for _, node := range m.nodes {
-		endpoints[node.Name()] = fmt.Sprintf("http://%s:%d", loopbackAddress, node.Port())
+		endpoints[node.Name()] = node.String()
 	}
 
 	return endpoints

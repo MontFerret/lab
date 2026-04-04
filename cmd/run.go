@@ -95,6 +95,18 @@ func RunFlags(hidden bool) []cli.Flag {
 			Sources: cli.EnvVars("LAB_SERVE"),
 			Hidden:  hidden,
 		},
+		&cli.StringFlag{
+			Name:    "serve-bind",
+			Usage:   "host to bind static servers to (host only, no port)",
+			Sources: cli.EnvVars("LAB_SERVE_BIND"),
+			Hidden:  hidden,
+		},
+		&cli.StringFlag{
+			Name:    "serve-host",
+			Usage:   "host to advertise for static server URLs (host only, no port)",
+			Sources: cli.EnvVars("LAB_SERVE_HOST"),
+			Hidden:  hidden,
+		},
 		&cli.StringSliceFlag{
 			Name:    "param",
 			Aliases: []string{"p"},

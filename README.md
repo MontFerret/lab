@@ -517,6 +517,20 @@ lab run \
   tests/e2e/
 ```
 
+#### **Reachable Static URLs for Remote Runtimes**
+When Lab runs against a remote runtime or inside a containerized environment, use `--serve-host` to advertise a client-reachable host instead of loopback. Use `--serve-bind` when you need to control the listener interface explicitly.
+
+```bash
+lab run \
+  --runtime=https://ferret.example.com \
+  --serve ./dist@app \
+  --serve-host host.docker.internal \
+  --serve-bind 0.0.0.0 \
+  tests/
+```
+
+If `--serve-host` is set without `--serve-bind`, Lab automatically binds static servers to all interfaces (`0.0.0.0` for IPv4/hostnames, `::` for IPv6 literals).
+
 ### 🔄 **Remote Ferret Runtime**
 
 Lab can execute tests against remote Ferret instances instead of using the built-in runtime:
@@ -624,6 +638,8 @@ These flags apply to `lab run`.
 | `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
 | `--times-interval` | - | `LAB_TIMES_INTERVAL` | `0` | Interval between test cycles (seconds) |
 | `--serve` | - | `LAB_SERVE` | - | Served directory mapping exposed over HTTP |
+| `--serve-bind` | - | `LAB_SERVE_BIND` | - | Host to bind static servers to (host only, no port) |
+| `--serve-host` | - | `LAB_SERVE_HOST` | - | Host to advertise for static server URLs (host only, no port) |
 | `--param` | `-p` | `LAB_PARAM` | - | Query parameters for tests |
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
 | `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
