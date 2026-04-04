@@ -1,9 +1,11 @@
-package cdn
+package staticserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -12,10 +14,12 @@ import (
 
 type (
 	NodeSettings struct {
-		Name   string
-		Port   int
-		Dir    string
-		Prefix string
+		Name          string
+		Port          int
+		Dir           string
+		Prefix        string
+		BindHost      string
+		AdvertiseHost string
 	}
 
 	Node struct {
@@ -27,27 +31,26 @@ type (
 )
 
 func NewNode(settings NodeSettings) (*Node, error) {
-	e := echo.New()
-	e.Debug = false
-	e.HideBanner = true
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+	engine := echo.New()
+	engine.Debug = false
+	engine.HideBanner = true
+	engine.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodOptions},
 		AllowHeaders: []string{"*"},
 	}))
 
 	prefix := "/"
-
 	if settings.Prefix != "" {
 		prefix = settings.Prefix
 	}
 
-	e.Static(prefix, settings.Dir)
+	engine.Static(prefix, settings.Dir)
 
 	return &Node{
 		id:       rand.Int(),
 		settings: settings,
-		engine:   e,
+		engine:   engine,
 	}, nil
 }
 
@@ -68,14 +71,25 @@ func (n *Node) IsRunning() bool {
 }
 
 func (n *Node) Start(_ context.Context) error {
-	n.running = true
-	err := n.engine.Start(fmt.Sprintf("0.0.0.0:%d", n.settings.Port))
-
-	if err != nil {
-		n.running = false
+	if n.running {
+		return nil
 	}
 
-	return err
+	listener, err := net.Listen("tcp", net.JoinHostPort(n.settings.BindHost, fmt.Sprintf("%d", n.settings.Port)))
+	if err != nil {
+		return err
+	}
+
+	n.engine.Listener = listener
+	n.running = true
+
+	go func() {
+		if err := n.engine.Server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			n.running = false
+		}
+	}()
+
+	return nil
 }
 
 func (n *Node) Stop(ctx context.Context) error {
@@ -84,5 +98,5 @@ func (n *Node) Stop(ctx context.Context) error {
 }
 
 func (n *Node) String() string {
-	return fmt.Sprintf("http://127.0.0.1:%d", n.Port())
+	return endpointURL(n.settings.AdvertiseHost, n.Port())
 }

@@ -1,6 +1,18 @@
 package cmd
 
-import "github.com/urfave/cli/v3"
+import (
+	"context"
+	"time"
+
+	"github.com/MontFerret/lab/v2/pkg/reporters"
+	"github.com/MontFerret/lab/v2/pkg/runner"
+	"github.com/MontFerret/lab/v2/pkg/sources"
+	"github.com/MontFerret/lab/v2/pkg/testing"
+	"github.com/go-waitfor/waitfor"
+	http "github.com/go-waitfor/waitfor-http"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v3"
+)
 
 const defaultCDPAddress = "http://127.0.0.1:9222"
 
@@ -90,9 +102,21 @@ func RunFlags(hidden bool) []cli.Flag {
 			Hidden:  hidden,
 		},
 		&cli.StringSliceFlag{
-			Name:    "cdn",
-			Usage:   "file or directory to serve via HTTP (./dir as default or ./dir@name with alias)",
-			Sources: cli.EnvVars("LAB_CDN"),
+			Name:    "serve",
+			Usage:   "serve a local directory over HTTP during test execution (<path>, <path>:<port>, <path>@<alias>, <path>@<alias>:<port>)",
+			Sources: cli.EnvVars("LAB_SERVE"),
+			Hidden:  hidden,
+		},
+		&cli.StringFlag{
+			Name:    "serve-bind",
+			Usage:   "host to bind static servers to (host only, no port)",
+			Sources: cli.EnvVars("LAB_SERVE_BIND"),
+			Hidden:  hidden,
+		},
+		&cli.StringFlag{
+			Name:    "serve-host",
+			Usage:   "host to advertise for static server URLs (host only, no port)",
+			Sources: cli.EnvVars("LAB_SERVE_HOST"),
 			Hidden:  hidden,
 		},
 		&cli.StringSliceFlag{
@@ -125,4 +149,114 @@ func RunFlags(hidden bool) []cli.Flag {
 			Hidden:  hidden,
 		},
 	}
+}
+
+func RunAction(ctx context.Context, cmd *cli.Command) error {
+	locations, ok := locationsFromCommand(cmd)
+
+	if !ok {
+		if err := showCurrentCommandHelp(cmd); err != nil {
+			return err
+		}
+
+		return cli.Exit("", 1)
+	}
+
+	return runScripts(ctx, cmd, locations)
+}
+
+func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error {
+	waitFor := cmd.StringSlice("wait")
+
+	if len(waitFor) > 0 {
+		wait := waitfor.New(
+			http.Use(),
+		)
+
+		err := wait.Test(
+			ctx,
+			waitFor,
+			waitfor.WithAttempts(cmd.Uint64("wait-attempts")),
+			waitfor.WithInterval(cmd.Uint64("wait-timeout")),
+		)
+
+		if err != nil {
+			return cli.Exit(errors.Wrap(err, "timeout"), 1)
+		}
+	}
+
+	runtimeParams, err := toParams(cmd.StringSlice("runtime-param"))
+
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	rt, err := newRuntime(cmd, runtimeParams)
+
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	r, err := runner.New(runner.Options{
+		Runtime:       rt,
+		PoolSize:      cmd.Uint64("concurrency"),
+		Attempts:      cmd.Uint64("attempts"),
+		TestTimeout:   time.Duration(cmd.Uint64("timeout")) * time.Second,
+		Times:         cmd.Uint64("times"),
+		TimesInterval: cmd.Uint64("times-interval"),
+	})
+
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	src, err := sources.New(locations...)
+
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	params := testing.NewParams()
+
+	userParams, err := toParams(cmd.StringSlice("param"))
+
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	params.SetUserValues(userParams)
+
+	serveEntries, err := toServeEntries(cmd.StringSlice("serve"))
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	staticURLs := make(map[string]interface{})
+	params.SetSystemValue("static", staticURLs)
+
+	manager, err := createStaticServerManagerFromCommand(cmd, serveEntries)
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	if manager != nil {
+		if err := manager.Start(ctx); err != nil {
+			return cli.Exit(err, 1)
+		}
+
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = manager.Stop(stopCtx)
+		}()
+
+		for alias, address := range manager.Endpoints() {
+			staticURLs[alias] = address
+		}
+	}
+
+	stream := r.Run(runner.NewContext(ctx, params), src)
+
+	return reporters.NewConsole(appWriter(cmd)).
+		Report(ctx, stream)
 }

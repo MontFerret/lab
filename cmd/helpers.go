@@ -3,29 +3,19 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/urfave/cli/v3"
 
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
-	cdn2 "github.com/MontFerret/lab/v2/pkg/cdn"
 	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/pkg/staticserver"
 )
 
-func toDirectories(values []string) ([]cdn2.Directory, error) {
-	res := make([]cdn2.Directory, 0, len(values))
-
-	for _, entry := range values {
-		dir, err := cdn2.NewDirectoryFrom(entry)
-
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, dir)
-	}
-
-	return res, nil
+func toServeEntries(values []string) (staticserver.ServeEntries, error) {
+	return staticserver.ParseServeEntries(values)
 }
 
 func toParams(values []string) (map[string]interface{}, error) {
@@ -53,22 +43,34 @@ func toParams(values []string) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func createCDNManager(dirs []cdn2.Directory) (*cdn2.Manager, error) {
-	m, err := cdn2.New()
+func createStaticServerManagerFromCommand(cmd *cli.Command, entries staticserver.ServeEntries) (*staticserver.Manager, error) {
+	if len(entries) == 0 {
+		return nil, nil
+	}
 
+	manager, err := staticserver.NewManager(staticServerSettingsFromCommand(cmd))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, dir := range dirs {
-		err := m.Bind(dir)
-
-		if err != nil {
+	for _, entry := range entries {
+		if err := manager.Bind(entry); err != nil {
 			return nil, err
 		}
 	}
 
-	return m, nil
+	return manager, nil
+}
+
+func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
+	if cmd == nil {
+		return staticserver.Settings{}
+	}
+
+	return staticserver.Settings{
+		BindHost:      cmd.String("serve-bind"),
+		AdvertiseHost: cmd.String("serve-host"),
+	}
 }
 
 func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtime, error) {
@@ -105,4 +107,27 @@ func locationsFromCommand(cmd *cli.Command) ([]string, bool) {
 	locations := cmd.Args().Slice()
 
 	return locations, len(locations) > 0
+}
+
+func showCurrentCommandHelp(cmd *cli.Command) error {
+	templ := cmd.CustomHelpTemplate
+
+	if templ == "" {
+		templ = cli.CommandHelpTemplate
+	}
+
+	cli.HelpPrinter(appWriter(cmd), templ, cmd)
+
+	return nil
+}
+
+func appWriter(cmd *cli.Command) io.Writer {
+	if cmd != nil {
+		root := cmd.Root()
+		if root.Writer != nil {
+			return root.Writer
+		}
+	}
+
+	return os.Stdout
 }
