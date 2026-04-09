@@ -548,10 +548,12 @@ lab run \
   tests/
 ```
 
+When the runtime URL already includes a path, Lab sends `run` requests to that exact path. The optional `runtime-param=path` value overrides the run endpoint only. `lab version --runtime=...` uses the runtime URL path and requests its sibling `/info` endpoint.
+
 The HTTP runtime sends POST requests with:
 ```json
 {
-  "query": "FQL script content",
+  "text": "FQL script content",
   "params": {
     "key": "value"
   }
@@ -565,10 +567,16 @@ Use custom Ferret CLI installations:
 # Use specific Ferret binary
 lab run --runtime=bin:./custom-ferret tests/
 
-# With additional parameters
+# With runtime params forwarded as --param entries
 lab run \
   --runtime=bin:/usr/local/bin/ferret-v0.18 \
   --runtime-param=timeout:30 \
+  tests/
+
+# With raw binary flags
+lab run \
+  --runtime=bin:/usr/local/bin/ferret \
+  --runtime-param='flags:["--timeout=60", "--verbose"]' \
   tests/
 ```
 
@@ -727,7 +735,6 @@ lab run \
   --runtime=https://ferret.api.com \
   --runtime-param='headers:{"Authorization":"Bearer token"}' \
   --runtime-param='path:"/v2/execute"' \
-  --runtime-param='timeout:30' \
   tests/
 
 # Binary runtime with custom flags
@@ -736,6 +743,8 @@ lab run \
   --runtime-param='flags:["--timeout=60", "--verbose"]' \
   tests/
 ```
+
+For HTTP runtimes, `path` overrides the run endpoint only. For binary runtimes, `flags` is special and is appended directly to the external binary argv; all other runtime params are still passed as `--param=name:value`.
 
 ## Architecture
 

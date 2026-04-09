@@ -121,6 +121,25 @@ func TestVersionCommandUsesExplicitRuntimeOverride(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
+func TestVersionCommandUsesRuntimeBasePath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/info" {
+			t.Fatalf("expected /api/info request, got %s", r.URL.Path)
+		}
+
+		_, _ = w.Write([]byte(`{"version":{"ferret":"remote-version"}}`))
+	}))
+	defer srv.Close()
+
+	stdout, stderr, err := runCLI(t, "version", "--runtime", srv.URL+"/api")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	assertContains(t, stdout, "Runtime: remote-version")
+	assertEqual(t, stderr, "")
+}
+
 func TestRootWithoutArgsShowsHelp(t *testing.T) {
 	stdout, stderr, err := runCLI(t)
 	if err != nil {
@@ -434,6 +453,76 @@ func TestRunCommandAdvertisesConfiguredStaticHostToRemoteRuntime(t *testing.T) {
 		assertMatches(t, addr, `^http://example\.test:\d+$`)
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for remote runtime request")
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandUsesEmbeddedRuntimePath(t *testing.T) {
+	type remoteRunRequest struct {
+		Text string `json:"text"`
+	}
+
+	script := writeScript(t)
+	requests := make(chan remoteRunRequest, 1)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST request, got %s", r.Method)
+		}
+
+		if r.URL.Path != "/api" {
+			t.Fatalf("expected /api request, got %s", r.URL.Path)
+		}
+
+		var req remoteRunRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+
+		requests <- req
+		_, _ = w.Write([]byte("1"))
+	}))
+	defer srv.Close()
+
+	stdout, stderr, err := runCLI(t, "run", "--runtime", srv.URL+"/api", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	select {
+	case req := <-requests:
+		assertEqual(t, req.Text, "RETURN 1\n")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for remote runtime request")
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandUsesRuntimePathOverride(t *testing.T) {
+	script := writeScript(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST request, got %s", r.Method)
+		}
+
+		if r.URL.Path != "/v1/execute" {
+			t.Fatalf("expected /v1/execute request, got %s", r.URL.Path)
+		}
+
+		_, _ = w.Write([]byte("1"))
+	}))
+	defer srv.Close()
+
+	stdout, stderr, err := runCLI(t, "run", "--runtime", srv.URL, "--runtime-param=path:\"/v1/execute\"", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
 
 	assertContains(t, stdout, "Passed")

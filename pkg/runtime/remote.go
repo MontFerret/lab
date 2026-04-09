@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 
 	"github.com/pkg/errors"
 
@@ -125,7 +126,7 @@ func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
 }
 
 func (rt *Remote) Version(ctx context.Context) (string, error) {
-	data, err := rt.makeRequest(ctx, "GET", "/info", nil)
+	data, err := rt.makeRequest(ctx, "GET", rt.versionEndpoint(), nil)
 
 	if err != nil {
 		return "", err
@@ -150,7 +151,33 @@ func (rt *Remote) Run(ctx context.Context, query *source.Source, params map[stri
 		return nil, errors.Wrap(err, "serialize query")
 	}
 
-	return rt.makeRequest(ctx, "POST", "/", body)
+	return rt.makeRequest(ctx, "POST", rt.runEndpoint(), body)
+}
+
+func (rt *Remote) runEndpoint() string {
+	if rt.params.Path != "" {
+		return rt.params.Path
+	}
+
+	return rt.basePath()
+}
+
+func (rt *Remote) versionEndpoint() string {
+	basePath := rt.basePath()
+
+	if basePath == "/" {
+		return "/info"
+	}
+
+	return path.Join(basePath, "info")
+}
+
+func (rt *Remote) basePath() string {
+	if rt.url.Path == "" {
+		return "/"
+	}
+
+	return rt.url.Path
 }
 
 func (rt *Remote) createRequest(ctx context.Context, method, endpoint string, body []byte) (*http.Request, error) {
