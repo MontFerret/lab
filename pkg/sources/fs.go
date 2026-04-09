@@ -116,6 +116,8 @@ func (fs *FileSystem) traverse(ctx context.Context, path string, onNext chan<- F
 
 		if !IsSupportedFile(path) {
 			onError <- NewError(path, "invalid file")
+
+			return
 		}
 
 		// if not matched, skip the file

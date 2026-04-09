@@ -337,6 +337,49 @@ RETURN T::EQ(content, "hello")
 	assertEqual(t, stderr, "")
 }
 
+func TestRunCommandUsesExplicitConsoleReporter(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--reporter=console", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertNotContains(t, stdout, "PASS file=")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandUsesSimpleReporter(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--reporter=simple", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "PASS file=")
+	assertContains(t, stdout, "attempts=1")
+	assertContains(t, stdout, "times=1")
+	assertContains(t, stdout, "DONE passed=1 failed=0 duration=")
+	assertNotContains(t, stdout, "Passed")
+	assertNotContains(t, stdout, "Done")
+	assertNotContains(t, stdout, "INF")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsUnknownReporter(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--reporter=bogus", script)
+
+	assertExitCode(t, err, 1)
+	assertErrorMessage(t, err, "unknown reporter: bogus")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
 func TestRunCommandAdvertisesConfiguredStaticHostToRemoteRuntime(t *testing.T) {
 	root := t.TempDir()
 	appDir := filepath.Join(root, "app")

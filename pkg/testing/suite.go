@@ -110,7 +110,7 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 		},
 	})
 
-	_, err = rt.Run(ctx, assertion, resolveRuntimeParams(params, suite.manifest.Query))
+	_, err = rt.Run(ctx, assertion, resolveRuntimeParams(params, suite.manifest.Assert))
 
 	return err
 }

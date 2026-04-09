@@ -186,6 +186,7 @@ func (r *Runner) runCase(ctx context.Context, file sources2.File, params testing
 	runCounter := uint64(0)
 	totalDuration := int64(0)
 
+loop:
 	for {
 		if runCounter == r.testCount {
 			break
@@ -193,7 +194,17 @@ func (r *Runner) runCase(ctx context.Context, file sources2.File, params testing
 
 		// we pause only if it's not the first execution
 		if (runCounter > 0 || attemptCounter > 0) && r.testInterval > 0 {
-			<-time.After(time.Duration(r.testInterval) * time.Second)
+			timer := time.NewTimer(time.Duration(r.testInterval) * time.Second)
+
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+
+				break loop
+			case <-timer.C:
+			}
 		}
 
 		attemptCounter++

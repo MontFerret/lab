@@ -258,6 +258,10 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 
 	stream := r.Run(runner.NewContext(ctx, params), src)
 
-	return reporters.NewConsole(appWriter(cmd)).
-		Report(ctx, stream)
+	reporter, err := reporters.New(cmd.String("reporter"), appWriter(cmd))
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	return reporter.Report(ctx, stream)
 }

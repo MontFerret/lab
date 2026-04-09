@@ -98,13 +98,34 @@ func TestFileSystem(t *testing.T) {
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					select {
-					case e := <-onError:
-						So(e, ShouldNotBeNil)
-					case f := <-onNext:
-						So(string(f.Content), ShouldBeEmpty)
-						So(f.Name, ShouldBeNil)
+					errs := make([]sources2.Error, 0, 1)
+					files := make([]sources2.File, 0, 1)
+					nextClosed := false
+					errorClosed := false
+
+					for !nextClosed || !errorClosed {
+						select {
+						case err, ok := <-onError:
+							if !ok {
+								errorClosed = true
+								continue
+							}
+
+							errs = append(errs, err)
+						case file, ok := <-onNext:
+							if !ok {
+								nextClosed = true
+								continue
+							}
+
+							files = append(files, file)
+						}
 					}
+
+					So(errs, ShouldHaveLength, 1)
+					So(errs[0].Filename, ShouldEqual, file.Name())
+					So(errs[0].Message, ShouldEqual, "invalid file")
+					So(files, ShouldBeEmpty)
 				})
 			})
 
