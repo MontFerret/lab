@@ -13,7 +13,7 @@ require (
 	github.com/MontFerret/contrib/modules/yaml v0.0.0-20260401140623-49c476b0b6da
 	github.com/MontFerret/ferret/v2 v2.0.0-alpha.8
 	github.com/go-git/go-billy/v5 v5.8.0
-	github.com/go-git/go-git/v5 v5.17.2
+	github.com/go-git/go-git/v5 v5.18.0
 	github.com/go-waitfor/waitfor v1.1.0
 	github.com/go-waitfor/waitfor-http v1.1.0
 	github.com/gobwas/glob v0.2.3
