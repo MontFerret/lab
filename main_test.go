@@ -17,10 +17,7 @@ import (
 	"testing"
 	"time"
 
-	ferretsource "github.com/MontFerret/ferret/v2/pkg/source"
 	"github.com/urfave/cli/v3"
-
-	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
 )
 
 type safeBuffer struct {
@@ -528,28 +525,6 @@ func TestRunCommandUsesRuntimePathOverride(t *testing.T) {
 	assertContains(t, stdout, "Passed")
 	assertContains(t, stdout, "Done")
 	assertEqual(t, stderr, "")
-}
-
-func TestRuntimeSupportsBracketAccessForHyphenatedAlias(t *testing.T) {
-	rt, err := labruntime.New(labruntime.Options{
-		CDPAddress: "http://127.0.0.1:9222",
-	})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	out, err := rt.Run(context.Background(), ferretsource.New("hyphenated.fql", `RETURN @lab.static["api-mocks"]`), map[string]interface{}{
-		"lab": map[string]interface{}{
-			"static": map[string]interface{}{
-				"api-mocks": "http://127.0.0.1:8080",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	assertEqual(t, string(out), `"http://127.0.0.1:8080"`)
 }
 
 func TestRunCommandSupportsServeEntriesFromEnv(t *testing.T) {

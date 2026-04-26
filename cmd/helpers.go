@@ -75,9 +75,8 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 
 func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtime, error) {
 	rt, err := runtime.New(runtime.Options{
-		Type:       cmd.String("runtime"),
-		CDPAddress: cdpAddressFromCommand(cmd),
-		Params:     params,
+		Type:   cmd.String("runtime"),
+		Params: params,
 	})
 
 	if err != nil {
@@ -85,16 +84,6 @@ func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtim
 	}
 
 	return rt, nil
-}
-
-func cdpAddressFromCommand(cmd *cli.Command) string {
-	if cmd != nil {
-		if address := cmd.String("cdp"); address != "" {
-			return address
-		}
-	}
-
-	return defaultCDPAddress
 }
 
 func locationsFromCommand(cmd *cli.Command) ([]string, bool) {

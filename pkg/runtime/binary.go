@@ -15,19 +15,18 @@ import (
 
 type Binary struct {
 	path         string
-	cdpAddress   string
 	sharedParams map[string]any
 	rawFlags     []string
 }
 
-func NewBinary(path string, cdpAddress string, params map[string]any) (*Binary, error) {
+func NewBinary(path string, params map[string]any) (*Binary, error) {
 	sharedParams, rawFlags, err := splitBinaryRuntimeParams(params)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &Binary{path, cdpAddress, sharedParams, rawFlags}, nil
+	return &Binary{path, sharedParams, rawFlags}, nil
 }
 
 func (rt *Binary) Version(ctx context.Context) (string, error) {
@@ -48,7 +47,6 @@ func (rt *Binary) Version(ctx context.Context) (string, error) {
 
 func (rt *Binary) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
 	args := make([]string, 0, 10)
-	args = append(args, "--browser-address="+rt.cdpAddress)
 	args = append(args, rt.rawFlags...)
 
 	sharedArgs, err := rt.paramsToArg(rt.sharedParams)

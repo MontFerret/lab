@@ -14,7 +14,7 @@ type Builtin struct {
 	engine *ferret.Engine
 }
 
-func NewBuiltin(cdp string, params map[string]any) (*Builtin, error) {
+func NewBuiltin(params map[string]any) (*Builtin, error) {
 	dir, err := os.Getwd()
 
 	if err != nil {

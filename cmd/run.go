@@ -15,8 +15,6 @@ import (
 	"github.com/MontFerret/lab/v2/pkg/testing"
 )
 
-const defaultCDPAddress = "http://127.0.0.1:9222"
-
 func RunCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "run",
@@ -42,13 +40,6 @@ func RunFlags(hidden bool) []cli.Flag {
 			Usage:   "test timeout in seconds",
 			Sources: cli.EnvVars("LAB_TIMEOUT"),
 			Value:   30,
-			Hidden:  hidden,
-		},
-		&cli.StringFlag{
-			Name:    "cdp",
-			Value:   defaultCDPAddress,
-			Usage:   "Chrome DevTools Protocol address",
-			Sources: cli.EnvVars("LAB_CDP"),
 			Hidden:  hidden,
 		},
 		&cli.StringFlag{

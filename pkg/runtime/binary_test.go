@@ -21,7 +21,7 @@ func TestBinaryRunPassesThroughRawFlags(t *testing.T) {
 		t.Fatalf("failed to write helper script: %v", err)
 	}
 
-	rt, err := NewBinary(script, "http://127.0.0.1:9222", map[string]any{
+	rt, err := NewBinary(script, map[string]any{
 		"flags": []any{"--timeout=60", "--verbose"},
 		"limit": 3,
 	})
@@ -44,7 +44,6 @@ func TestBinaryRunPassesThroughRawFlags(t *testing.T) {
 	}
 
 	for _, expected := range []string{
-		"--browser-address=http://127.0.0.1:9222",
 		"--timeout=60",
 		"--verbose",
 		"--param=limit:3",
@@ -63,7 +62,7 @@ func TestBinaryRunPassesThroughRawFlags(t *testing.T) {
 }
 
 func TestNewBinaryRejectsInvalidFlagTypes(t *testing.T) {
-	_, err := NewBinary("/tmp/ferret", "http://127.0.0.1:9222", map[string]any{
+	_, err := NewBinary("/tmp/ferret", map[string]any{
 		"flags": []any{"--ok", 1},
 	})
 	if err == nil {

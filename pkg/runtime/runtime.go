@@ -11,9 +11,8 @@ import (
 
 type (
 	Options struct {
-		Type       string
-		CDPAddress string
-		Params     map[string]any
+		Type   string
+		Params map[string]any
 	}
 
 	Func func(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error)
@@ -37,7 +36,7 @@ func New(opts Options) (Runtime, error) {
 	}
 
 	if opts.Type == "" {
-		return NewBuiltin(opts.CDPAddress, params)
+		return NewBuiltin(params)
 	}
 
 	u, err := url.Parse(opts.Type)
@@ -50,9 +49,9 @@ func New(opts Options) (Runtime, error) {
 	case "http", "https":
 		return NewRemote(opts.Type, params)
 	case "bin":
-		return NewBinary(u.Host+u.Path, opts.CDPAddress, params)
+		return NewBinary(u.Host+u.Path, params)
 	default:
-		return NewBuiltin(opts.CDPAddress, params)
+		return NewBuiltin(params)
 	}
 }
 
