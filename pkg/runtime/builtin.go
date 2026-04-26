@@ -21,15 +21,8 @@ func NewBuiltin(cdp string, params map[string]any) (*Builtin, error) {
 		return nil, err
 	}
 
-	mods, err := newModules(cdp)
-
-	if err != nil {
-		return nil, err
-	}
-
 	c, err := ferret.New(
 		ferret.WithFSRoot(dir),
-		ferret.WithModules(mods...),
 		ferret.WithParams(params),
 	)
 
