@@ -102,7 +102,7 @@ The recommended local install location is `~/.local/bin`, which does not require
 #### Linux
 
 ```bash
-curl -L https://github.com/MontFerret/lab/releases/latest/download/lab-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/MontFerret/lab/releases/latest/download/lab_linux_amd64.tar.gz | tar xz
 mkdir -p ~/.local/bin
 mv lab ~/.local/bin/
 ```
@@ -118,7 +118,7 @@ To make the change permanent, add the line above to your shell profile, such as 
 #### macOS Intel
 
 ```bash
-curl -L https://github.com/MontFerret/lab/releases/latest/download/lab-darwin-amd64.tar.gz | tar xz
+curl -L https://github.com/MontFerret/lab/releases/latest/download/lab_darwin_amd64.tar.gz | tar xz
 mkdir -p ~/.local/bin
 mv lab ~/.local/bin/
 ```
@@ -126,7 +126,7 @@ mv lab ~/.local/bin/
 #### macOS Apple Silicon
 
 ```bash
-curl -L https://github.com/MontFerret/lab/releases/latest/download/lab-darwin-arm64.tar.gz | tar xz
+curl -L https://github.com/MontFerret/lab/releases/latest/download/lab_darwin_arm64.tar.gz | tar xz
 mkdir -p ~/.local/bin
 mv lab ~/.local/bin/
 ```
