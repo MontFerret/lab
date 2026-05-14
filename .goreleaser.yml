@@ -50,6 +50,8 @@ dockers:
       - lab
     skip_push: false
     dockerfile: Dockerfile.release
+    extra_files:
+      - docker-entrypoint.sh
     image_templates:
       - "docker.io/montferret/{{ .ProjectName }}:{{ .Version }}"
       - "ghcr.io/montferret/{{ .ProjectName }}:{{ .Version }}"
@@ -68,6 +70,8 @@ dockers:
       - lab
     skip_push: "{{ if .Prerelease }}true{{ else }}false{{ end }}"
     dockerfile: Dockerfile.release
+    extra_files:
+      - docker-entrypoint.sh
     image_templates:
       - "docker.io/montferret/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}.{{ .Patch }}"
       - "docker.io/montferret/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}"
