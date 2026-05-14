@@ -4,8 +4,8 @@ FROM montferret/chromium:111.0.5563.0
 RUN apt-get update && apt-get install -y dumb-init
 
 # Add the binary
-COPY lab .
-COPY docker-entrypoint.sh .
+COPY ./lab .
+COPY ./docker-entrypoint.sh .
 
 RUN chmod +x ./lab ./docker-entrypoint.sh
 
