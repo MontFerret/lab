@@ -23,7 +23,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 
 # Add the binary
 COPY --from=builder /go/src/github.com/MontFerret/lab/v2/bin/lab .
-COPY docker-entrypoint.sh .
+COPY ./docker-entrypoint.sh .
 
 RUN chmod +x ./lab ./docker-entrypoint.sh
 
