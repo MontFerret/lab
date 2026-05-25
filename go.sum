@@ -11,6 +11,8 @@ github.com/MontFerret/ferret/v2 v2.0.0-alpha.17 h1:Hy94ku7qRCeSIHfnjIN0qkTrc00oN
 github.com/MontFerret/ferret/v2 v2.0.0-alpha.17/go.mod h1:xnhO/65Sa17LSRC8GLIO51JZ4Wm08JjEtmowGVut4z0=
 github.com/MontFerret/ferret/v2 v2.0.0-alpha.18 h1:fgDAMzQ7j7ro8SgTDgdhUWNRpRdu85QPfTtPalesSBA=
 github.com/MontFerret/ferret/v2 v2.0.0-alpha.18/go.mod h1:xnhO/65Sa17LSRC8GLIO51JZ4Wm08JjEtmowGVut4z0=
+github.com/MontFerret/ferret/v2 v2.0.0-alpha.19 h1:iOcTcVD1ZUOvmD6Yw5VlaRsNHRfXpiC9BjdkEA+oMjQ=
+github.com/MontFerret/ferret/v2 v2.0.0-alpha.19/go.mod h1:xnhO/65Sa17LSRC8GLIO51JZ4Wm08JjEtmowGVut4z0=
 github.com/ProtonMail/go-crypto v1.1.6 h1:ZcV+Ropw6Qn0AX9brlQLAUXfqLBc7Bl+f/DmNxpLfdw=
 github.com/ProtonMail/go-crypto v1.1.6/go.mod h1:rA3QumHc/FZ8pAHreoekgiAbzpNsfQAosU5td4SnOrE=
 github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67IQOfM=
