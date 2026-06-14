@@ -3,7 +3,7 @@ module github.com/MontFerret/lab/v2
 go 1.25.6
 
 require (
-	github.com/MontFerret/ferret/v2 v2.0.0-alpha.22
+	github.com/MontFerret/ferret/v2 v2.0.0-alpha.23
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-waitfor/waitfor v1.1.0
@@ -11,11 +11,11 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/hashicorp/go-retryablehttp v0.7.8
-	github.com/labstack/echo/v4 v4.15.2
+	github.com/labstack/echo/v4 v4.15.3
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/urfave/cli/v3 v3.9.0
+	github.com/urfave/cli/v3 v3.10.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -43,7 +43,7 @@ require (
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
-	github.com/smarty/assertions v1.16.0 // indirect
+	github.com/smarty/assertions v1.15.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
