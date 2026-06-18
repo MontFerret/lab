@@ -133,13 +133,18 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources2.File, onError <-cha
 				params := ctx.Params()
 				params = params.Clone()
 
-				pool.Go(func() {
-					if ctx.Err() == nil {
-						out <- r.runCase(ctx, f, params)
+				if err := pool.GoContext(ctx, func() {
+					defer wg.Done()
+
+					if ctx.Err() != nil {
+						return
 					}
 
+					out <- r.runCase(ctx, f, params)
+				}); err != nil {
 					wg.Done()
-				})
+					break loop
+				}
 			case err, open := <-onError:
 				if !open {
 					onError = nil

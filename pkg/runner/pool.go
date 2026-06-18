@@ -1,5 +1,7 @@
 package runner
 
+import "context"
+
 type Pool struct {
 	size   uint64
 	values chan struct{}
@@ -28,4 +30,20 @@ func (pool *Pool) Go(f func()) {
 
 		<-pool.values
 	}()
+}
+
+func (pool *Pool) GoContext(ctx context.Context, f func()) error {
+	select {
+	case pool.values <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	go func() {
+		f()
+
+		<-pool.values
+	}()
+
+	return nil
 }

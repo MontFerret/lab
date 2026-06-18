@@ -21,11 +21,12 @@ type (
 	}
 
 	operation struct {
-		status       int
-		headers      map[string]string
-		body         any
-		hasBody      bool
-		bodyTemplate *template.Template
+		status        int
+		headers       map[string]string
+		body          any
+		hasBody       bool
+		bodyTemplates map[string]*template.Template
+		bodyTemplate  *template.Template
 	}
 )
 
@@ -126,7 +127,7 @@ func (s *Server) serveOperation(w http.ResponseWriter, r *http.Request, op *oper
 			w.Header().Set("Content-Type", "application/json")
 		}
 
-		rendered, err := renderBody(op.body, ctx)
+		rendered, err := renderBody(op.body, ctx, op.bodyTemplates)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return

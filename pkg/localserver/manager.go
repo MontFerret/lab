@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 )
@@ -26,7 +27,7 @@ type (
 		startErrorLabel string
 		stopErrorLabel  string
 		nodes           []*Node
-		running         bool
+		running         atomic.Bool
 	}
 )
 
@@ -50,7 +51,7 @@ func NewManager(opts ManagerOptions) (*Manager, error) {
 }
 
 func (m *Manager) IsRunning() bool {
-	return m.running
+	return m.running.Load()
 }
 
 func (m *Manager) Bind(entry Entry) error {
@@ -110,7 +111,7 @@ func (m *Manager) Start(ctx context.Context) error {
 	}
 
 	if len(failed) == 0 {
-		m.running = len(m.nodes) > 0
+		m.running.Store(len(m.nodes) > 0)
 		return nil
 	}
 
@@ -136,7 +137,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		}
 	}
 
-	m.running = false
+	m.running.Store(false)
 
 	if len(failed) == 0 {
 		return nil

@@ -184,9 +184,12 @@ func parseOperation(path string, method string, raw any) (*operation, error) {
 		op.body = rawBody
 		op.hasBody = true
 
-		if err := validateBodyTemplates(rawBody); err != nil {
+		templates, err := compileBodyTemplates(rawBody)
+		if err != nil {
 			return nil, errors.Wrapf(err, "x-lab-mock body for %s %s", method, path)
 		}
+
+		op.bodyTemplates = templates
 	}
 
 	if hasBodyTemplate {

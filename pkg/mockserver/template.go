@@ -18,14 +18,14 @@ type (
 	}
 )
 
-func renderBody(value any, ctx TemplateContext) (any, error) {
+func renderBody(value any, ctx TemplateContext, templates map[string]*template.Template) (any, error) {
 	switch typed := value.(type) {
 	case string:
-		return renderStringTemplate(typed, ctx)
+		return renderStringTemplate(typed, ctx, templates)
 	case []any:
 		out := make([]any, len(typed))
 		for idx, child := range typed {
-			rendered, err := renderBody(child, ctx)
+			rendered, err := renderBody(child, ctx, templates)
 			if err != nil {
 				return nil, err
 			}
@@ -37,7 +37,7 @@ func renderBody(value any, ctx TemplateContext) (any, error) {
 	case map[string]any:
 		out := make(map[string]any, len(typed))
 		for key, child := range typed {
-			rendered, err := renderBody(child, ctx)
+			rendered, err := renderBody(child, ctx, templates)
 			if err != nil {
 				return nil, err
 			}
@@ -50,10 +50,14 @@ func renderBody(value any, ctx TemplateContext) (any, error) {
 	}
 }
 
-func renderStringTemplate(source string, ctx TemplateContext) (string, error) {
-	tmpl, err := parseTemplate(source)
-	if err != nil {
-		return "", err
+func renderStringTemplate(source string, ctx TemplateContext, templates map[string]*template.Template) (string, error) {
+	tmpl := templates[source]
+	if tmpl == nil {
+		var err error
+		tmpl, err = parseTemplate(source)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	var buf bytes.Buffer
@@ -64,20 +68,33 @@ func renderStringTemplate(source string, ctx TemplateContext) (string, error) {
 	return buf.String(), nil
 }
 
-func validateBodyTemplates(value any) error {
+func compileBodyTemplates(value any) (map[string]*template.Template, error) {
+	templates := make(map[string]*template.Template)
+	if err := collectBodyTemplates(value, templates); err != nil {
+		return nil, err
+	}
+
+	return templates, nil
+}
+
+func collectBodyTemplates(value any, templates map[string]*template.Template) error {
 	switch typed := value.(type) {
 	case string:
-		_, err := parseTemplate(typed)
-		return err
+		tmpl, err := parseTemplate(typed)
+		if err != nil {
+			return err
+		}
+
+		templates[typed] = tmpl
 	case []any:
 		for _, child := range typed {
-			if err := validateBodyTemplates(child); err != nil {
+			if err := collectBodyTemplates(child, templates); err != nil {
 				return err
 			}
 		}
 	case map[string]any:
 		for _, child := range typed {
-			if err := validateBodyTemplates(child); err != nil {
+			if err := collectBodyTemplates(child, templates); err != nil {
 				return err
 			}
 		}

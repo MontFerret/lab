@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
+	"sync"
+	"sync/atomic"
 )
 
 type (
@@ -23,9 +24,13 @@ type (
 		settings NodeSettings
 		server   *http.Server
 		listener net.Listener
-		running  bool
+		running  atomic.Bool
+		mu       sync.RWMutex
+		serveErr error
 	}
 )
+
+var nodeIDCounter atomic.Int64
 
 func NewNode(settings NodeSettings) (*Node, error) {
 	if settings.Handler == nil {
@@ -33,7 +38,7 @@ func NewNode(settings NodeSettings) (*Node, error) {
 	}
 
 	return &Node{
-		id:       rand.Int(),
+		id:       int(nodeIDCounter.Add(1)),
 		settings: settings,
 		server: &http.Server{
 			Handler: settings.Handler,
@@ -54,7 +59,13 @@ func (n *Node) Port() int {
 }
 
 func (n *Node) IsRunning() bool {
-	return n.running
+	return n.running.Load()
+}
+
+func (n *Node) ServeErr() error {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.serveErr
 }
 
 func (n *Node) ListenerAddr() net.Addr {
@@ -65,12 +76,13 @@ func (n *Node) ListenerAddr() net.Addr {
 	return n.listener.Addr()
 }
 
-func (n *Node) Start(_ context.Context) error {
-	if n.running {
+func (n *Node) Start(ctx context.Context) error {
+	if n.running.Load() {
 		return nil
 	}
 
-	listener, err := net.Listen("tcp", net.JoinHostPort(n.settings.BindHost, fmt.Sprintf("%d", n.settings.Port)))
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", net.JoinHostPort(n.settings.BindHost, fmt.Sprintf("%d", n.settings.Port)))
 	if err != nil {
 		return err
 	}
@@ -80,11 +92,14 @@ func (n *Node) Start(_ context.Context) error {
 	}
 
 	n.listener = listener
-	n.running = true
+	n.running.Store(true)
 
 	go func() {
 		if err := n.server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			n.running = false
+			n.mu.Lock()
+			n.serveErr = err
+			n.mu.Unlock()
+			n.running.Store(false)
 		}
 	}()
 
@@ -92,7 +107,7 @@ func (n *Node) Start(_ context.Context) error {
 }
 
 func (n *Node) Stop(ctx context.Context) error {
-	n.running = false
+	n.running.Store(false)
 	return n.server.Shutdown(ctx)
 }
 
