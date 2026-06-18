@@ -76,6 +76,7 @@ func TestRunCommandWithoutFilesShowsHelp(t *testing.T) {
 	assertContains(t, stdout, "lab run [options] [files...]")
 	assertContains(t, stdout, "--files string")
 	assertContains(t, stdout, "--serve string")
+	assertContains(t, stdout, "--mock-api string")
 	assertNotContains(t, stdout, "--cdn")
 	assertNotContains(t, stderr, "No help topic for 'run'")
 
@@ -353,6 +354,35 @@ RETURN T::EQ(content, "hello")
 	assertEqual(t, stderr, "")
 }
 
+func TestRunCommandWithMockAPIFetchesMockResponse(t *testing.T) {
+	spec := writeMockSpec(t, "users.yaml", `
+openapi: 3.1.0
+info:
+  title: Users
+  version: 1.0.0
+paths:
+  /users/{id}:
+    get:
+      x-lab-mock:
+        body:
+          id: "{{ .Path.id }}"
+`)
+
+	script := writeNamedScript(t, "mock_api.fql", `
+LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/123")))
+RETURN T::EQ(payload.id, "123")
+`)
+
+	stdout, stderr, err := runCLI(t, "run", "--mock-api", spec+"@api", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
 func TestRunCommandUsesExplicitConsoleReporter(t *testing.T) {
 	script := writeScript(t)
 
@@ -457,6 +487,72 @@ func TestRunCommandAdvertisesConfiguredStaticHostToRemoteRuntime(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
+func TestRunCommandAdvertisesConfiguredMockHostToRemoteRuntime(t *testing.T) {
+	spec := writeMockSpec(t, "api.yaml", `
+openapi: 3.1.0
+info:
+  title: API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      x-lab-mock:
+        body:
+          users: []
+`)
+
+	type remoteRunRequest struct {
+		Params struct {
+			Lab struct {
+				Mock map[string]string `json:"mock"`
+			} `json:"lab"`
+		} `json:"params"`
+	}
+
+	requests := make(chan remoteRunRequest, 1)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST request, got %s", r.Method)
+		}
+
+		var req remoteRunRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+
+		requests <- req
+		_, _ = w.Write([]byte("1"))
+	}))
+	defer srv.Close()
+
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime", srv.URL,
+		"--mock-api", spec+"@api",
+		"--serve-host", "example.test",
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	select {
+	case req := <-requests:
+		addr := req.Params.Lab.Mock["api"]
+		assertMatches(t, addr, `^http://example\.test:\d+$`)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for remote runtime request")
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
 func TestRunCommandUsesEmbeddedRuntimePath(t *testing.T) {
 	type remoteRunRequest struct {
 		Text string `json:"text"`
@@ -547,6 +643,50 @@ RETURN T::EQ(content, "env")
 
 	assertContains(t, stdout, "Passed")
 	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandSupportsMockAPIEntriesFromEnv(t *testing.T) {
+	spec := writeMockSpec(t, "users.yaml", `
+openapi: 3.1.0
+info:
+  title: Users
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      x-lab-mock:
+        body:
+          ok: true
+`)
+
+	script := writeNamedScript(t, "mock_api_env.fql", `
+LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.users + "/users")))
+RETURN T::EQ(payload.ok, true)
+`)
+
+	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
+		"LAB_MOCK_API": spec,
+	}, "run", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsDuplicateMockAPIAliases(t *testing.T) {
+	specA := writeMockSpec(t, "a.yaml", minimalMockSpec())
+	specB := writeMockSpec(t, "b.yaml", minimalMockSpec())
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--mock-api", specA+"@api", "--mock-api", specB+"@api", script)
+
+	assertExitCode(t, err, 1)
+	assertErrorMessage(t, err, `duplicate mock API alias "api"`)
+	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }
 
@@ -643,6 +783,32 @@ func writeNamedScript(t *testing.T, name string, content string) string {
 	}
 
 	return path
+}
+
+func writeMockSpec(t *testing.T, name string, content string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte(strings.TrimSpace(content)+"\n"), 0o644); err != nil {
+		t.Fatalf("failed to write mock spec: %v", err)
+	}
+
+	return path
+}
+
+func minimalMockSpec() string {
+	return `
+openapi: 3.1.0
+info:
+  title: API
+  version: 1.0.0
+paths:
+  /ok:
+    get:
+      x-lab-mock:
+        body:
+          ok: true
+`
 }
 
 func waitForServeURL(t *testing.T, stdout *safeBuffer, alias string) string {

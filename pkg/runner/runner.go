@@ -115,19 +115,16 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources2.File, onError <-cha
 	go func() {
 		pool := NewPool(r.poolSize)
 		var wg sync.WaitGroup
-		var done bool
 
 	loop:
-		for !done {
+		for onNext != nil || onError != nil {
 			select {
 			case <-ctx.Done():
-				done = true
 				break loop
 			case file, open := <-onNext:
 				if !open {
-					done = true
-
-					break loop
+					onNext = nil
+					continue
 				}
 
 				f := file
@@ -145,9 +142,8 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources2.File, onError <-cha
 				})
 			case err, open := <-onError:
 				if !open {
-					done = true
-
-					break loop
+					onError = nil
+					continue
 				}
 
 				out <- Result{

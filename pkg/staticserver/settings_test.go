@@ -2,7 +2,11 @@ package staticserver
 
 import (
 	"context"
+	"io"
 	"net"
+	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -134,12 +138,57 @@ func TestNodeStartUsesBindHost(t *testing.T) {
 		_ = node.Stop(context.Background())
 	}()
 
-	addr, ok := node.engine.Listener.Addr().(*net.TCPAddr)
+	addr, ok := node.ListenerAddr().(*net.TCPAddr)
 	if !ok {
-		t.Fatalf("expected TCP listener address, got %T", node.engine.Listener.Addr())
+		t.Fatalf("expected TCP listener address, got %T", node.ListenerAddr())
 	}
 
 	if !addr.IP.IsLoopback() {
 		t.Fatalf("expected loopback bind host, got %s", addr.IP.String())
+	}
+}
+
+func TestNodeServesStaticFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	port, err := GetFreePort("127.0.0.1")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	node, err := NewNode(NodeSettings{
+		Name:          "app",
+		Port:          port,
+		Dir:           dir,
+		BindHost:      "127.0.0.1",
+		AdvertiseHost: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if err := node.Start(context.Background()); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	defer func() {
+		_ = node.Stop(context.Background())
+	}()
+
+	resp, err := http.Get(node.String() + "/hello.txt")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if string(body) != "hello" {
+		t.Fatalf("expected static body, got %q", string(body))
 	}
 }

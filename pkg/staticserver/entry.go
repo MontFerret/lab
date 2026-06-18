@@ -3,26 +3,15 @@ package staticserver
 import (
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
-)
 
-var (
-	serveAliasExp = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
-	servePortExp  = regexp.MustCompile(`:(\d+)$`)
+	"github.com/MontFerret/lab/v2/pkg/localserver"
 )
 
 type (
-	ServeEntry struct {
-		Alias string
-		Path  string
-		Port  int
-	}
-
-	ServeEntries []ServeEntry
+	ServeEntry   = localserver.Entry
+	ServeEntries = localserver.Entries
 )
 
 func ParseServeEntries(bindings []string) (ServeEntries, error) {
@@ -51,7 +40,7 @@ func ParseServeEntry(binding string) (ServeEntry, error) {
 		return ServeEntry{}, errors.New("invalid serve entry \"\"")
 	}
 
-	pathPart, alias, port, err := splitServeBinding(binding)
+	pathPart, alias, port, err := localserver.SplitEntryBinding(binding, serveEntryParseOptions())
 	if err != nil {
 		return ServeEntry{}, err
 	}
@@ -61,29 +50,19 @@ func ParseServeEntry(binding string) (ServeEntry, error) {
 	}
 
 	hasExplicitAlias := alias != ""
-
-	if hasExplicitAlias && !serveAliasExp.MatchString(alias) {
+	if hasExplicitAlias && !localserver.IsValidAlias(alias) {
 		return ServeEntry{}, errors.Errorf("invalid serve alias %q", alias)
 	}
 
-	info, err := os.Stat(pathPart)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return ServeEntry{}, errors.Errorf("served directory %q does not exist", pathPart)
-		}
-
-		return ServeEntry{}, errors.Wrapf(err, "inspect served directory %q", pathPart)
-	}
-
-	if !info.IsDir() {
-		return ServeEntry{}, errors.Errorf("served directory %q is not a directory", pathPart)
+	if err := validateServeEntryPath(pathPart); err != nil {
+		return ServeEntry{}, err
 	}
 
 	if !hasExplicitAlias {
 		alias = filepath.Base(filepath.Clean(pathPart))
 	}
 
-	if !serveAliasExp.MatchString(alias) {
+	if !localserver.IsValidAlias(alias) {
 		return ServeEntry{}, errors.Errorf("invalid serve alias %q", alias)
 	}
 
@@ -94,39 +73,31 @@ func ParseServeEntry(binding string) (ServeEntry, error) {
 	}, nil
 }
 
-func splitServeBinding(binding string) (string, string, int, error) {
-	base := binding
-	port := 0
-
-	if match := servePortExp.FindStringSubmatch(binding); match != nil {
-		value, err := strconv.Atoi(match[1])
-		if err != nil {
-			return "", "", 0, errors.Wrapf(err, "invalid serve port %q", match[1])
+func validateServeEntryPath(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return errors.Errorf("served directory %q does not exist", path)
 		}
 
-		if value <= 0 || value > 65535 {
-			return "", "", 0, errors.Errorf("invalid serve port %q", match[1])
-		}
-
-		port = value
-		base = strings.TrimSuffix(binding, match[0])
+		return errors.Wrapf(err, "inspect served directory %q", path)
 	}
 
-	aliasIdx := strings.LastIndex(base, "@")
-	if aliasIdx < 0 {
-		return base, "", port, nil
+	if !info.IsDir() {
+		return errors.Errorf("served directory %q is not a directory", path)
 	}
 
-	pathPart := base[:aliasIdx]
-	alias := base[aliasIdx+1:]
+	return nil
+}
 
-	if servePortExp.MatchString(pathPart) {
-		return "", "", 0, errors.Errorf("invalid serve entry %q: use <path>@<alias>:<port>", binding)
+func serveEntryParseOptions() localserver.EntryParseOptions {
+	return localserver.EntryParseOptions{
+		EntryName:     "serve entry",
+		AliasName:     "serve alias",
+		PortName:      "serve port",
+		DuplicateName: "static alias",
+		DefaultAlias: func(path string) string {
+			return filepath.Base(filepath.Clean(path))
+		},
 	}
-
-	if alias == "" {
-		return "", "", 0, errors.Errorf("invalid serve alias %q", alias)
-	}
-
-	return pathPart, alias, port, nil
 }

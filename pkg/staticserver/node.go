@@ -1,15 +1,12 @@
 package staticserver
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"math/rand"
-	"net"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	"github.com/MontFerret/lab/v2/pkg/localserver"
 )
 
 type (
@@ -22,15 +19,27 @@ type (
 		AdvertiseHost string
 	}
 
-	Node struct {
-		id       int
-		settings NodeSettings
-		engine   *echo.Echo
-		running  bool
-	}
+	Node = localserver.Node
 )
 
 func NewNode(settings NodeSettings) (*Node, error) {
+	handler := newStaticHandler(settings.Dir, settings.Prefix)
+
+	node, err := localserver.NewNode(localserver.NodeSettings{
+		Name:          settings.Name,
+		Port:          settings.Port,
+		Handler:       handler,
+		BindHost:      settings.BindHost,
+		AdvertiseHost: settings.AdvertiseHost,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return node, nil
+}
+
+func newStaticHandler(dir string, configuredPrefix string) http.Handler {
 	engine := echo.New()
 	engine.Debug = false
 	engine.HideBanner = true
@@ -41,62 +50,11 @@ func NewNode(settings NodeSettings) (*Node, error) {
 	}))
 
 	prefix := "/"
-	if settings.Prefix != "" {
-		prefix = settings.Prefix
+	if configuredPrefix != "" {
+		prefix = configuredPrefix
 	}
 
-	engine.Static(prefix, settings.Dir)
+	engine.Static(prefix, dir)
 
-	return &Node{
-		id:       rand.Int(),
-		settings: settings,
-		engine:   engine,
-	}, nil
-}
-
-func (n *Node) ID() int {
-	return n.id
-}
-
-func (n *Node) Name() string {
-	return n.settings.Name
-}
-
-func (n *Node) Port() int {
-	return n.settings.Port
-}
-
-func (n *Node) IsRunning() bool {
-	return n.running
-}
-
-func (n *Node) Start(_ context.Context) error {
-	if n.running {
-		return nil
-	}
-
-	listener, err := net.Listen("tcp", net.JoinHostPort(n.settings.BindHost, fmt.Sprintf("%d", n.settings.Port)))
-	if err != nil {
-		return err
-	}
-
-	n.engine.Listener = listener
-	n.running = true
-
-	go func() {
-		if err := n.engine.Server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			n.running = false
-		}
-	}()
-
-	return nil
-}
-
-func (n *Node) Stop(ctx context.Context) error {
-	n.running = false
-	return n.engine.Shutdown(ctx)
-}
-
-func (n *Node) String() string {
-	return endpointURL(n.settings.AdvertiseHost, n.Port())
+	return engine
 }
