@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 	"text/template"
 )
@@ -57,6 +58,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	method := strings.ToUpper(r.Method)
 	pathMatched := false
+	allowed := make(map[string]struct{})
 
 	for _, rt := range s.staticRoutes {
 		if rt.path != r.URL.Path {
@@ -66,7 +68,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		pathMatched = true
 		op := rt.ops[method]
 		if op == nil {
-			writeMethodNotAllowed(w)
+			addAllowedMethods(allowed, rt)
+			writeMethodNotAllowed(w, allowed)
 			return
 		}
 
@@ -82,17 +85,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		pathMatched = true
 		op := rt.ops[method]
-		if op == nil {
-			writeMethodNotAllowed(w)
+		if op != nil {
+			s.serveOperation(w, r, op, params)
 			return
 		}
 
-		s.serveOperation(w, r, op, params)
-		return
+		addAllowedMethods(allowed, rt)
 	}
 
 	if pathMatched {
-		writeMethodNotAllowed(w)
+		writeMethodNotAllowed(w, allowed)
 		return
 	}
 
@@ -154,4 +156,10 @@ func (s *Server) serveOperation(w http.ResponseWriter, r *http.Request, op *oper
 	default:
 		w.WriteHeader(op.status)
 	}
+}
+
+func sortRoutes(routes []*route) {
+	sort.Slice(routes, func(i, j int) bool {
+		return routeLess(routes[i], routes[j])
+	})
 }

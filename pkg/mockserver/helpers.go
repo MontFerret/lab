@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -109,6 +110,9 @@ func buildServer(root map[string]any) (*Server, error) {
 			server.paramRoutes = append(server.paramRoutes, rt)
 		}
 	}
+
+	sortRoutes(server.staticRoutes)
+	sortRoutes(server.paramRoutes)
 
 	return server, nil
 }
@@ -269,8 +273,24 @@ func requestBody(r *http.Request) (any, error) {
 	return body, nil
 }
 
-func writeMethodNotAllowed(w http.ResponseWriter) {
+func writeMethodNotAllowed(w http.ResponseWriter, allowed map[string]struct{}) {
+	methods := make([]string, 0, len(allowed))
+	for method := range allowed {
+		methods = append(methods, method)
+	}
+
+	sort.Strings(methods)
+	if len(methods) > 0 {
+		w.Header().Set("Allow", strings.Join(methods, ", "))
+	}
+
 	http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+}
+
+func addAllowedMethods(allowed map[string]struct{}, rt *route) {
+	for method := range rt.ops {
+		allowed[method] = struct{}{}
+	}
 }
 
 func normalizeValue(value any) any {
@@ -360,6 +380,31 @@ func routeMatchKey(segments []routeSegment) string {
 	}
 
 	return "/" + strings.Join(parts, "/")
+}
+
+func routeLess(left, right *route) bool {
+	leftStatic := routeStaticSegmentCount(left)
+	rightStatic := routeStaticSegmentCount(right)
+	if leftStatic != rightStatic {
+		return leftStatic > rightStatic
+	}
+
+	if len(left.segments) != len(right.segments) {
+		return len(left.segments) > len(right.segments)
+	}
+
+	return left.path < right.path
+}
+
+func routeStaticSegmentCount(rt *route) int {
+	var count int
+	for _, segment := range rt.segments {
+		if !segment.param {
+			count++
+		}
+	}
+
+	return count
 }
 
 func splitPath(path string) []string {

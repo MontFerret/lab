@@ -176,6 +176,72 @@ paths:
 	})
 }
 
+func TestParameterizedRoutesPreferMoreSpecificMatch(t *testing.T) {
+	server := newTestHTTPServer(t, `
+openapi: 3.1.0
+info:
+  title: Test
+  version: 1.0.0
+paths:
+  /{collection}/{id}:
+    get:
+      x-lab-mock:
+        body:
+          route: generic
+          collection: "{{ .Path.collection }}"
+          id: "{{ .Path.id }}"
+  /users/{id}:
+    get:
+      x-lab-mock:
+        body:
+          route: users
+          id: "{{ .Path.id }}"
+`)
+	defer server.Close()
+
+	resp, body := doRequest(t, http.MethodGet, server.URL+"/users/123", "", nil)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	assertJSONBody(t, body, map[string]any{
+		"route": "users",
+		"id":    "123",
+	})
+}
+
+func TestMethodNotAllowedReportsAllowedMethods(t *testing.T) {
+	server := newTestHTTPServer(t, `
+openapi: 3.1.0
+info:
+  title: Test
+  version: 1.0.0
+paths:
+  /users/{id}:
+    get:
+      x-lab-mock:
+        body:
+          ok: true
+    delete:
+      x-lab-mock:
+        status: 204
+`)
+	defer server.Close()
+
+	resp, _ := doRequest(t, http.MethodPost, server.URL+"/users/123", "", nil)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", resp.StatusCode)
+	}
+
+	if got := resp.Header.Get("Allow"); got != "DELETE, GET" {
+		t.Fatalf("expected Allow header, got %q", got)
+	}
+}
+
 func TestValidationRejectsBodyAndBodyTemplate(t *testing.T) {
 	_, err := New(Options{SpecData: []byte(`
 openapi: 3.1.0
