@@ -4,18 +4,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/urfave/cli/v3"
 
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/pkg/localserver"
+	"github.com/MontFerret/lab/v2/pkg/mockserver"
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/staticserver"
 )
 
 func toServeEntries(values []string) (staticserver.ServeEntries, error) {
 	return staticserver.ParseServeEntries(values)
+}
+
+func toMockAPIEntries(values []string) (mockserver.Entries, error) {
+	return mockserver.ParseEntries(values)
 }
 
 func toParams(values []string) (map[string]interface{}, error) {
@@ -49,6 +56,39 @@ func createStaticServerManagerFromCommand(cmd *cli.Command, entries staticserver
 	}
 
 	manager, err := staticserver.NewManager(staticServerSettingsFromCommand(cmd))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if err := manager.Bind(entry); err != nil {
+			return nil, err
+		}
+	}
+
+	return manager, nil
+}
+
+func createMockAPIServerManagerFromCommand(cmd *cli.Command, entries mockserver.Entries) (*localserver.Manager, error) {
+	if len(entries) == 0 {
+		return nil, nil
+	}
+
+	manager, err := localserver.NewManager(localserver.ManagerOptions{
+		Settings: staticServerSettingsFromCommand(cmd),
+		HandlerFactory: func(entry localserver.Entry) (http.Handler, error) {
+			server, err := mockserver.New(mockserver.Options{
+				SpecPath: entry.Path,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			return server.Handler(), nil
+		},
+		StartErrorLabel: "failed to start mock API server",
+		StopErrorLabel:  "failed to stop mock API server",
+	})
 	if err != nil {
 		return nil, err
 	}

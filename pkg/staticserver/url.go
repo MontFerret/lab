@@ -1,10 +1,7 @@
 package staticserver
 
-import (
-	"net"
-	"strconv"
-)
+import "github.com/MontFerret/lab/v2/pkg/localserver"
 
 func endpointURL(host string, port int) string {
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(port))
+	return localserver.EndpointURL(host, port)
 }

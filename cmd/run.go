@@ -99,15 +99,21 @@ func RunFlags(hidden bool) []cli.Flag {
 			Sources: cli.EnvVars("LAB_SERVE"),
 			Hidden:  hidden,
 		},
+		&cli.StringSliceFlag{
+			Name:    "mock-api",
+			Usage:   "serve an OpenAPI mock API spec during test execution (<path>, <path>:<port>, <path>@<alias>, <path>@<alias>:<port>)",
+			Sources: cli.EnvVars("LAB_MOCK_API"),
+			Hidden:  hidden,
+		},
 		&cli.StringFlag{
 			Name:    "serve-bind",
-			Usage:   "host to bind static servers to (host only, no port)",
+			Usage:   "host to bind local servers to (host only, no port)",
 			Sources: cli.EnvVars("LAB_SERVE_BIND"),
 			Hidden:  hidden,
 		},
 		&cli.StringFlag{
 			Name:    "serve-host",
-			Usage:   "host to advertise for static server URLs (host only, no port)",
+			Usage:   "host to advertise for local server URLs (host only, no port)",
 			Sources: cli.EnvVars("LAB_SERVE_HOST"),
 			Hidden:  hidden,
 		},
@@ -220,11 +226,19 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 
 	serveEntries, err := toServeEntries(cmd.StringSlice("serve"))
 	if err != nil {
-		return cli.Exit(err, 1)
+		return cli.Exit(err.Error(), 1)
+	}
+
+	mockAPIEntries, err := toMockAPIEntries(cmd.StringSlice("mock-api"))
+	if err != nil {
+		return cli.Exit(err.Error(), 1)
 	}
 
 	staticURLs := make(map[string]interface{})
 	params.SetSystemValue("static", staticURLs)
+
+	mockURLs := make(map[string]interface{})
+	params.SetSystemValue("mock", mockURLs)
 
 	manager, err := createStaticServerManagerFromCommand(cmd, serveEntries)
 	if err != nil {
@@ -244,6 +258,27 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 
 		for alias, address := range manager.Endpoints() {
 			staticURLs[alias] = address
+		}
+	}
+
+	mockManager, err := createMockAPIServerManagerFromCommand(cmd, mockAPIEntries)
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	if mockManager != nil {
+		if err := mockManager.Start(ctx); err != nil {
+			return cli.Exit(err, 1)
+		}
+
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = mockManager.Stop(stopCtx)
+		}()
+
+		for alias, address := range mockManager.Endpoints() {
+			mockURLs[alias] = address
 		}
 	}
 

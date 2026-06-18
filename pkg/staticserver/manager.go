@@ -1,139 +1,59 @@
 package staticserver
 
 import (
-	"bytes"
 	"context"
+	"net/http"
 
-	"github.com/pkg/errors"
+	"github.com/MontFerret/lab/v2/pkg/localserver"
 )
 
 type (
 	StaticEndpoints map[string]string
 
 	Manager struct {
-		settings Settings
-		nodes    []*Node
-		running  bool
+		inner *localserver.Manager
 	}
 )
 
 func NewManager(settings Settings) (*Manager, error) {
-	resolved, err := ResolveSettings(settings)
+	inner, err := localserver.NewManager(localserver.ManagerOptions{
+		Settings: settings,
+		HandlerFactory: func(entry localserver.Entry) (http.Handler, error) {
+			return newStaticHandler(entry.Path, ""), nil
+		},
+		StartErrorLabel: "failed to start static file server",
+		StopErrorLabel:  "failed to stop static file server",
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &Manager{
-		settings: resolved,
-		nodes:    make([]*Node, 0, 10),
-	}, nil
+	return &Manager{inner: inner}, nil
 }
 
 func (m *Manager) IsRunning() bool {
-	return m.running
+	return m.inner.IsRunning()
 }
 
 func (m *Manager) Bind(entry ServeEntry) error {
-	port := entry.Port
-	if port == 0 {
-		assigned, err := GetFreePort(m.settings.BindHost)
-		if err != nil {
-			return err
-		}
-
-		port = assigned
-	}
-
-	node, err := NewNode(NodeSettings{
-		Name:          entry.Alias,
-		Port:          port,
-		Dir:           entry.Path,
-		Prefix:        "",
-		BindHost:      m.settings.BindHost,
-		AdvertiseHost: m.settings.AdvertiseHost,
-	})
-	if err != nil {
-		return err
-	}
-
-	m.nodes = append(m.nodes, node)
-
-	return nil
+	return m.inner.Bind(entry)
 }
 
 func (m *Manager) Endpoints() StaticEndpoints {
-	endpoints := make(StaticEndpoints, len(m.nodes))
+	source := m.inner.Endpoints()
+	endpoints := make(StaticEndpoints, len(source))
 
-	for _, node := range m.nodes {
-		endpoints[node.Name()] = node.String()
+	for name, endpoint := range source {
+		endpoints[name] = endpoint
 	}
 
 	return endpoints
 }
 
 func (m *Manager) Start(ctx context.Context) error {
-	failed := make(map[int]error)
-
-	for _, node := range m.nodes {
-		if node.IsRunning() {
-			continue
-		}
-
-		if err := node.Start(ctx); err != nil {
-			failed[node.ID()] = err
-		}
-	}
-
-	if len(failed) == 0 {
-		m.running = len(m.nodes) > 0
-		return nil
-	}
-
-	for _, node := range m.nodes {
-		if _, exists := failed[node.ID()]; !exists {
-			_ = node.Stop(ctx)
-		}
-	}
-
-	return errors.Errorf("failed to start static file server: %s", m.joinErrors(failed))
+	return m.inner.Start(ctx)
 }
 
 func (m *Manager) Stop(ctx context.Context) error {
-	failed := make(map[int]error)
-
-	for _, node := range m.nodes {
-		if !node.IsRunning() {
-			continue
-		}
-
-		if err := node.Stop(ctx); err != nil {
-			failed[node.ID()] = err
-		}
-	}
-
-	m.running = false
-
-	if len(failed) == 0 {
-		return nil
-	}
-
-	return errors.Errorf("failed to stop static file server: %s", m.joinErrors(failed))
-}
-
-func (m *Manager) joinErrors(failed map[int]error) string {
-	var buf bytes.Buffer
-	var i int
-	last := len(failed) - 1
-
-	for _, err := range failed {
-		buf.WriteString(err.Error())
-
-		if i < last {
-			buf.WriteString(",")
-		}
-
-		i++
-	}
-
-	return buf.String()
+	return m.inner.Stop(ctx)
 }

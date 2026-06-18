@@ -84,6 +84,13 @@ Read the introductory blog post about Lab [here](https://www.montferret.dev/blog
 - **Custom aliases** - Name content endpoints for better organization
 - **Dynamic port allocation** - Automatically find available ports
 
+### 🔌 Mock API Serving
+
+- **OpenAPI-compatible specs** - Serve lightweight REST mocks from YAML or JSON files
+- **Lab mock extensions** - Define responses with operation-level `x-lab-mock`
+- **Dynamic templates** - Use request method, path params, query params, headers, and JSON bodies in responses
+- **Stable local API URLs** - Expose mock endpoints to FQL scripts under `@lab.mock.<alias>`
+
 ### 📊 Rich Reporting & Monitoring
 
 - **Multiple output formats** - Console and simple reporters are available
@@ -606,6 +613,42 @@ lab run \
 
 If `--serve-host` is set without `--serve-bind`, Lab automatically binds static servers to all interfaces: `0.0.0.0` for IPv4 and hostnames, or `::` for IPv6 literals.
 
+### 🔌 Mock API Serving
+
+Lab can serve local REST mock APIs from OpenAPI-compatible YAML or JSON specs during test execution. Mock endpoints are available in FQL scripts under `@lab.mock.<alias>`.
+
+Mock specs use operation-level `x-lab-mock` blocks:
+
+```yaml
+openapi: 3.1.0
+info:
+  title: Users API
+  version: 1.0.0
+paths:
+  /users/{id}:
+    get:
+      x-lab-mock:
+        status: 200
+        body:
+          id: "{{ .Path.id }}"
+          name: "User {{ .Path.id }}"
+```
+
+Run tests with the mock API:
+
+```bash
+lab run --mock-api ./users.yaml@api tests/
+```
+
+FQL script:
+
+```sql
+LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/123")))
+RETURN T::EQ(payload.id, "123")
+```
+
+Mock API entries use the same binding syntax as static serving: `<path>`, `<path>:<port>`, `<path>@<alias>`, and `<path>@<alias>:<port>`. `--serve-bind` and `--serve-host` also apply to mock API servers.
+
 ### 🔄 Remote Ferret Runtime
 
 Lab can execute tests against remote Ferret instances instead of using the built-in runtime.
@@ -728,8 +771,9 @@ These flags apply to `lab run`.
 | `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
 | `--times-interval` | - | `LAB_TIMES_INTERVAL` | `0` | Interval between test cycles in seconds |
 | `--serve` | - | `LAB_SERVE` | - | Served directory mapping exposed over HTTP |
-| `--serve-bind` | - | `LAB_SERVE_BIND` | - | Host to bind static servers to, without port |
-| `--serve-host` | - | `LAB_SERVE_HOST` | - | Host to advertise for static server URLs, without port |
+| `--mock-api` | - | `LAB_MOCK_API` | - | OpenAPI mock API spec exposed over HTTP |
+| `--serve-bind` | - | `LAB_SERVE_BIND` | - | Host to bind local servers to, without port |
+| `--serve-host` | - | `LAB_SERVE_HOST` | - | Host to advertise local server URLs, without port |
 | `--param` | `-p` | `LAB_PARAM` | - | Query parameters for tests |
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
 | `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
@@ -892,6 +936,22 @@ Built-in HTTP server for local static assets:
 - **Dynamic ports** - Allocate free ports automatically
 - **Alias support** - Assign stable names to served directories
 
+#### Mock Server (`mockserver/`)
+
+OpenAPI-compatible mock REST API server:
+
+- **Spec-driven routes** - Register endpoints from `x-lab-mock` operations
+- **Template responses** - Render body values and raw templates from request context
+- **Local lifecycle** - Reuses shared local server binding and endpoint management
+
+#### Local Server (`localserver/`)
+
+Shared local HTTP server runtime:
+
+- **Host settings** - Normalizes bind and advertised hosts
+- **Entry parsing** - Handles path, alias, and port bindings
+- **Lifecycle management** - Starts, stops, and reports endpoint URLs
+
 #### Reporters (`reporters/`)
 
 Output formatting and result presentation:
@@ -991,6 +1051,8 @@ make cover
 lab/
 ├── main.go              # Application entry point
 ├── cmd/                 # CLI command implementations
+├── localserver/         # Shared local HTTP server lifecycle
+├── mockserver/          # OpenAPI-compatible mock API server
 ├── staticserver/        # Static file server
 ├── reporters/           # Output formatters
 ├── runner/              # Test execution orchestration
