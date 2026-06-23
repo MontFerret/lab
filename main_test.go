@@ -240,8 +240,12 @@ func TestServeCommandWithoutEntriesShowsHelp(t *testing.T) {
 		t.Fatalf("expected no error from help, got %v", helpErr)
 	}
 
-	assertContains(t, stdout, "lab serve [entries...]")
-	assertContains(t, stdout, "--serve string")
+	assertContains(t, stdout, "lab serve [options]")
+	assertContains(t, stdout, "--static string")
+	assertContains(t, stdout, "--mock-api string")
+	assertContains(t, stdout, "--serve-bind string")
+	assertContains(t, stdout, "--serve-host string")
+	assertNotContains(t, stdout, "--serve string")
 	assertNotContains(t, stdout, "--cdn")
 	assertNotContains(t, stderr, "No help topic for 'serve'")
 
@@ -254,29 +258,32 @@ func TestServeCommandWithoutEntriesShowsHelp(t *testing.T) {
 	}
 }
 
-func TestServeHelpUsesStaticServerTerminology(t *testing.T) {
+func TestServeHelpUsesLocalServerTerminology(t *testing.T) {
 	stdout, stderr, err := runCLI(t, "serve", "--help")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	assertContains(t, stdout, "Serve one or more local directories over HTTP")
-	assertContains(t, stdout, "lab serve [entries...]")
-	assertContains(t, stdout, "--serve string")
+	assertContains(t, stdout, "Serve one or more local HTTP services")
+	assertContains(t, stdout, "lab serve [options]")
+	assertContains(t, stdout, "--static string")
+	assertContains(t, stdout, "--mock-api string")
 	assertContains(t, stdout, "--serve-bind string")
 	assertContains(t, stdout, "--serve-host string")
+	assertNotContains(t, stdout, "Serve one or more local directories over HTTP")
 	assertNotContains(t, stdout, "CDN")
 	assertNotContains(t, stdout, "--cdn")
+	assertNotContains(t, stdout, "--serve string")
 	assertEqual(t, stderr, "")
 }
 
-func TestServeCommandServesPositionalEntries(t *testing.T) {
+func TestServeCommandServesStaticEntries(t *testing.T) {
 	root := t.TempDir()
 	appDir := filepath.Join(root, "app")
 	mustMkdir(t, appDir)
 	mustWriteFile(t, filepath.Join(appDir, "hello.txt"), "hello")
 
-	stdout, stderr, done, cancel := startCLI(t, "serve", appDir)
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--static", appDir+"@app")
 	defer cancel()
 
 	url := waitForServeURL(t, stdout, "app")
@@ -290,7 +297,7 @@ func TestServeCommandServesPositionalEntries(t *testing.T) {
 	}
 }
 
-func TestServeCommandMergesPositionalAndFlaggedEntries(t *testing.T) {
+func TestServeCommandServesMultipleStaticEntries(t *testing.T) {
 	root := t.TempDir()
 	appDir := filepath.Join(root, "frontend")
 	apiDir := filepath.Join(root, "mockdata")
@@ -299,7 +306,7 @@ func TestServeCommandMergesPositionalAndFlaggedEntries(t *testing.T) {
 	mustWriteFile(t, filepath.Join(appDir, "app.txt"), "app")
 	mustWriteFile(t, filepath.Join(apiDir, "api.txt"), "api")
 
-	stdout, stderr, done, cancel := startCLI(t, "serve", appDir+"@app", "--serve", apiDir+"@api")
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--static", appDir+"@app", "--static", apiDir+"@api")
 	defer cancel()
 
 	appURL := waitForServeURL(t, stdout, "app")
@@ -315,12 +322,99 @@ func TestServeCommandMergesPositionalAndFlaggedEntries(t *testing.T) {
 	}
 }
 
+func TestServeCommandSupportsStaticEntriesFromEnv(t *testing.T) {
+	root := t.TempDir()
+	appDir := filepath.Join(root, "app")
+	mustMkdir(t, appDir)
+	mustWriteFile(t, filepath.Join(appDir, "env.txt"), "env")
+
+	stdout, stderr, done, cancel := startCLIWithEnv(t, map[string]string{
+		"LAB_STATIC": appDir + "@app",
+	}, "serve")
+	defer cancel()
+
+	url := waitForServeURL(t, stdout, "app")
+	assertHTTPBody(t, url+"/env.txt", "env")
+	assertEqual(t, stderr.String(), "")
+
+	cancel()
+
+	if err := <-done; err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestServeCommandRejectsPositionalEntries(t *testing.T) {
+	root := t.TempDir()
+	appDir := filepath.Join(root, "app")
+	mustMkdir(t, appDir)
+
+	stdout, stderr, err := runCLI(t, "serve", appDir)
+
+	assertExitCode(t, err, 1)
+	assertErrorMessage(t, err, "serve entries must use --static or --mock-api")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestServeCommandServesMockAPIEntries(t *testing.T) {
+	spec := writeMockSpec(t, "users.yaml", minimalMockSpec())
+
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--mock-api", spec+"@api")
+	defer cancel()
+
+	url := waitForMockServeURL(t, stdout, "api")
+	assertHTTPBody(t, url+"/ok", `{"ok":true}`)
+	assertEqual(t, stderr.String(), "")
+
+	cancel()
+
+	if err := <-done; err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestServeCommandServesStaticAndMockAPIEntries(t *testing.T) {
+	root := t.TempDir()
+	appDir := filepath.Join(root, "app")
+	mustMkdir(t, appDir)
+	mustWriteFile(t, filepath.Join(appDir, "hello.txt"), "hello")
+	spec := writeMockSpec(t, "users.yaml", minimalMockSpec())
+
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--static", appDir+"@app", "--mock-api", spec+"@api")
+	defer cancel()
+
+	staticURL := waitForServeURL(t, stdout, "app")
+	mockURL := waitForMockServeURL(t, stdout, "api")
+	assertHTTPBody(t, staticURL+"/hello.txt", "hello")
+	assertHTTPBody(t, mockURL+"/ok", `{"ok":true}`)
+	assertEqual(t, stderr.String(), "")
+
+	cancel()
+
+	if err := <-done; err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestServeCommandRejectsDuplicateMockAPIAliases(t *testing.T) {
+	specA := writeMockSpec(t, "a.yaml", minimalMockSpec())
+	specB := writeMockSpec(t, "b.yaml", minimalMockSpec())
+
+	stdout, stderr, err := runCLI(t, "serve", "--mock-api", specA+"@api", "--mock-api", specB+"@api")
+
+	assertExitCode(t, err, 1)
+	assertErrorMessage(t, err, `duplicate mock API alias "api"`)
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
 func TestServeCommandSupportsAdvertisedHost(t *testing.T) {
 	root := t.TempDir()
 	appDir := filepath.Join(root, "app")
 	mustMkdir(t, appDir)
 
-	stdout, stderr, done, cancel := startCLI(t, "serve", "--serve-bind", "0.0.0.0", "--serve-host", "example.test", appDir+"@app")
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--serve-bind", "0.0.0.0", "--serve-host", "example.test", "--static", appDir+"@app")
 	defer cancel()
 
 	waitForServeURLWithHost(t, stdout, "app", `example\.test`)
@@ -732,21 +826,8 @@ func runCLI(t *testing.T, args ...string) (string, string, error) {
 func runCLIWithEnv(t *testing.T, env map[string]string, args ...string) (string, string, error) {
 	t.Helper()
 
-	for key, value := range env {
-		original, existed := os.LookupEnv(key)
-		if err := os.Setenv(key, value); err != nil {
-			t.Fatalf("failed to set %s: %v", key, err)
-		}
-
-		defer func(k, v string, ok bool) {
-			if !ok {
-				_ = os.Unsetenv(k)
-				return
-			}
-
-			_ = os.Setenv(k, v)
-		}(key, original, existed)
-	}
+	restoreEnv := setEnv(t, env)
+	defer restoreEnv()
 
 	return runCLI(t, args...)
 }
@@ -754,6 +835,13 @@ func runCLIWithEnv(t *testing.T, env map[string]string, args ...string) (string,
 func startCLI(t *testing.T, args ...string) (*safeBuffer, *safeBuffer, <-chan error, context.CancelFunc) {
 	t.Helper()
 
+	return startCLIWithEnv(t, nil, args...)
+}
+
+func startCLIWithEnv(t *testing.T, env map[string]string, args ...string) (*safeBuffer, *safeBuffer, <-chan error, context.CancelFunc) {
+	t.Helper()
+
+	restoreEnv := setEnv(t, env)
 	stdout := &safeBuffer{}
 	stderr := &safeBuffer{}
 
@@ -763,10 +851,41 @@ func startCLI(t *testing.T, args ...string) (*safeBuffer, *safeBuffer, <-chan er
 
 	done := make(chan error, 1)
 	go func() {
+		defer restoreEnv()
 		done <- app.Run(ctx, append([]string{"lab"}, args...))
 	}()
 
 	return stdout, stderr, done, cancel
+}
+
+func setEnv(t *testing.T, env map[string]string) func() {
+	t.Helper()
+
+	type originalEnv struct {
+		value  string
+		exists bool
+	}
+
+	originals := make(map[string]originalEnv, len(env))
+	for key, value := range env {
+		original, existed := os.LookupEnv(key)
+		originals[key] = originalEnv{value: original, exists: existed}
+
+		if err := os.Setenv(key, value); err != nil {
+			t.Fatalf("failed to set %s: %v", key, err)
+		}
+	}
+
+	return func() {
+		for key, original := range originals {
+			if !original.exists {
+				_ = os.Unsetenv(key)
+				continue
+			}
+
+			_ = os.Setenv(key, original.value)
+		}
+	}
 }
 
 func writeScript(t *testing.T) string {
@@ -832,6 +951,24 @@ func waitForServeURLWithHost(t *testing.T, stdout *safeBuffer, alias string, hos
 	}
 
 	t.Fatalf("timed out waiting for serve output for alias %q; stdout=%q", alias, stdout.String())
+	return ""
+}
+
+func waitForMockServeURL(t *testing.T, stdout *safeBuffer, alias string) string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(regexp.QuoteMeta(fmt.Sprintf("Serving mock API %q at ", alias)) + `(http://127\.0\.0\.1:\d+)`)
+	deadline := time.Now().Add(5 * time.Second)
+
+	for time.Now().Before(deadline) {
+		if matches := pattern.FindStringSubmatch(stdout.String()); len(matches) == 2 {
+			return matches[1]
+		}
+
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for mock API serve output for alias %q; stdout=%q", alias, stdout.String())
 	return ""
 }
 
