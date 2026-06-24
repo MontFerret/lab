@@ -637,19 +637,19 @@ paths:
 Run tests with the mock API:
 
 ```bash
-lab run --mock-api ./users.yaml@api tests/
+lab run --mock ./users.yaml@api tests/
 ```
 
 Serve the mock API without running tests:
 
 ```bash
-lab serve --mock-api ./users.yaml@api
+lab serve --mock ./users.yaml@api
 ```
 
 Static and mock services can be served together:
 
 ```bash
-lab serve --static ./dist@app --mock-api ./users.yaml@api
+lab serve --static ./dist@app --mock ./users.yaml@api
 ```
 
 FQL script:
@@ -783,7 +783,7 @@ These flags apply to `lab run`.
 | `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
 | `--times-interval` | - | `LAB_TIMES_INTERVAL` | `0` | Interval between test cycles in seconds |
 | `--serve` | - | `LAB_SERVE` | - | Served directory mapping exposed over HTTP |
-| `--mock-api` | - | `LAB_MOCK_API` | - | OpenAPI mock API spec exposed over HTTP |
+| `--mock` | - | `LAB_MOCK` | - | OpenAPI mock API spec exposed over HTTP |
 | `--serve-bind` | - | `LAB_SERVE_BIND` | - | Host to bind local servers to, without port |
 | `--serve-host` | - | `LAB_SERVE_HOST` | - | Host to advertise local server URLs, without port |
 | `--param` | `-p` | `LAB_PARAM` | - | Query parameters for tests |
@@ -796,7 +796,7 @@ These flags apply to `lab serve`.
 | Flag | Environment Variable | Default | Description |
 |------|----------------------|---------|-------------|
 | `--static` | `LAB_STATIC` | - | Served directory mapping exposed over HTTP |
-| `--mock-api` | `LAB_MOCK_API` | - | OpenAPI mock API spec exposed over HTTP |
+| `--mock` | `LAB_MOCK` | - | OpenAPI mock API spec exposed over HTTP |
 | `--serve-bind` | `LAB_SERVE_BIND` | - | Host to bind local servers to, without port |
 | `--serve-host` | `LAB_SERVE_HOST` | - | Host to advertise local server URLs, without port |
 

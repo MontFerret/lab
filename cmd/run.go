@@ -100,9 +100,9 @@ func RunFlags(hidden bool) []cli.Flag {
 			Hidden:  hidden,
 		},
 		&cli.StringSliceFlag{
-			Name:    "mock-api",
+			Name:    "mock",
 			Usage:   "serve an OpenAPI mock API spec during test execution (<path>, <path>:<port>, <path>@<alias>, <path>@<alias>:<port>)",
-			Sources: cli.EnvVars("LAB_MOCK_API"),
+			Sources: cli.EnvVars("LAB_MOCK"),
 			Hidden:  hidden,
 		},
 		&cli.StringFlag{
@@ -229,7 +229,7 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 		return cli.Exit(err.Error(), 1)
 	}
 
-	mockAPIEntries, err := toMockAPIEntries(cmd.StringSlice("mock-api"))
+	mockAPIEntries, err := toMockAPIEntries(cmd.StringSlice("mock"))
 	if err != nil {
 		return cli.Exit(err.Error(), 1)
 	}

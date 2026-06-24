@@ -21,9 +21,9 @@ func ServeCommand() *cli.Command {
 				Sources: cli.EnvVars("LAB_STATIC"),
 			},
 			&cli.StringSliceFlag{
-				Name:    "mock-api",
+				Name:    "mock",
 				Usage:   "OpenAPI mock API spec mapping (<path>, <path>:<port>, <path>@<alias>, <path>@<alias>:<port>)",
-				Sources: cli.EnvVars("LAB_MOCK_API"),
+				Sources: cli.EnvVars("LAB_MOCK"),
 			},
 			&cli.StringFlag{
 				Name:    "serve-bind",
@@ -42,11 +42,11 @@ func ServeCommand() *cli.Command {
 
 func ServeAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() > 0 {
-		return cli.Exit("serve entries must use --static or --mock-api", 1)
+		return cli.Exit("serve entries must use --static or --mock", 1)
 	}
 
 	staticValues := cmd.StringSlice("static")
-	mockAPIValues := cmd.StringSlice("mock-api")
+	mockAPIValues := cmd.StringSlice("mock")
 
 	if len(staticValues) == 0 && len(mockAPIValues) == 0 {
 		if err := showCurrentCommandHelp(cmd); err != nil {

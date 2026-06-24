@@ -76,7 +76,8 @@ func TestRunCommandWithoutFilesShowsHelp(t *testing.T) {
 	assertContains(t, stdout, "lab run [options] [files...]")
 	assertContains(t, stdout, "--files string")
 	assertContains(t, stdout, "--serve string")
-	assertContains(t, stdout, "--mock-api string")
+	assertContains(t, stdout, "--mock string")
+	assertNotContains(t, stdout, "--mock-api string")
 	assertNotContains(t, stdout, "--cdn")
 	assertNotContains(t, stderr, "No help topic for 'run'")
 
@@ -230,6 +231,16 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
+func TestRunCommandRejectsLegacyMockAPIFlag(t *testing.T) {
+	stdout, stderr, err := runCLI(t, "run", "--mock-api", "users.yaml@api")
+
+	assertErrorMessage(t, err, "flag provided but not defined: -mock-api")
+	assertContains(t, stdout, "lab run [options] [files...]")
+	assertContains(t, stdout, "--mock string")
+	assertNotContains(t, stdout, "--mock-api string")
+	assertContains(t, stderr, "Incorrect Usage: flag provided but not defined: -mock-api")
+}
+
 func TestServeCommandWithoutEntriesShowsHelp(t *testing.T) {
 	stdout, stderr, err := runCLI(t, "serve")
 	helpStdout, helpStderr, helpErr := runCLI(t, "serve", "--help")
@@ -242,9 +253,10 @@ func TestServeCommandWithoutEntriesShowsHelp(t *testing.T) {
 
 	assertContains(t, stdout, "lab serve [options]")
 	assertContains(t, stdout, "--static string")
-	assertContains(t, stdout, "--mock-api string")
+	assertContains(t, stdout, "--mock string")
 	assertContains(t, stdout, "--serve-bind string")
 	assertContains(t, stdout, "--serve-host string")
+	assertNotContains(t, stdout, "--mock-api string")
 	assertNotContains(t, stdout, "--serve string")
 	assertNotContains(t, stdout, "--cdn")
 	assertNotContains(t, stderr, "No help topic for 'serve'")
@@ -267,13 +279,36 @@ func TestServeHelpUsesLocalServerTerminology(t *testing.T) {
 	assertContains(t, stdout, "Serve one or more local HTTP services")
 	assertContains(t, stdout, "lab serve [options]")
 	assertContains(t, stdout, "--static string")
-	assertContains(t, stdout, "--mock-api string")
+	assertContains(t, stdout, "--mock string")
 	assertContains(t, stdout, "--serve-bind string")
 	assertContains(t, stdout, "--serve-host string")
 	assertNotContains(t, stdout, "Serve one or more local directories over HTTP")
 	assertNotContains(t, stdout, "CDN")
 	assertNotContains(t, stdout, "--cdn")
+	assertNotContains(t, stdout, "--mock-api string")
 	assertNotContains(t, stdout, "--serve string")
+	assertEqual(t, stderr, "")
+}
+
+func TestServeCommandRejectsLegacyMockAPIFlag(t *testing.T) {
+	stdout, stderr, err := runCLI(t, "serve", "--mock-api", "users.yaml@api")
+
+	assertErrorMessage(t, err, "flag provided but not defined: -mock-api")
+	assertContains(t, stdout, "lab serve [options]")
+	assertContains(t, stdout, "--mock string")
+	assertNotContains(t, stdout, "--mock-api string")
+	assertContains(t, stderr, "Incorrect Usage: flag provided but not defined: -mock-api")
+}
+
+func TestServeCommandIgnoresLegacyMockAPIEnv(t *testing.T) {
+	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
+		"LAB_MOCK_API": filepath.Join(t.TempDir(), "missing.yaml") + "@api",
+	}, "serve")
+
+	assertExitCode(t, err, 1)
+	assertContains(t, stdout, "lab serve [options]")
+	assertContains(t, stdout, "--mock string")
+	assertNotContains(t, stdout, "LAB_MOCK_API")
 	assertEqual(t, stderr, "")
 }
 
@@ -352,7 +387,7 @@ func TestServeCommandRejectsPositionalEntries(t *testing.T) {
 	stdout, stderr, err := runCLI(t, "serve", appDir)
 
 	assertExitCode(t, err, 1)
-	assertErrorMessage(t, err, "serve entries must use --static or --mock-api")
+	assertErrorMessage(t, err, "serve entries must use --static or --mock")
 	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }
@@ -360,7 +395,7 @@ func TestServeCommandRejectsPositionalEntries(t *testing.T) {
 func TestServeCommandServesMockAPIEntries(t *testing.T) {
 	spec := writeMockSpec(t, "users.yaml", minimalMockSpec())
 
-	stdout, stderr, done, cancel := startCLI(t, "serve", "--mock-api", spec+"@api")
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--mock", spec+"@api")
 	defer cancel()
 
 	url := waitForMockServeURL(t, stdout, "api")
@@ -381,7 +416,7 @@ func TestServeCommandServesStaticAndMockAPIEntries(t *testing.T) {
 	mustWriteFile(t, filepath.Join(appDir, "hello.txt"), "hello")
 	spec := writeMockSpec(t, "users.yaml", minimalMockSpec())
 
-	stdout, stderr, done, cancel := startCLI(t, "serve", "--static", appDir+"@app", "--mock-api", spec+"@api")
+	stdout, stderr, done, cancel := startCLI(t, "serve", "--static", appDir+"@app", "--mock", spec+"@api")
 	defer cancel()
 
 	staticURL := waitForServeURL(t, stdout, "app")
@@ -401,7 +436,7 @@ func TestServeCommandRejectsDuplicateMockAPIAliases(t *testing.T) {
 	specA := writeMockSpec(t, "a.yaml", minimalMockSpec())
 	specB := writeMockSpec(t, "b.yaml", minimalMockSpec())
 
-	stdout, stderr, err := runCLI(t, "serve", "--mock-api", specA+"@api", "--mock-api", specB+"@api")
+	stdout, stderr, err := runCLI(t, "serve", "--mock", specA+"@api", "--mock", specB+"@api")
 
 	assertExitCode(t, err, 1)
 	assertErrorMessage(t, err, `duplicate mock API alias "api"`)
@@ -421,7 +456,7 @@ paths:
           status: "ok"
 `)
 
-	stdout, stderr, err := runCLI(t, "serve", "--mock-api", spec+"@api")
+	stdout, stderr, err := runCLI(t, "serve", "--mock", spec+"@api")
 
 	assertExitCode(t, err, 1)
 	assertContains(t, err.Error(), "parse mock API spec: yaml:")
@@ -489,7 +524,7 @@ LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/12
 RETURN T::EQ(payload.id, "123")
 `)
 
-	stdout, stderr, err := runCLI(t, "run", "--mock-api", spec+"@api", script)
+	stdout, stderr, err := runCLI(t, "run", "--mock", spec+"@api", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
@@ -648,7 +683,7 @@ paths:
 		t,
 		"run",
 		"--runtime", srv.URL,
-		"--mock-api", spec+"@api",
+		"--mock", spec+"@api",
 		"--serve-host", "example.test",
 		script,
 	)
@@ -782,7 +817,7 @@ RETURN T::EQ(payload.ok, true)
 `)
 
 	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
-		"LAB_MOCK_API": spec,
+		"LAB_MOCK": spec,
 	}, "run", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
@@ -793,12 +828,26 @@ RETURN T::EQ(payload.ok, true)
 	assertEqual(t, stderr, "")
 }
 
+func TestRunCommandIgnoresLegacyMockAPIEnv(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
+		"LAB_MOCK_API": filepath.Join(t.TempDir(), "missing.yaml") + "@api",
+	}, "run", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
 func TestRunCommandRejectsDuplicateMockAPIAliases(t *testing.T) {
 	specA := writeMockSpec(t, "a.yaml", minimalMockSpec())
 	specB := writeMockSpec(t, "b.yaml", minimalMockSpec())
 	script := writeScript(t)
 
-	stdout, stderr, err := runCLI(t, "run", "--mock-api", specA+"@api", "--mock-api", specB+"@api", script)
+	stdout, stderr, err := runCLI(t, "run", "--mock", specA+"@api", "--mock", specB+"@api", script)
 
 	assertExitCode(t, err, 1)
 	assertErrorMessage(t, err, `duplicate mock API alias "api"`)
@@ -819,7 +868,7 @@ paths:
 `)
 	script := writeScript(t)
 
-	stdout, stderr, err := runCLI(t, "run", "--mock-api", spec+"@api", script)
+	stdout, stderr, err := runCLI(t, "run", "--mock", spec+"@api", script)
 
 	assertExitCode(t, err, 1)
 	assertContains(t, err.Error(), "parse mock API spec: yaml:")
