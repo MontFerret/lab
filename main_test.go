@@ -409,6 +409,28 @@ func TestServeCommandRejectsDuplicateMockAPIAliases(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
+func TestServeCommandReportsMalformedMockAPISpecWithoutStackTrace(t *testing.T) {
+	spec := writeMockSpec(t, "bad.yaml", `
+openapi: 3.1.0
+paths:
+  /health:
+    get:
+      x-lab-mock:
+        body:
+          version: "1.0.0",
+          status: "ok"
+`)
+
+	stdout, stderr, err := runCLI(t, "serve", "--mock-api", spec+"@api")
+
+	assertExitCode(t, err, 1)
+	assertContains(t, err.Error(), "parse mock API spec: yaml:")
+	assertNotContains(t, err.Error(), "pkg/mockserver")
+	assertNotContains(t, err.Error(), "cmd/serve.go")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
 func TestServeCommandSupportsAdvertisedHost(t *testing.T) {
 	root := t.TempDir()
 	appDir := filepath.Join(root, "app")
@@ -780,6 +802,29 @@ func TestRunCommandRejectsDuplicateMockAPIAliases(t *testing.T) {
 
 	assertExitCode(t, err, 1)
 	assertErrorMessage(t, err, `duplicate mock API alias "api"`)
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandReportsMalformedMockAPISpecWithoutStackTrace(t *testing.T) {
+	spec := writeMockSpec(t, "bad.yaml", `
+openapi: 3.1.0
+paths:
+  /health:
+    get:
+      x-lab-mock:
+        body:
+          version: "1.0.0",
+          status: "ok"
+`)
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--mock-api", spec+"@api", script)
+
+	assertExitCode(t, err, 1)
+	assertContains(t, err.Error(), "parse mock API spec: yaml:")
+	assertNotContains(t, err.Error(), "pkg/mockserver")
+	assertNotContains(t, err.Error(), "cmd/run.go")
 	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }

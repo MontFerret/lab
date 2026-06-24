@@ -242,12 +242,12 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 
 	manager, err := createStaticServerManagerFromCommand(cmd, serveEntries)
 	if err != nil {
-		return cli.Exit(err, 1)
+		return cli.Exit(err.Error(), 1)
 	}
 
 	if manager != nil {
 		if err := manager.Start(ctx); err != nil {
-			return cli.Exit(err, 1)
+			return cli.Exit(err.Error(), 1)
 		}
 
 		defer func() {
@@ -263,12 +263,12 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 
 	mockManager, err := createMockAPIServerManagerFromCommand(cmd, mockAPIEntries)
 	if err != nil {
-		return cli.Exit(err, 1)
+		return cli.Exit(err.Error(), 1)
 	}
 
 	if mockManager != nil {
 		if err := mockManager.Start(ctx); err != nil {
-			return cli.Exit(err, 1)
+			return cli.Exit(err.Error(), 1)
 		}
 
 		defer func() {

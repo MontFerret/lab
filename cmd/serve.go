@@ -68,17 +68,17 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 
 	staticManager, err := createStaticServerManagerFromCommand(cmd, staticEntries)
 	if err != nil {
-		return cli.Exit(err, 1)
+		return cli.Exit(err.Error(), 1)
 	}
 
 	mockManager, err := createMockAPIServerManagerFromCommand(cmd, mockAPIEntries)
 	if err != nil {
-		return cli.Exit(err, 1)
+		return cli.Exit(err.Error(), 1)
 	}
 
 	if staticManager != nil {
 		if err := staticManager.Start(ctx); err != nil {
-			return cli.Exit(err, 1)
+			return cli.Exit(err.Error(), 1)
 		}
 	}
 
@@ -90,7 +90,7 @@ func ServeAction(ctx context.Context, cmd *cli.Command) error {
 				cancel()
 			}
 
-			return cli.Exit(err, 1)
+			return cli.Exit(err.Error(), 1)
 		}
 	}
 
