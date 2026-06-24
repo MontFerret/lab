@@ -68,6 +68,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		pathMatched = true
 		op := rt.ops[method]
+
 		if op == nil {
 			addAllowedMethods(allowed, rt)
 			writeMethodNotAllowed(w, allowed)
@@ -80,12 +81,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	for _, rt := range s.paramRoutes {
 		params, ok := rt.match(r.URL.Path)
+
 		if !ok {
 			continue
 		}
 
 		pathMatched = true
 		op := rt.ops[method]
+
 		if op != nil {
 			s.serveOperation(w, r, op, params)
 			return

@@ -79,7 +79,7 @@ Read the introductory blog post about Lab [here](https://www.montferret.dev/blog
 ### 🌍 Static Content Serving
 
 - **Built-in HTTP server** - Serve static files for testing web applications
-- **Dedicated `serve` command** - Run the static file server without executing tests
+- **Dedicated `serve` command** - Run local static and mock services without executing tests
 - **Multiple static endpoints** - Host different directories at separate URLs
 - **Custom aliases** - Name content endpoints for better organization
 - **Dynamic port allocation** - Automatically find available ports
@@ -538,14 +538,14 @@ Lab can serve local directories over HTTP during test execution. Served endpoint
 
 #### Standalone Static Server
 
-Use `lab serve` when you want to expose local directories over HTTP without running a test suite. Positional entries are the primary syntax, and repeated `--serve` flags are also supported for symmetry with `lab run`.
+Use `lab serve --static` when you want to expose local directories over HTTP without running a test suite.
 
 ```bash
 # Serve a single directory
-lab serve ./website
+lab serve --static ./website
 
 # Serve multiple directories with aliases
-lab serve ./frontend@app ./mockdata@api
+lab serve --static ./frontend@app --static ./mockdata@api
 ```
 
 #### Basic Static Serving
@@ -637,7 +637,19 @@ paths:
 Run tests with the mock API:
 
 ```bash
-lab run --mock-api ./users.yaml@api tests/
+lab run --mock ./users.yaml@api tests/
+```
+
+Serve the mock API without running tests:
+
+```bash
+lab serve --mock ./users.yaml@api
+```
+
+Static and mock services can be served together:
+
+```bash
+lab serve --static ./dist@app --mock ./users.yaml@api
 ```
 
 FQL script:
@@ -771,13 +783,22 @@ These flags apply to `lab run`.
 | `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
 | `--times-interval` | - | `LAB_TIMES_INTERVAL` | `0` | Interval between test cycles in seconds |
 | `--serve` | - | `LAB_SERVE` | - | Served directory mapping exposed over HTTP |
-| `--mock-api` | - | `LAB_MOCK_API` | - | OpenAPI mock API spec exposed over HTTP |
+| `--mock` | - | `LAB_MOCK` | - | OpenAPI mock API spec exposed over HTTP |
 | `--serve-bind` | - | `LAB_SERVE_BIND` | - | Host to bind local servers to, without port |
 | `--serve-host` | - | `LAB_SERVE_HOST` | - | Host to advertise local server URLs, without port |
 | `--param` | `-p` | `LAB_PARAM` | - | Query parameters for tests |
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
 | `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
 | `--wait-attempts` | - | `LAB_WAIT_ATTEMPTS` | `5` | Number of wait attempts |
+
+These flags apply to `lab serve`.
+
+| Flag | Environment Variable | Default | Description |
+|------|----------------------|---------|-------------|
+| `--static` | `LAB_STATIC` | - | Served directory mapping exposed over HTTP |
+| `--mock` | `LAB_MOCK` | - | OpenAPI mock API spec exposed over HTTP |
+| `--serve-bind` | `LAB_SERVE_BIND` | - | Host to bind local servers to, without port |
+| `--serve-host` | `LAB_SERVE_HOST` | - | Host to advertise local server URLs, without port |
 
 ### 🌍 Environment Variables
 
