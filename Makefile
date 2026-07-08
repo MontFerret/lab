@@ -44,4 +44,4 @@ vet:
 	go vet ./...
 
 release:
-	./scripts/release.sh $(TAG)
+	@./scripts/release.sh $(word 2,$(MAKECMDGOALS))
