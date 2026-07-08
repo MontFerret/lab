@@ -45,3 +45,6 @@ vet:
 
 release:
 	@./scripts/release.sh $(word 2,$(MAKECMDGOALS))
+
+%:
+	@:
