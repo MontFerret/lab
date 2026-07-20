@@ -664,6 +664,19 @@ RETURN T::EQ(payload.id, "123")
 
 Mock API entries use the same binding syntax as static serving: `<path>`, `<path>:<port>`, `<path>@<alias>`, and `<path>@<alias>:<port>`. `--serve-bind` and `--serve-host` also apply to mock API servers.
 
+### 🔒 Built-in Filesystem Policy
+
+The built-in runtime exposes FQL filesystem functions through a sandbox rooted at Lab's current working directory. Use `--policy-fs-root` to select a narrower relative or absolute root, and add `--policy-fs-read-only` to permit reads while rejecting writes, directory changes, and removals.
+
+```bash
+lab run \
+  --policy-fs-root=./fixtures \
+  --policy-fs-read-only \
+  tests/
+```
+
+The equivalent environment variables are `LAB_POLICY_FS_ROOT` and `LAB_POLICY_FS_READ_ONLY`.
+
 ### 🔄 Remote Ferret Runtime
 
 Lab can execute tests against remote Ferret instances instead of using the built-in runtime.
@@ -684,7 +697,7 @@ lab run \
 
 When the runtime URL already includes a path, Lab sends `run` requests to that exact path. The optional `runtime-param=path` value overrides the run endpoint only. `lab version --runtime=...` uses the runtime URL path and requests its sibling `/info` endpoint.
 
-The `--policy-http-*` flags configure only Lab's built-in Ferret runtime. Lab rejects them when `--runtime` selects an HTTP or binary adapter because policy enforcement belongs to that external runtime.
+The `--policy-fs-*` and `--policy-http-*` flags configure only Lab's built-in Ferret runtime. Lab rejects them when `--runtime` selects an HTTP or binary adapter because policy enforcement belongs to that external runtime.
 
 The HTTP runtime sends POST requests with:
 
@@ -795,6 +808,8 @@ These flags apply to `lab run`.
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
 | `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
 | `--wait-attempts` | - | `LAB_WAIT_ATTEMPTS` | `5` | Number of wait attempts |
+| `--policy-fs-root` | - | `LAB_POLICY_FS_ROOT` | Current working directory | Filesystem root for the built-in runtime |
+| `--policy-fs-read-only` | - | `LAB_POLICY_FS_READ_ONLY` | `false` | Make the built-in runtime filesystem read-only |
 | `--policy-http-allowed-schemes` | - | `LAB_POLICY_HTTP_ALLOWED_SCHEMES` | `http,https` | Allowed outbound HTTP URL schemes |
 | `--policy-http-allowed-methods` | - | `LAB_POLICY_HTTP_ALLOWED_METHODS` | `GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS` | Allowed outbound HTTP methods |
 | `--policy-http-allowed-hosts` | - | `LAB_POLICY_HTTP_ALLOWED_HOSTS` | - | Allowed exact hosts or `host:port` values |

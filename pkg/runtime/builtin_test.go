@@ -5,12 +5,75 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )
+
+func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "fixture.txt"), []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rt, err := New(Options{
+		FSPolicy: &FileSystemPolicy{Root: root},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	_, err = rt.Run(
+		context.Background(),
+		source.New("fs_root.fql", `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`),
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("expected configured root read to succeed, got %v", err)
+	}
+}
+
+func TestBuiltinFilesystemPolicyEnforcesReadOnly(t *testing.T) {
+	root := t.TempDir()
+	rt, err := New(Options{
+		FSPolicy: &FileSystemPolicy{Root: root, ReadOnly: true},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	_, err = rt.Run(
+		context.Background(),
+		source.New("fs_read_only.fql", `
+IO::FS::WRITE("output.txt", TO_BINARY("blocked"))
+RETURN true
+`),
+		nil,
+	)
+	if err == nil || !strings.Contains(err.Error(), "filesystem is read-only") {
+		t.Fatalf("expected read-only error, got %v", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(root, "output.txt")); !os.IsNotExist(statErr) {
+		t.Fatalf("expected output file not to exist, got %v", statErr)
+	}
+}
+
+func TestBuiltinFilesystemPolicyRejectsMissingRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "missing")
+	_, err := New(Options{
+		FSPolicy: &FileSystemPolicy{Root: root},
+	})
+	if err == nil || !strings.Contains(err.Error(), "filesystem policy") || !strings.Contains(err.Error(), root) {
+		t.Fatalf("expected filesystem root error, got %v", err)
+	}
+}
 
 func TestBuiltinHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -108,6 +171,20 @@ func TestNewRejectsHTTPPolicyForExternalRuntimes(t *testing.T) {
 				HTTPPolicy: []ferrethttp.PolicyOption{ferrethttp.WithAllowLocalhost(true)},
 			})
 			if err == nil || !strings.Contains(err.Error(), "only supported by the built-in runtime") {
+				t.Fatalf("expected unsupported policy error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestNewRejectsFilesystemPolicyForExternalRuntimes(t *testing.T) {
+	for _, runtimeURL := range []string{"http://example.test", "bin:/usr/local/bin/ferret"} {
+		t.Run(runtimeURL, func(t *testing.T) {
+			_, err := New(Options{
+				Type:     runtimeURL,
+				FSPolicy: &FileSystemPolicy{ReadOnly: true},
+			})
+			if err == nil || err.Error() != "filesystem policy options are only supported by the built-in runtime" {
 				t.Fatalf("expected unsupported policy error, got %v", err)
 			}
 		})

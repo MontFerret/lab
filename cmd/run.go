@@ -148,6 +148,8 @@ func RunFlags(hidden bool) []cli.Flag {
 		},
 	}
 
+	flags = append(flags, fsPolicyFlags(hidden)...)
+
 	return append(flags, httpPolicyFlags(hidden)...)
 }
 

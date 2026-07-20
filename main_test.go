@@ -226,6 +226,8 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	assertContains(t, stdout, "--serve-host string")
 	assertContains(t, stdout, "--timeout uint")
 	assertContains(t, stdout, "--runtime string")
+	assertContains(t, stdout, "--policy-fs-root string")
+	assertContains(t, stdout, "--policy-fs-read-only")
 
 	for _, flag := range []string{
 		"--policy-http-allowed-schemes",
@@ -263,6 +265,21 @@ func TestRunCommandRejectsLegacyMockAPIFlag(t *testing.T) {
 	assertContains(t, stdout, "--mock string")
 	assertNotContains(t, stdout, "--mock-api string")
 	assertContains(t, stderr, "Incorrect Usage: flag provided but not defined: -mock-api")
+}
+
+func TestRunCommandRejectsLegacyFilesystemPolicyFlags(t *testing.T) {
+	script := writeScript(t)
+
+	for _, flag := range []string{"--fs-root", "--runtime-fs-root"} {
+		t.Run(flag, func(t *testing.T) {
+			stdout, stderr, err := runCLI(t, "run", flag+"=.", script)
+
+			assertContains(t, err.Error(), "flag provided but not defined")
+			assertContains(t, stdout, "--policy-fs-root string")
+			assertNotContains(t, stdout, flag+" string")
+			assertContains(t, stderr, "Incorrect Usage: flag provided but not defined")
+		})
+	}
 }
 
 func TestServeCommandWithoutEntriesShowsHelp(t *testing.T) {
@@ -556,6 +573,119 @@ RETURN T::EQ(payload.id, "123")
 	assertContains(t, stdout, "Passed")
 	assertContains(t, stdout, "Done")
 	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "fixture.txt"), "fixture")
+	script := writeNamedScript(t, "fs_root.fql", `
+RETURN T::EQ(TO_STRING(IO::FS::READ("fixture.txt")), "fixture")
+`)
+
+	stdout, stderr, err := runCLI(t, "run", "--policy-fs-root="+root, script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandFilesystemPolicyEnforcesReadOnly(t *testing.T) {
+	root := t.TempDir()
+	script := writeNamedScript(t, "fs_read_only.fql", `
+IO::FS::WRITE("output.txt", TO_BINARY("blocked"))
+RETURN true
+`)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--policy-fs-root="+root,
+		"--policy-fs-read-only",
+		script,
+	)
+
+	assertErrorMessage(t, err, "has errors")
+	assertContains(t, stdout, "filesystem is read-only")
+	assertEqual(t, stderr, "")
+
+	if _, statErr := os.Stat(filepath.Join(root, "output.txt")); !os.IsNotExist(statErr) {
+		t.Fatalf("expected output file not to exist, got %v", statErr)
+	}
+}
+
+func TestRunCommandFilesystemPolicySupportsEnvironment(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "fixture.txt"), "fixture")
+	script := writeNamedScript(t, "fs_policy_env.fql", `
+LET content = TO_STRING(IO::FS::READ("fixture.txt"))
+IO::FS::WRITE("output.txt", TO_BINARY(content))
+RETURN true
+`)
+
+	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
+		"LAB_POLICY_FS_ROOT":      root,
+		"LAB_POLICY_FS_READ_ONLY": "true",
+	}, "run", script)
+
+	assertErrorMessage(t, err, "has errors")
+	assertContains(t, stdout, "filesystem is read-only")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandFilesystemPolicyDefaultsToWritableCurrentDirectory(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	script := writeNamedScript(t, "fs_default.fql", `
+IO::FS::WRITE("output.txt", TO_BINARY("written"))
+RETURN true
+`)
+
+	stdout, stderr, err := runCLI(t, "run", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	content, err := os.ReadFile(filepath.Join(root, "output.txt"))
+	if err != nil {
+		t.Fatalf("expected output file, got %v", err)
+	}
+
+	assertEqual(t, string(content), "written")
+	assertContains(t, stdout, "Passed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsInvalidFilesystemPolicyRoot(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--policy-fs-root= \t ", script)
+
+	assertErrorMessage(t, err, "--policy-fs-root cannot be empty")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsFilesystemPolicyForExternalRuntime(t *testing.T) {
+	script := writeScript(t)
+
+	for _, runtimeURL := range []string{"http://127.0.0.1:1", "bin:/missing/ferret"} {
+		t.Run(runtimeURL, func(t *testing.T) {
+			stdout, stderr, err := runCLI(
+				t,
+				"run",
+				"--runtime="+runtimeURL,
+				"--policy-fs-read-only",
+				script,
+			)
+
+			assertErrorMessage(t, err, "filesystem policy options are only supported by the built-in runtime")
+			assertEqual(t, stdout, "")
+			assertEqual(t, stderr, "")
+		})
+	}
 }
 
 func TestRunCommandHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {

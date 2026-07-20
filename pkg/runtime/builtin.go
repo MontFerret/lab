@@ -19,18 +19,43 @@ type Builtin struct {
 }
 
 func NewBuiltin(params map[string]any, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
-	dir, err := os.Getwd()
+	return newBuiltin(params, nil, policyOptions...)
+}
 
-	if err != nil {
-		return nil, err
+func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
+	if fsPolicy == nil && len(policyOptions) == 0 {
+		return newDefaultBuiltin(params)
+	}
+
+	root := ""
+	if fsPolicy != nil {
+		root = fsPolicy.Root
+	}
+
+	if root == "" {
+		var err error
+		root, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	engineOptions := []ferret.Option{
+		ferret.WithFSRoot(root),
+		ferret.WithParams(params),
+	}
+
+	if fsPolicy != nil && fsPolicy.ReadOnly {
+		engineOptions = append(engineOptions, ferret.WithFSReadOnly())
 	}
 
 	if len(policyOptions) == 0 {
-		engine, err := ferret.New(
-			ferret.WithFSRoot(dir),
-			ferret.WithParams(params),
-		)
+		engine, err := ferret.New(engineOptions...)
 		if err != nil {
+			if fsPolicy != nil {
+				return nil, fmt.Errorf("filesystem policy: %w", err)
+			}
+
 			return nil, err
 		}
 
@@ -51,14 +76,14 @@ func NewBuiltin(params map[string]any, policyOptions ...ferrethttp.PolicyOption)
 		return nil, fmt.Errorf("network: %w", err)
 	}
 
-	engine, err := ferret.New(
-		ferret.WithFSRoot(dir),
-		ferret.WithParams(params),
-		ferret.WithNetwork(network),
-	)
+	engineOptions = append(engineOptions, ferret.WithNetwork(network))
+	engine, err := ferret.New(engineOptions...)
 
 	if err != nil {
 		ferretnet.CloseIdleNetworkConnections(network)
+		if fsPolicy != nil {
+			return nil, fmt.Errorf("filesystem policy: %w", err)
+		}
 
 		return nil, err
 	}
@@ -67,6 +92,23 @@ func NewBuiltin(params map[string]any, policyOptions ...ferrethttp.PolicyOption)
 		engine:  engine,
 		network: network,
 	}, nil
+}
+
+func newDefaultBuiltin(params map[string]any) (*Builtin, error) {
+	root, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	engine, err := ferret.New(
+		ferret.WithFSRoot(root),
+		ferret.WithParams(params),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Builtin{engine: engine}, nil
 }
 
 func (r *Builtin) Version(_ context.Context) (string, error) {

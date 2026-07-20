@@ -12,9 +12,17 @@ import (
 )
 
 type (
+	// FileSystemPolicy configures the sandboxed filesystem used by the built-in runtime.
+	FileSystemPolicy struct {
+		Root     string
+		ReadOnly bool
+	}
+
 	Options struct {
 		Type   string
 		Params map[string]any
+		// FSPolicy configures filesystem access for the built-in runtime only.
+		FSPolicy *FileSystemPolicy
 		// HTTPPolicy configures outbound HTTP for the built-in runtime only.
 		HTTPPolicy []ferrethttp.PolicyOption
 	}
@@ -43,7 +51,7 @@ func New(opts Options) (Runtime, error) {
 	}
 
 	if opts.Type == "" {
-		return NewBuiltin(params, opts.HTTPPolicy...)
+		return newBuiltin(params, opts.FSPolicy, opts.HTTPPolicy...)
 	}
 
 	u, err := url.Parse(opts.Type)
@@ -54,19 +62,27 @@ func New(opts Options) (Runtime, error) {
 
 	switch u.Scheme {
 	case "http", "https":
+		if opts.FSPolicy != nil {
+			return nil, errors.New("filesystem policy options are only supported by the built-in runtime")
+		}
+
 		if len(opts.HTTPPolicy) > 0 {
 			return nil, errors.New("HTTP policy options are only supported by the built-in runtime")
 		}
 
 		return NewRemote(opts.Type, params)
 	case "bin":
+		if opts.FSPolicy != nil {
+			return nil, errors.New("filesystem policy options are only supported by the built-in runtime")
+		}
+
 		if len(opts.HTTPPolicy) > 0 {
 			return nil, errors.New("HTTP policy options are only supported by the built-in runtime")
 		}
 
 		return NewBinary(u.Host+u.Path, params)
 	default:
-		return NewBuiltin(params, opts.HTTPPolicy...)
+		return newBuiltin(params, opts.FSPolicy, opts.HTTPPolicy...)
 	}
 }
 
