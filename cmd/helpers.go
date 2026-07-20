@@ -114,9 +114,21 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 }
 
 func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtime, error) {
+	fsPolicy, err := fsPolicyFromCommand(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	httpPolicy, err := httpPolicyOptionsFromCommand(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	rt, err := runtime.New(runtime.Options{
-		Type:   cmd.String("runtime"),
-		Params: params,
+		Type:       cmd.String("runtime"),
+		Params:     params,
+		FSPolicy:   fsPolicy,
+		HTTPPolicy: httpPolicy,
 	})
 
 	if err != nil {

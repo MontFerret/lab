@@ -26,7 +26,7 @@ func RunCommand() *cli.Command {
 }
 
 func RunFlags(hidden bool) []cli.Flag {
-	return []cli.Flag{
+	flags := []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:    "files",
 			Aliases: []string{"f"},
@@ -147,6 +147,10 @@ func RunFlags(hidden bool) []cli.Flag {
 			Hidden:  hidden,
 		},
 	}
+
+	flags = append(flags, fsPolicyFlags(hidden)...)
+
+	return append(flags, httpPolicyFlags(hidden)...)
 }
 
 func RunAction(ctx context.Context, cmd *cli.Command) error {
@@ -163,7 +167,7 @@ func RunAction(ctx context.Context, cmd *cli.Command) error {
 	return runScripts(ctx, cmd, locations)
 }
 
-func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error {
+func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runErr error) {
 	waitFor := cmd.StringSlice("wait")
 
 	if len(waitFor) > 0 {
@@ -194,6 +198,12 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) error
 	if err != nil {
 		return cli.Exit(err, 1)
 	}
+
+	defer func() {
+		if closeErr := rt.Close(); runErr == nil && closeErr != nil {
+			runErr = cli.Exit(closeErr, 1)
+		}
+	}()
 
 	r, err := runner.New(runner.Options{
 		Runtime:       rt,

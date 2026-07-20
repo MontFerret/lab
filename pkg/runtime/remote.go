@@ -154,6 +154,10 @@ func (rt *Remote) Run(ctx context.Context, query *source.Source, params map[stri
 	return rt.makeRequest(ctx, "POST", rt.runEndpoint(), body)
 }
 
+func (rt *Remote) Close() error {
+	return nil
+}
+
 func (rt *Remote) runEndpoint() string {
 	if rt.params.Path != "" {
 		return rt.params.Path

@@ -226,6 +226,32 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	assertContains(t, stdout, "--serve-host string")
 	assertContains(t, stdout, "--timeout uint")
 	assertContains(t, stdout, "--runtime string")
+	assertContains(t, stdout, "--policy-fs-root string")
+	assertContains(t, stdout, "--policy-fs-read-only")
+
+	for _, flag := range []string{
+		"--policy-http-allowed-schemes",
+		"--policy-http-allowed-methods",
+		"--policy-http-allowed-hosts",
+		"--policy-http-blocked-hosts",
+		"--policy-http-allow-localhost",
+		"--policy-http-allow-private-networks",
+		"--policy-http-allow-link-local",
+		"--policy-http-default-headers",
+		"--policy-http-blocked-request-headers",
+		"--policy-http-timeout",
+		"--policy-http-no-timeout",
+		"--policy-http-max-request-size",
+		"--policy-http-unlimited-request-size",
+		"--policy-http-max-response-size",
+		"--policy-http-unlimited-response-size",
+		"--policy-http-max-response-header-size",
+		"--policy-http-follow-redirects",
+		"--policy-http-max-redirects",
+	} {
+		assertContains(t, stdout, flag)
+	}
+
 	assertNotContains(t, stdout, "--cdn")
 	assertNotContains(t, stdout, "CDN")
 	assertEqual(t, stderr, "")
@@ -239,6 +265,21 @@ func TestRunCommandRejectsLegacyMockAPIFlag(t *testing.T) {
 	assertContains(t, stdout, "--mock string")
 	assertNotContains(t, stdout, "--mock-api string")
 	assertContains(t, stderr, "Incorrect Usage: flag provided but not defined: -mock-api")
+}
+
+func TestRunCommandRejectsLegacyFilesystemPolicyFlags(t *testing.T) {
+	script := writeScript(t)
+
+	for _, flag := range []string{"--fs-root", "--runtime-fs-root"} {
+		t.Run(flag, func(t *testing.T) {
+			stdout, stderr, err := runCLI(t, "run", flag+"=.", script)
+
+			assertContains(t, err.Error(), "flag provided but not defined")
+			assertContains(t, stdout, "--policy-fs-root string")
+			assertNotContains(t, stdout, flag+" string")
+			assertContains(t, stderr, "Incorrect Usage: flag provided but not defined")
+		})
+	}
 }
 
 func TestServeCommandWithoutEntriesShowsHelp(t *testing.T) {
@@ -495,7 +536,7 @@ LET content = TO_STRING(IO::NET::HTTP::GET(@lab.static.app + "/hello.txt"))
 RETURN T::EQ(content, "hello")
 `)
 
-	stdout, stderr, err := runCLI(t, "run", "--serve", appDir+"@app", script)
+	stdout, stderr, err := runCLI(t, "run", "--policy-http-allow-localhost", "--serve", appDir+"@app", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
@@ -524,13 +565,246 @@ LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/12
 RETURN T::EQ(payload.id, "123")
 `)
 
-	stdout, stderr, err := runCLI(t, "run", "--mock", spec+"@api", script)
+	stdout, stderr, err := runCLI(t, "run", "--policy-http-allow-localhost", "--mock", spec+"@api", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
 
 	assertContains(t, stdout, "Passed")
 	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "fixture.txt"), "fixture")
+	script := writeNamedScript(t, "fs_root.fql", `
+RETURN T::EQ(TO_STRING(IO::FS::READ("fixture.txt")), "fixture")
+`)
+
+	stdout, stderr, err := runCLI(t, "run", "--policy-fs-root="+root, script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandFilesystemPolicyEnforcesReadOnly(t *testing.T) {
+	root := t.TempDir()
+	script := writeNamedScript(t, "fs_read_only.fql", `
+IO::FS::WRITE("output.txt", TO_BINARY("blocked"))
+RETURN true
+`)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--policy-fs-root="+root,
+		"--policy-fs-read-only",
+		script,
+	)
+
+	assertErrorMessage(t, err, "has errors")
+	assertContains(t, stdout, "filesystem is read-only")
+	assertEqual(t, stderr, "")
+
+	if _, statErr := os.Stat(filepath.Join(root, "output.txt")); !os.IsNotExist(statErr) {
+		t.Fatalf("expected output file not to exist, got %v", statErr)
+	}
+}
+
+func TestRunCommandFilesystemPolicySupportsEnvironment(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "fixture.txt"), "fixture")
+	script := writeNamedScript(t, "fs_policy_env.fql", `
+LET content = TO_STRING(IO::FS::READ("fixture.txt"))
+IO::FS::WRITE("output.txt", TO_BINARY(content))
+RETURN true
+`)
+
+	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
+		"LAB_POLICY_FS_ROOT":      root,
+		"LAB_POLICY_FS_READ_ONLY": "true",
+	}, "run", script)
+
+	assertErrorMessage(t, err, "has errors")
+	assertContains(t, stdout, "filesystem is read-only")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandFilesystemPolicyDefaultsToWritableCurrentDirectory(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	script := writeNamedScript(t, "fs_default.fql", `
+IO::FS::WRITE("output.txt", TO_BINARY("written"))
+RETURN true
+`)
+
+	stdout, stderr, err := runCLI(t, "run", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	content, err := os.ReadFile(filepath.Join(root, "output.txt"))
+	if err != nil {
+		t.Fatalf("expected output file, got %v", err)
+	}
+
+	assertEqual(t, string(content), "written")
+	assertContains(t, stdout, "Passed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsInvalidFilesystemPolicyRoot(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--policy-fs-root= \t ", script)
+
+	assertErrorMessage(t, err, "--policy-fs-root cannot be empty")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsFilesystemPolicyForExternalRuntime(t *testing.T) {
+	script := writeScript(t)
+
+	for _, runtimeURL := range []string{"http://127.0.0.1:1", "bin:/missing/ferret"} {
+		t.Run(runtimeURL, func(t *testing.T) {
+			stdout, stderr, err := runCLI(
+				t,
+				"run",
+				"--runtime="+runtimeURL,
+				"--policy-fs-read-only",
+				script,
+			)
+
+			assertErrorMessage(t, err, "filesystem policy options are only supported by the built-in runtime")
+			assertEqual(t, stdout, "")
+			assertEqual(t, stderr, "")
+		})
+	}
+}
+
+func TestRunCommandHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("unexpected"))
+	}))
+	defer srv.Close()
+
+	script := writeNamedScript(t, "blocked_localhost.fql", fmt.Sprintf(`
+RETURN TO_STRING(IO::NET::HTTP::GET(%q))
+`, srv.URL))
+
+	stdout, stderr, err := runCLI(t, "run", script)
+
+	assertErrorMessage(t, err, "has errors")
+	assertContains(t, stdout, "localhost is not allowed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandHTTPPolicyAppliesDefaultHeaders(t *testing.T) {
+	requestHeaders := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestHeaders <- r.Header.Get("X-Lab-Policy")
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	script := writeNamedScript(t, "default_headers.fql", fmt.Sprintf(`
+RETURN T::EQ(TO_STRING(IO::NET::HTTP::GET(%q)), "ok")
+`, srv.URL))
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--policy-http-allow-localhost",
+		`--policy-http-default-headers={"X-Lab-Policy":"configured"}`,
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	select {
+	case value := <-requestHeaders:
+		assertEqual(t, value, "configured")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for HTTP policy request")
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsConflictingHTTPPolicyFlags(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--policy-http-timeout=1s",
+		"--policy-http-no-timeout",
+		script,
+	)
+
+	assertErrorMessage(t, err, "--policy-http-no-timeout cannot be combined with --policy-http-timeout")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsInvalidHTTPPolicyConfiguration(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--policy-http-allowed-hosts=bad host", script)
+
+	assertContains(t, err.Error(), "WithAllowedHosts")
+	assertContains(t, err.Error(), "bad host")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsInvalidHTTPPolicyDefaultHeaders(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", `--policy-http-default-headers={"X-Value":1}`, script)
+
+	assertContains(t, err.Error(), "invalid --policy-http-default-headers")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsHTTPPolicyForRemoteRuntime(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime=http://127.0.0.1:1",
+		"--policy-http-allow-localhost",
+		script,
+	)
+
+	assertErrorMessage(t, err, "HTTP policy options are only supported by the built-in runtime")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsHTTPPolicyForBinaryRuntime(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime=bin:/missing/ferret",
+		"--policy-http-allow-localhost",
+		script,
+	)
+
+	assertErrorMessage(t, err, "HTTP policy options are only supported by the built-in runtime")
+	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }
 
@@ -786,7 +1060,8 @@ RETURN T::EQ(content, "env")
 `)
 
 	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
-		"LAB_SERVE": appDir + "@app",
+		"LAB_SERVE":                       appDir + "@app",
+		"LAB_POLICY_HTTP_ALLOW_LOCALHOST": "true",
 	}, "run", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
@@ -817,7 +1092,8 @@ RETURN T::EQ(payload.ok, true)
 `)
 
 	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
-		"LAB_MOCK": spec,
+		"LAB_MOCK":                        spec,
+		"LAB_POLICY_HTTP_ALLOW_LOCALHOST": "true",
 	}, "run", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)

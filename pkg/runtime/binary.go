@@ -83,6 +83,10 @@ func (rt *Binary) Run(ctx context.Context, query *source.Source, params map[stri
 	return out, nil
 }
 
+func (rt *Binary) Close() error {
+	return nil
+}
+
 func (rt *Binary) paramsToArg(params map[string]any) ([]string, error) {
 	args := make([]string, 0, len(params))
 
