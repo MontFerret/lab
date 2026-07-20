@@ -11,7 +11,7 @@ func BenchmarkBuiltinLifecycle(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := rt.engine.Close(); err != nil {
+		if err := rt.Close(); err != nil {
 			b.Fatal(err)
 		}
 	}
