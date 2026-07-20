@@ -27,10 +27,15 @@ func VersionCommand(self string) *cli.Command {
 				return err
 			}
 
-			rtVersion, err := rt.Version(ctx)
+			rtVersion, versionErr := rt.Version(ctx)
+			closeErr := rt.Close()
 
-			if err != nil {
-				return err
+			if versionErr != nil {
+				return versionErr
+			}
+
+			if closeErr != nil {
+				return closeErr
 			}
 
 			fmt.Fprintln(appWriter(cmd), "Version")
