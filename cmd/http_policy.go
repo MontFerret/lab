@@ -203,28 +203,22 @@ func httpPolicyOptionsFromCommand(cmd *cli.Command) ([]ferrethttp.PolicyOption, 
 		options = append(options, ferrethttp.WithBlockedRequestHeaders(cmd.StringSlice("policy-http-blocked-request-headers")...))
 	}
 
-	if cmd.Bool("policy-http-no-timeout") {
+	if cmd.Bool("policy-http-no-timeout") || cmd.IsSet("policy-http-no-timeout") {
 		options = append(options, ferrethttp.WithNoTimeout())
 	} else if cmd.IsSet("policy-http-timeout") {
 		options = append(options, ferrethttp.WithTimeout(cmd.Duration("policy-http-timeout")))
-	} else if cmd.IsSet("policy-http-no-timeout") {
-		options = append(options, ferrethttp.WithTimeout(0))
 	}
 
-	if cmd.Bool("policy-http-unlimited-request-size") {
+	if cmd.Bool("policy-http-unlimited-request-size") || cmd.IsSet("policy-http-unlimited-request-size") {
 		options = append(options, ferrethttp.WithUnlimitedRequestSize())
 	} else if cmd.IsSet("policy-http-max-request-size") {
 		options = append(options, ferrethttp.WithMaxRequestSize(cmd.Int64("policy-http-max-request-size")))
-	} else if cmd.IsSet("policy-http-unlimited-request-size") {
-		options = append(options, ferrethttp.WithMaxRequestSize(0))
 	}
 
-	if cmd.Bool("policy-http-unlimited-response-size") {
+	if cmd.Bool("policy-http-unlimited-response-size") || cmd.IsSet("policy-http-unlimited-response-size") {
 		options = append(options, ferrethttp.WithUnlimitedResponseSize())
 	} else if cmd.IsSet("policy-http-max-response-size") {
 		options = append(options, ferrethttp.WithMaxResponseSize(cmd.Int64("policy-http-max-response-size")))
-	} else if cmd.IsSet("policy-http-unlimited-response-size") {
-		options = append(options, ferrethttp.WithMaxResponseSize(0))
 	}
 
 	if cmd.IsSet("policy-http-max-response-header-size") {
