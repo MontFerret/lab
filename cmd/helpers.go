@@ -150,12 +150,12 @@ func extractBinaryFlags(params map[string]interface{}) ([]string, error) {
 		return nil, nil
 	}
 
-	delete(params, "flags")
-
 	flags, err := toStringSlice(value)
 	if err != nil {
 		return nil, fmt.Errorf("invalid type of flags (expected array of strings): %w", err)
 	}
+
+	delete(params, "flags")
 
 	return flags, nil
 }

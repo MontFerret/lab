@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"sort"
 	"strings"
 
@@ -67,12 +68,7 @@ func NewBinary(opts BinaryOptions) (*Binary, error) {
 		return nil, err
 	}
 
-	rt.baseArgs = make([]string, 0, 1+len(opts.Flags)+len(fsArgs)+len(httpArgs)+len(sharedArgs))
-	rt.baseArgs = append(rt.baseArgs, "run")
-	rt.baseArgs = append(rt.baseArgs, opts.Flags...)
-	rt.baseArgs = append(rt.baseArgs, fsArgs...)
-	rt.baseArgs = append(rt.baseArgs, httpArgs...)
-	rt.baseArgs = append(rt.baseArgs, sharedArgs...)
+	rt.baseArgs = slices.Concat([]string{"run"}, opts.Flags, fsArgs, httpArgs, sharedArgs)
 
 	return rt, nil
 }
@@ -153,9 +149,5 @@ func (rt *Binary) runArgs(params map[string]any) ([]string, error) {
 		return nil, err
 	}
 
-	args := make([]string, 0, len(rt.baseArgs)+len(queryArgs))
-	args = append(args, rt.baseArgs...)
-	args = append(args, queryArgs...)
-
-	return args, nil
+	return slices.Concat(rt.baseArgs, queryArgs), nil
 }

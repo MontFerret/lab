@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -25,10 +26,17 @@ func TestExtractBinaryFlags(t *testing.T) {
 }
 
 func TestExtractBinaryFlagsRejectsInvalidValues(t *testing.T) {
-	_, err := extractBinaryFlags(map[string]interface{}{
-		"flags": []any{"--ok", 1},
-	})
+	invalidFlags := []any{"--ok", 1}
+	params := map[string]interface{}{
+		"flags": invalidFlags,
+	}
+
+	_, err := extractBinaryFlags(params)
 	if err == nil || !strings.Contains(err.Error(), "invalid type of flags (expected array of strings)") {
 		t.Fatalf("expected invalid flags error, got %v", err)
+	}
+
+	if value, exists := params["flags"]; !exists || !reflect.DeepEqual(value, invalidFlags) {
+		t.Fatalf("expected invalid flags to remain unchanged, got %#v", params)
 	}
 }

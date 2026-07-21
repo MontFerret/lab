@@ -875,6 +875,21 @@ func TestRunCommandRejectsConflictingRawBinaryPolicyFlag(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
+func TestRunCommandRejectsBinaryFlagsForBuiltinRuntime(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		`--runtime-param=flags:["--log-output=none"]`,
+		script,
+	)
+
+	assertErrorMessage(t, err, "binary flags are only supported by binary runtimes")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
 func TestRunCommandUsesExplicitConsoleReporter(t *testing.T) {
 	script := writeScript(t)
 

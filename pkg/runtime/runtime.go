@@ -47,6 +47,10 @@ func New(opts Options) (Runtime, error) {
 	}
 
 	if opts.Type == "" {
+		if len(opts.BinaryFlags) > 0 {
+			return nil, errors.New("binary flags are only supported by binary runtimes")
+		}
+
 		return newConfiguredBuiltin(params, opts.FSPolicy, opts.HTTPPolicy)
 	}
 
