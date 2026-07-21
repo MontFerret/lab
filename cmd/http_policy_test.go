@@ -7,7 +7,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
+	"github.com/MontFerret/lab/v2/pkg/runtime"
 )
 
 func TestHTTPPolicyFlagsRejectInvalidFerretPolicy(t *testing.T) {
@@ -79,21 +79,17 @@ func runHTTPPolicyCommand(t *testing.T, args ...string) error {
 		Name:  "run",
 		Flags: httpPolicyFlags(false),
 		Action: func(_ context.Context, cmd *cli.Command) error {
-			options, err := httpPolicyOptionsFromCommand(cmd)
+			policy, err := httpPolicyFromCommand(cmd)
 			if err != nil {
 				return err
 			}
 
-			client, err := ferrethttp.New(options...)
+			rt, err := runtime.New(runtime.Options{HTTPPolicy: policy})
 			if err != nil {
 				return err
 			}
 
-			if closer, ok := client.(ferrethttp.IdleConnectionCloser); ok {
-				closer.CloseIdleConnections()
-			}
-
-			return nil
+			return rt.Close()
 		},
 	}
 

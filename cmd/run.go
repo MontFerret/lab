@@ -52,14 +52,14 @@ func RunFlags(hidden bool) []cli.Flag {
 		&cli.StringFlag{
 			Name:    "runtime",
 			Aliases: []string{"r"},
-			Usage:   "url to remote Ferret runtime (http, https or bin)",
+			Usage:   "Ferret runtime (HTTP URL or bin:<Ferret CLI v2 path>)",
 			Sources: cli.EnvVars("LAB_RUNTIME"),
 			Hidden:  hidden,
 		},
 		&cli.StringSliceFlag{
 			Name:    "runtime-param",
 			Aliases: []string{"rp"},
-			Usage:   "params for remote Ferret runtime (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param=path:\"/ferret\")",
+			Usage:   "runtime adapter parameters (--runtime-param=headers:{\"KeyId\": \"abcd\"} --runtime-param='flags:[\"--log-output=none\"]')",
 			Sources: cli.EnvVars("LAB_RUNTIME_PARAM"),
 			Hidden:  hidden,
 		},

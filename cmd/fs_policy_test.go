@@ -23,8 +23,19 @@ func TestFSPolicyFlags(t *testing.T) {
 		t.Fatalf("expected trimmed root, got %q", policy.Root)
 	}
 
-	if !policy.ReadOnly {
+	if policy.ReadOnly == nil || !*policy.ReadOnly {
 		t.Fatal("expected read-only policy")
+	}
+}
+
+func TestFSPolicyPreservesExplicitFalse(t *testing.T) {
+	policy, err := runFSPolicyCommand(t, "--policy-fs-read-only=false")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if policy == nil || policy.ReadOnly == nil || *policy.ReadOnly {
+		t.Fatalf("expected explicit false read-only value, got %#v", policy)
 	}
 }
 

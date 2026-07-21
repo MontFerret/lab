@@ -7,7 +7,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
+	"github.com/MontFerret/lab/v2/pkg/runtime"
 )
 
 const (
@@ -139,7 +139,7 @@ func httpPolicyFlags(hidden bool) []cli.Flag {
 	}
 }
 
-func httpPolicyOptionsFromCommand(cmd *cli.Command) ([]ferrethttp.PolicyOption, error) {
+func httpPolicyFromCommand(cmd *cli.Command) (*runtime.HTTPPolicy, error) {
 	if cmd == nil {
 		return nil, nil
 	}
@@ -156,34 +156,45 @@ func httpPolicyOptionsFromCommand(cmd *cli.Command) ([]ferrethttp.PolicyOption, 
 		return nil, fmt.Errorf("--policy-http-unlimited-response-size cannot be combined with --policy-http-max-response-size")
 	}
 
-	var options []ferrethttp.PolicyOption
+	policy := &runtime.HTTPPolicy{}
+	configured := false
 
 	if cmd.IsSet("policy-http-allowed-schemes") {
-		options = append(options, ferrethttp.WithAllowedSchemes(cmd.StringSlice("policy-http-allowed-schemes")...))
+		policy.AllowedSchemes = cmd.StringSlice("policy-http-allowed-schemes")
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-allowed-methods") {
-		options = append(options, ferrethttp.WithAllowedMethods(cmd.StringSlice("policy-http-allowed-methods")...))
+		policy.AllowedMethods = cmd.StringSlice("policy-http-allowed-methods")
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-allowed-hosts") {
-		options = append(options, ferrethttp.WithAllowedHosts(cmd.StringSlice("policy-http-allowed-hosts")...))
+		policy.AllowedHosts = cmd.StringSlice("policy-http-allowed-hosts")
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-blocked-hosts") {
-		options = append(options, ferrethttp.WithBlockedHosts(cmd.StringSlice("policy-http-blocked-hosts")...))
+		policy.BlockedHosts = cmd.StringSlice("policy-http-blocked-hosts")
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-allow-localhost") {
-		options = append(options, ferrethttp.WithAllowLocalhost(cmd.Bool("policy-http-allow-localhost")))
+		value := cmd.Bool("policy-http-allow-localhost")
+		policy.AllowLocalhost = &value
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-allow-private-networks") {
-		options = append(options, ferrethttp.WithAllowPrivateNetworks(cmd.Bool("policy-http-allow-private-networks")))
+		value := cmd.Bool("policy-http-allow-private-networks")
+		policy.AllowPrivateNetworks = &value
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-allow-link-local") {
-		options = append(options, ferrethttp.WithAllowLinkLocal(cmd.Bool("policy-http-allow-link-local")))
+		value := cmd.Bool("policy-http-allow-link-local")
+		policy.AllowLinkLocal = &value
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-default-headers") {
@@ -196,42 +207,72 @@ func httpPolicyOptionsFromCommand(cmd *cli.Command) ([]ferrethttp.PolicyOption, 
 			return nil, fmt.Errorf("invalid --policy-http-default-headers: expected a JSON object of string values")
 		}
 
-		options = append(options, ferrethttp.WithDefaultHeaders(headers))
+		policy.DefaultHeaders = headers
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-blocked-request-headers") {
-		options = append(options, ferrethttp.WithBlockedRequestHeaders(cmd.StringSlice("policy-http-blocked-request-headers")...))
+		policy.BlockedRequestHeaders = cmd.StringSlice("policy-http-blocked-request-headers")
+		configured = true
 	}
 
-	if cmd.Bool("policy-http-no-timeout") || cmd.IsSet("policy-http-no-timeout") {
-		options = append(options, ferrethttp.WithNoTimeout())
-	} else if cmd.IsSet("policy-http-timeout") {
-		options = append(options, ferrethttp.WithTimeout(cmd.Duration("policy-http-timeout")))
+	if cmd.IsSet("policy-http-timeout") {
+		value := cmd.Duration("policy-http-timeout")
+		policy.Timeout = &value
+		configured = true
 	}
 
-	if cmd.Bool("policy-http-unlimited-request-size") || cmd.IsSet("policy-http-unlimited-request-size") {
-		options = append(options, ferrethttp.WithUnlimitedRequestSize())
-	} else if cmd.IsSet("policy-http-max-request-size") {
-		options = append(options, ferrethttp.WithMaxRequestSize(cmd.Int64("policy-http-max-request-size")))
+	if cmd.IsSet("policy-http-no-timeout") {
+		value := cmd.Bool("policy-http-no-timeout")
+		policy.NoTimeout = &value
+		configured = true
 	}
 
-	if cmd.Bool("policy-http-unlimited-response-size") || cmd.IsSet("policy-http-unlimited-response-size") {
-		options = append(options, ferrethttp.WithUnlimitedResponseSize())
-	} else if cmd.IsSet("policy-http-max-response-size") {
-		options = append(options, ferrethttp.WithMaxResponseSize(cmd.Int64("policy-http-max-response-size")))
+	if cmd.IsSet("policy-http-max-request-size") {
+		value := cmd.Int64("policy-http-max-request-size")
+		policy.MaxRequestSize = &value
+		configured = true
+	}
+
+	if cmd.IsSet("policy-http-unlimited-request-size") {
+		value := cmd.Bool("policy-http-unlimited-request-size")
+		policy.UnlimitedRequestSize = &value
+		configured = true
+	}
+
+	if cmd.IsSet("policy-http-max-response-size") {
+		value := cmd.Int64("policy-http-max-response-size")
+		policy.MaxResponseSize = &value
+		configured = true
+	}
+
+	if cmd.IsSet("policy-http-unlimited-response-size") {
+		value := cmd.Bool("policy-http-unlimited-response-size")
+		policy.UnlimitedResponseSize = &value
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-max-response-header-size") {
-		options = append(options, ferrethttp.WithMaxResponseHeaderSize(cmd.Int64("policy-http-max-response-header-size")))
+		value := cmd.Int64("policy-http-max-response-header-size")
+		policy.MaxResponseHeaderSize = &value
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-follow-redirects") {
-		options = append(options, ferrethttp.WithFollowRedirects(cmd.Bool("policy-http-follow-redirects")))
+		value := cmd.Bool("policy-http-follow-redirects")
+		policy.FollowRedirects = &value
+		configured = true
 	}
 
 	if cmd.IsSet("policy-http-max-redirects") {
-		options = append(options, ferrethttp.WithMaxRedirects(cmd.Int("policy-http-max-redirects")))
+		value := cmd.Int("policy-http-max-redirects")
+		policy.MaxRedirects = &value
+		configured = true
 	}
 
-	return options, nil
+	if !configured {
+		return nil, nil
+	}
+
+	return policy, nil
 }

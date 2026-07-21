@@ -41,7 +41,7 @@ func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
 func TestBuiltinFilesystemPolicyEnforcesReadOnly(t *testing.T) {
 	root := t.TempDir()
 	rt, err := New(Options{
-		FSPolicy: &FileSystemPolicy{Root: root, ReadOnly: true},
+		FSPolicy: &FileSystemPolicy{Root: root, ReadOnly: pointerTo(true)},
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -163,30 +163,22 @@ func TestBuiltinCloseSucceedsWithConfiguredNetwork(t *testing.T) {
 	}
 }
 
-func TestNewRejectsHTTPPolicyForExternalRuntimes(t *testing.T) {
-	for _, runtimeURL := range []string{"http://example.test", "bin:/usr/local/bin/ferret"} {
-		t.Run(runtimeURL, func(t *testing.T) {
-			_, err := New(Options{
-				Type:       runtimeURL,
-				HTTPPolicy: []ferrethttp.PolicyOption{ferrethttp.WithAllowLocalhost(true)},
-			})
-			if err == nil || !strings.Contains(err.Error(), "only supported by the built-in runtime") {
-				t.Fatalf("expected unsupported policy error, got %v", err)
-			}
-		})
+func TestNewRejectsHTTPPolicyForHTTPRuntime(t *testing.T) {
+	_, err := New(Options{
+		Type:       "http://example.test",
+		HTTPPolicy: &HTTPPolicy{AllowLocalhost: pointerTo(true)},
+	})
+	if err == nil || err.Error() != "HTTP policy options are not supported by HTTP runtimes" {
+		t.Fatalf("expected unsupported policy error, got %v", err)
 	}
 }
 
-func TestNewRejectsFilesystemPolicyForExternalRuntimes(t *testing.T) {
-	for _, runtimeURL := range []string{"http://example.test", "bin:/usr/local/bin/ferret"} {
-		t.Run(runtimeURL, func(t *testing.T) {
-			_, err := New(Options{
-				Type:     runtimeURL,
-				FSPolicy: &FileSystemPolicy{ReadOnly: true},
-			})
-			if err == nil || err.Error() != "filesystem policy options are only supported by the built-in runtime" {
-				t.Fatalf("expected unsupported policy error, got %v", err)
-			}
-		})
+func TestNewRejectsFilesystemPolicyForHTTPRuntime(t *testing.T) {
+	_, err := New(Options{
+		Type:     "http://example.test",
+		FSPolicy: &FileSystemPolicy{ReadOnly: pointerTo(true)},
+	})
+	if err == nil || err.Error() != "filesystem policy options are not supported by HTTP runtimes" {
+		t.Fatalf("expected unsupported policy error, got %v", err)
 	}
 }
