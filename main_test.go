@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	stdruntime "runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -668,24 +670,20 @@ func TestRunCommandRejectsInvalidFilesystemPolicyRoot(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
-func TestRunCommandRejectsFilesystemPolicyForExternalRuntime(t *testing.T) {
+func TestRunCommandRejectsFilesystemPolicyForHTTPRuntime(t *testing.T) {
 	script := writeScript(t)
 
-	for _, runtimeURL := range []string{"http://127.0.0.1:1", "bin:/missing/ferret"} {
-		t.Run(runtimeURL, func(t *testing.T) {
-			stdout, stderr, err := runCLI(
-				t,
-				"run",
-				"--runtime="+runtimeURL,
-				"--policy-fs-read-only",
-				script,
-			)
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime=http://127.0.0.1:1",
+		"--policy-fs-read-only",
+		script,
+	)
 
-			assertErrorMessage(t, err, "filesystem policy options are only supported by the built-in runtime")
-			assertEqual(t, stdout, "")
-			assertEqual(t, stderr, "")
-		})
-	}
+	assertErrorMessage(t, err, "filesystem policy options are not supported by HTTP runtimes")
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
 }
 
 func TestRunCommandHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {
@@ -787,23 +785,107 @@ func TestRunCommandRejectsHTTPPolicyForRemoteRuntime(t *testing.T) {
 		script,
 	)
 
-	assertErrorMessage(t, err, "HTTP policy options are only supported by the built-in runtime")
+	assertErrorMessage(t, err, "HTTP policy options are not supported by HTTP runtimes")
 	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }
 
-func TestRunCommandRejectsHTTPPolicyForBinaryRuntime(t *testing.T) {
+func TestRunCommandForwardsPoliciesToBinaryRuntime(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	binary, argsPath, stdinPath := writeFakeFerretCLI(t)
+	script := writeScript(t)
+	root := t.TempDir()
+
+	stdout, stderr, err := runCLIWithEnv(
+		t,
+		map[string]string{
+			"LAB_BINARY_TEST_ARGS":            argsPath,
+			"LAB_BINARY_TEST_STDIN":           stdinPath,
+			"LAB_POLICY_FS_ROOT":              root,
+			"LAB_POLICY_HTTP_ALLOW_LOCALHOST": "true",
+		},
+		"run",
+		"--runtime=bin:"+binary,
+		`--runtime-param=flags:["--log-output=none"]`,
+		"--policy-fs-read-only=false",
+		"--policy-http-follow-redirects=false",
+		"--policy-http-no-timeout=false",
+		"--policy-http-max-response-size=128",
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	args, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("failed to read captured binary args: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(args)), "\n")
+	if len(lines) == 0 || lines[0] != "run" {
+		t.Fatalf("expected Ferret CLI run command, got %q", args)
+	}
+
+	for _, expected := range []string{
+		"--log-output=none",
+		"--policy-fs-root=" + root,
+		"--policy-fs-read-only=false",
+		"--policy-http-allow-localhost=true",
+		"--policy-http-no-timeout=false",
+		"--policy-http-max-response-size=128",
+		"--policy-http-follow-redirects=false",
+	} {
+		if !slices.Contains(lines, expected) {
+			t.Fatalf("expected captured args to contain %q, got %q", expected, args)
+		}
+	}
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "--param=flags=") {
+			t.Fatalf("expected raw flags not to become a query parameter, got %q", args)
+		}
+	}
+
+	stdin, err := os.ReadFile(stdinPath)
+	if err != nil {
+		t.Fatalf("failed to read captured stdin: %v", err)
+	}
+	assertEqual(t, string(stdin), "RETURN 1\n")
+	assertContains(t, stdout, "Passed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsConflictingRawBinaryPolicyFlag(t *testing.T) {
 	script := writeScript(t)
 
 	stdout, stderr, err := runCLI(
 		t,
 		"run",
 		"--runtime=bin:/missing/ferret",
-		"--policy-http-allow-localhost",
+		`--runtime-param=flags:["--policy-http-no-timeout"]`,
+		"--policy-http-timeout=1s",
 		script,
 	)
 
-	assertErrorMessage(t, err, "HTTP policy options are only supported by the built-in runtime")
+	assertErrorMessage(t, err, `raw binary flag "--policy-http-no-timeout" conflicts with managed policy flag "--policy-http-no-timeout"`)
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsBinaryFlagsForBuiltinRuntime(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		`--runtime-param=flags:["--log-output=none"]`,
+		script,
+	)
+
+	assertErrorMessage(t, err, "binary flags are only supported by binary runtimes")
 	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }
@@ -1272,6 +1354,25 @@ func writeNamedScript(t *testing.T, name string, content string) string {
 	}
 
 	return path
+}
+
+func writeFakeFerretCLI(t *testing.T) (string, string, string) {
+	t.Helper()
+
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "ferret")
+	argsPath := filepath.Join(dir, "args.txt")
+	stdinPath := filepath.Join(dir, "stdin.txt")
+	content := `#!/bin/sh
+printf '%s\n' "$@" > "$LAB_BINARY_TEST_ARGS"
+cat > "$LAB_BINARY_TEST_STDIN"
+printf 'true'
+`
+	if err := os.WriteFile(binary, []byte(content), 0o755); err != nil {
+		t.Fatalf("failed to write fake Ferret CLI: %v", err)
+	}
+
+	return binary, argsPath, stdinPath
 }
 
 func writeMockSpec(t *testing.T, name string, content string) string {
