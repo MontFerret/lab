@@ -947,7 +947,7 @@ For HTTP runtimes, `path` overrides the run endpoint only. For binary runtimes, 
 
 ### 🏗️ System Overview
 
-Lab is built with a modular architecture that separates source resolution, test orchestration, runtime execution, static serving, and reporting.
+Lab is built with a modular architecture that separates source resolution, test orchestration, runtime execution, local static and mock serving, and reporting.
 
 ```text
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -959,14 +959,15 @@ Lab is built with a modular architecture that separates source resolution, test 
 └─────────────────┘    │ • Reporting     │    │ • External Bin  │
                        └─────────────────┘    └─────────────────┘
                                 │
-                                ▼
-                       ┌─────────────────┐
-                       │  Static Server  │
-                       │                 │
-                       │ • Served Dirs   │
-                       │ • Static URLs   │
-                       │ • Auto Ports    │
-                       └─────────────────┘
+                ┌───────────────┴───────────────┐
+                ▼                               ▼
+       ┌─────────────────┐             ┌─────────────────┐
+       │  Static Server  │             │ API Mock Server │
+       │                 │             │                 │
+       │ • Served Dirs   │             │ • OpenAPI Specs │
+       │ • @lab.static   │             │ • x-lab-mock    │
+       │ • Auto Ports    │             │ • @lab.mock     │
+       └─────────────────┘             └─────────────────┘
 ```
 
 ### 📦 Core Components
@@ -1040,13 +1041,13 @@ Test suite definition and validation:
 
 1. **Input Processing** - Parse command-line arguments and environment variables
 2. **Source Resolution** - Fetch test files from configured sources
-3. **Static Server Initialization** - Start HTTP servers for served directories, if needed
+3. **Local Service Initialization** - Start static and mock servers, if configured
 4. **Runtime Setup** - Initialize Ferret runtime, either built-in, remote, or binary
 5. **Test Discovery** - Find and parse test files and suites
 6. **Parallel Execution** - Run tests according to concurrency settings
 7. **Result Collection** - Gather execution results and timing data
 8. **Reporting** - Format and output results via the selected reporter
-9. **Cleanup** - Stop static file servers and release resources
+9. **Cleanup** - Stop local servers and release resources
 
 ### 🎯 Design Principles
 
