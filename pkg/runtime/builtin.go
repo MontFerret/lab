@@ -45,7 +45,7 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 		ferret.WithParams(params),
 	}
 
-	if fsPolicy != nil && fsPolicy.ReadOnly {
+	if fsPolicy != nil && fsPolicy.ReadOnly != nil && *fsPolicy.ReadOnly {
 		engineOptions = append(engineOptions, ferret.WithFSReadOnly())
 	}
 

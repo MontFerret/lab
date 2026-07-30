@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -34,7 +35,7 @@ type (
 
 func New(opts Options) (*Runner, error) {
 	if opts.Runtime == nil {
-		return nil, errors.New("missed runtime")
+		return nil, fmt.Errorf("runtime cannot be nil")
 	}
 
 	poolSize := opts.PoolSize

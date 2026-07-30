@@ -4,29 +4,73 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
+	"sort"
 	"strings"
-
-	"github.com/pkg/errors"
 
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
-type Binary struct {
-	path         string
-	sharedParams map[string]any
-	rawFlags     []string
-}
+type (
+	Binary struct {
+		path     string
+		baseArgs []string
+	}
 
-func NewBinary(path string, params map[string]any) (*Binary, error) {
-	sharedParams, rawFlags, err := splitBinaryRuntimeParams(params)
+	// BinaryOptions configures a Ferret CLI v2 binary runtime.
+	BinaryOptions struct {
+		Path   string
+		Params map[string]any
+		Flags  []string
+		// FSPolicy is serialized as Ferret CLI filesystem policy flags.
+		FSPolicy *FileSystemPolicy
+		// HTTPPolicy is serialized as Ferret CLI HTTP policy flags.
+		HTTPPolicy *HTTPPolicy
+	}
+)
+
+// NewBinary creates an adapter for a Ferret CLI v2 executable.
+func NewBinary(opts BinaryOptions) (*Binary, error) {
+	if strings.TrimSpace(opts.Path) == "" {
+		return nil, errors.New("binary runtime path cannot be empty")
+	}
+
+	if err := opts.FSPolicy.validate(); err != nil {
+		return nil, fmt.Errorf("filesystem policy: %w", err)
+	}
+
+	if err := opts.HTTPPolicy.validate(); err != nil {
+		return nil, fmt.Errorf("HTTP policy: %w", err)
+	}
+
+	conflictingFlags := opts.FSPolicy.conflictingRawFlags()
+	for flag := range opts.HTTPPolicy.conflictingRawFlags() {
+		conflictingFlags[flag] = struct{}{}
+	}
+
+	if err := validateRawBinaryFlags(opts.Flags, conflictingFlags); err != nil {
+		return nil, err
+	}
+
+	fsArgs := opts.FSPolicy.ferretCLIArgs()
+	httpArgs, err := opts.HTTPPolicy.ferretCLIArgs()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &Binary{path, sharedParams, rawFlags}, nil
+	rt := &Binary{path: opts.Path}
+	sharedArgs, err := rt.paramsToArg(opts.Params)
+	if err != nil {
+		return nil, err
+	}
+
+	rt.baseArgs = slices.Concat([]string{"run"}, opts.Flags, fsArgs, httpArgs, sharedArgs)
+
+	return rt, nil
 }
 
 func (rt *Binary) Version(ctx context.Context) (string, error) {
@@ -46,23 +90,11 @@ func (rt *Binary) Version(ctx context.Context) (string, error) {
 }
 
 func (rt *Binary) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
-	args := make([]string, 0, 10)
-	args = append(args, rt.rawFlags...)
-
-	sharedArgs, err := rt.paramsToArg(rt.sharedParams)
+	args, err := rt.runArgs(params)
 
 	if err != nil {
 		return nil, err
 	}
-
-	queryArgs, err := rt.paramsToArg(params)
-
-	if err != nil {
-		return nil, err
-	}
-
-	args = append(args, sharedArgs...)
-	args = append(args, queryArgs...)
 
 	var q bytes.Buffer
 	q.WriteString(query.Content())
@@ -89,66 +121,33 @@ func (rt *Binary) Close() error {
 
 func (rt *Binary) paramsToArg(params map[string]any) ([]string, error) {
 	args := make([]string, 0, len(params))
+	keys := make([]string, 0, len(params))
 
-	for k, v := range params {
+	for key := range params {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := params[k]
 		j, err := json.Marshal(v)
 
 		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to serialize parameter: %s", k))
+			return nil, fmt.Errorf("failed to serialize parameter: %s: %w", k, err)
 		}
 
-		args = append(args, fmt.Sprintf("--param=%s:%s", k, j))
+		args = append(args, fmt.Sprintf("--param=%s=%s", k, j))
 	}
 
 	return args, nil
 }
 
-func splitBinaryRuntimeParams(params map[string]any) (map[string]any, []string, error) {
-	if len(params) == 0 {
-		return params, nil, nil
+func (rt *Binary) runArgs(params map[string]any) ([]string, error) {
+	queryArgs, err := rt.paramsToArg(params)
+	if err != nil {
+		return nil, err
 	}
 
-	sharedParams := make(map[string]any, len(params))
-	var rawFlags []string
-
-	for k, v := range params {
-		if k != "flags" {
-			sharedParams[k] = v
-
-			continue
-		}
-
-		flags, err := toStringSlice(v)
-
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "invalid type of flags (expected array of strings)")
-		}
-
-		rawFlags = flags
-	}
-
-	return sharedParams, rawFlags, nil
-}
-
-func toStringSlice(value any) ([]string, error) {
-	switch values := value.(type) {
-	case []string:
-		return append([]string(nil), values...), nil
-	case []any:
-		res := make([]string, 0, len(values))
-
-		for _, v := range values {
-			str, ok := v.(string)
-
-			if !ok {
-				return nil, errors.New("expected string value")
-			}
-
-			res = append(res, str)
-		}
-
-		return res, nil
-	default:
-		return nil, errors.New("expected array")
-	}
+	return slices.Concat(rt.baseArgs, queryArgs), nil
 }
