@@ -1,4 +1,4 @@
-package cmd
+package flags
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ const (
 	defaultHTTPPolicyMaxRedirects          = 10
 )
 
-func httpPolicyFlags(hidden bool) []cli.Flag {
+func HTTPPolicyFlags(hidden bool) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:    "policy-http-allowed-schemes",
@@ -139,7 +139,7 @@ func httpPolicyFlags(hidden bool) []cli.Flag {
 	}
 }
 
-func httpPolicyFromCommand(cmd *cli.Command) (*runtime.HTTPPolicy, error) {
+func HTTPPolicyFromCommand(cmd *cli.Command) (*runtime.HTTPPolicy, error) {
 	if cmd == nil {
 		return nil, nil
 	}

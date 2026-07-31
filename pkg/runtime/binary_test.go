@@ -2,7 +2,9 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	stdruntime "runtime"
 	"slices"
@@ -18,10 +20,17 @@ func TestBinaryRunUsesFerretCLIv2Contract(t *testing.T) {
 		t.Skip("shell script test is Unix-only")
 	}
 
-	script := filepath.Join(t.TempDir(), "echo-cli.sh")
-	content := "#!/bin/sh\nprintf 'arg:%s\\n' \"$@\"\nprintf 'stdin:'\ncat\n"
+	dir := t.TempDir()
+	script := filepath.Join(dir, "echo-cli.sh")
+	content := "#!/bin/sh\nprintf 'arg:%s\\n' \"$@\"\nprintf 'script:'\ncat \"$2\"\n"
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
 		t.Fatalf("failed to write helper script: %v", err)
+	}
+
+	queryPath := filepath.Join(dir, "query with spaces.fql")
+	queryContent := "RETURN 1"
+	if err := os.WriteFile(queryPath, []byte(queryContent), 0o644); err != nil {
+		t.Fatalf("failed to write query: %v", err)
 	}
 
 	rt, err := NewBinary(BinaryOptions{
@@ -33,7 +42,7 @@ func TestBinaryRunUsesFerretCLIv2Contract(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	out, err := rt.Run(context.Background(), ferretsource.New("test.fql", "RETURN 1"), map[string]any{
+	out, err := rt.Run(context.Background(), ferretsource.New(queryPath, queryContent), map[string]any{
 		"foo": "bar",
 	})
 	if err != nil {
@@ -42,10 +51,11 @@ func TestBinaryRunUsesFerretCLIv2Contract(t *testing.T) {
 
 	want := strings.Join([]string{
 		"arg:run",
+		"arg:" + queryPath,
 		"arg:--log-output=none",
 		"arg:--param=limit=3",
 		`arg:--param=foo="bar"`,
-		"stdin:RETURN 1",
+		"script:RETURN 1",
 	}, "\n")
 	if string(out) != want {
 		t.Fatalf("unexpected CLI input:\nwant:\n%s\ngot:\n%s", want, out)
@@ -95,13 +105,14 @@ func TestBinaryArgumentsIncludePoliciesAndAreDeterministic(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	args, err := rt.runArgs(map[string]any{"queryZeta": 4, "queryAlpha": 3})
+	args, err := rt.runArgs("test.fql", map[string]any{"queryZeta": 4, "queryAlpha": 3})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
 	want := []string{
 		"run",
+		"test.fql",
 		"--log-output=none",
 		"--policy-fs-root=./fixtures",
 		"--policy-fs-read-only=false",
@@ -130,6 +141,353 @@ func TestBinaryArgumentsIncludePoliciesAndAreDeterministic(t *testing.T) {
 	}
 	if !slices.Equal(args, want) {
 		t.Fatalf("unexpected args:\nwant: %#v\ngot:  %#v", want, args)
+	}
+}
+
+func TestNewBinaryDefaultsToFerretProtocol(t *testing.T) {
+	rt, err := NewBinary(BinaryOptions{Path: "/tmp/ferret"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if rt.protocol != ProtocolCLI {
+		t.Fatalf("expected %q protocol, got %q", ProtocolCLI, rt.protocol)
+	}
+
+	args, err := rt.runArgs("test.fql", nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if !slices.Equal(args, []string{"run", "test.fql"}) {
+		t.Fatalf("unexpected args: %#v", args)
+	}
+}
+
+func TestBinaryDirectArgumentsContainOnlyScriptPath(t *testing.T) {
+	rt, err := NewBinary(BinaryOptions{
+		Path:     "/tmp/runtime",
+		Protocol: ProtocolCLIDirect,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	params := map[string]any{
+		"lab": map[string]any{
+			"static": map[string]any{},
+			"mock":   map[string]any{},
+		},
+	}
+	args, err := rt.runArgs("path with spaces/test.fql", params)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if !slices.Equal(args, []string{"path with spaces/test.fql"}) {
+		t.Fatalf("unexpected args: %#v", args)
+	}
+}
+
+func TestNewBinaryRejectsUnsupportedDirectOptions(t *testing.T) {
+	tests := []struct {
+		name string
+		opts BinaryOptions
+		want string
+	}{
+		{
+			name: "shared bind parameters",
+			opts: BinaryOptions{
+				Params: map[string]any{"name": "value"},
+			},
+			want: `runtime protocol "direct" does not support bind parameters`,
+		},
+		{
+			name: "runtime flags",
+			opts: BinaryOptions{
+				Flags: []string{"--log-output=none"},
+			},
+			want: `runtime protocol "direct" does not support runtime flags`,
+		},
+		{
+			name: "filesystem policy",
+			opts: BinaryOptions{
+				FSPolicy: &FileSystemPolicy{Root: "./fixtures"},
+			},
+			want: `runtime protocol "direct" does not support filesystem policy options`,
+		},
+		{
+			name: "HTTP policy",
+			opts: BinaryOptions{
+				HTTPPolicy: &HTTPPolicy{AllowLocalhost: pointerTo(true)},
+			},
+			want: `runtime protocol "direct" does not support HTTP policy options`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.opts.Path = "/tmp/runtime"
+			tt.opts.Protocol = ProtocolCLIDirect
+
+			_, err := NewBinary(tt.opts)
+			if err == nil || err.Error() != tt.want {
+				t.Fatalf("expected %q, got %v", tt.want, err)
+			}
+		})
+	}
+}
+
+func TestBinaryDirectRejectsMeaningfulRunBindings(t *testing.T) {
+	rt, err := NewBinary(BinaryOptions{
+		Path:     "/tmp/runtime",
+		Protocol: ProtocolCLIDirect,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	tests := []map[string]any{
+		{"name": "value"},
+		{"lab": map[string]any{"static": map[string]any{"app": "http://localhost"}}},
+		{"lab": map[string]any{"data": map[string]any{"query": 1}}},
+	}
+
+	for _, params := range tests {
+		_, err := rt.runArgs("test.fql", params)
+		if err == nil || err.Error() != `runtime protocol "direct" does not support bind parameters` {
+			t.Fatalf("expected bind parameter error for %#v, got %v", params, err)
+		}
+	}
+}
+
+func TestBinaryRunMaterializesSyntheticSourceAndCleansUp(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "direct-runtime.sh")
+	capturedPath := filepath.Join(dir, "script-path.txt")
+	content := "#!/bin/sh\nprintf '%s' \"$1\" > \"$LAB_CAPTURED_SCRIPT\"\ncat \"$1\"\n"
+	if err := os.WriteFile(binary, []byte(content), 0o755); err != nil {
+		t.Fatalf("failed to write helper script: %v", err)
+	}
+	t.Setenv("LAB_CAPTURED_SCRIPT", capturedPath)
+
+	rt, err := NewBinary(BinaryOptions{
+		Path:     binary,
+		Protocol: ProtocolCLIDirect,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	out, err := rt.Run(
+		context.Background(),
+		ferretsource.New("https://example.test/query.fql", "RETURN 42"),
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if string(out) != "RETURN 42" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+
+	path, err := os.ReadFile(capturedPath)
+	if err != nil {
+		t.Fatalf("failed to read captured script path: %v", err)
+	}
+	if _, err := os.Stat(string(path)); !os.IsNotExist(err) {
+		t.Fatalf("expected temporary script to be removed, got %v", err)
+	}
+}
+
+func TestBinaryRunDoesNotFallbackAfterFerretFailure(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "failing-runtime.sh")
+	callsPath := filepath.Join(dir, "calls.txt")
+	argsPath := filepath.Join(dir, "args.txt")
+	content := "#!/bin/sh\nprintf 'call\\n' >> \"$LAB_CALLS_PATH\"\nprintf '%s\\n' \"$@\" > \"$LAB_ARGS_PATH\"\nprintf 'failed'\nexit 7\n"
+	if err := os.WriteFile(binary, []byte(content), 0o755); err != nil {
+		t.Fatalf("failed to write helper script: %v", err)
+	}
+	t.Setenv("LAB_CALLS_PATH", callsPath)
+	t.Setenv("LAB_ARGS_PATH", argsPath)
+
+	queryPath := filepath.Join(dir, "test.fql")
+	if err := os.WriteFile(queryPath, []byte("RETURN 1"), 0o644); err != nil {
+		t.Fatalf("failed to write query: %v", err)
+	}
+
+	rt, err := NewBinary(BinaryOptions{Path: binary})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	_, err = rt.Run(context.Background(), ferretsource.New(queryPath, "RETURN 1"), nil)
+	if err == nil || err.Error() != "failed" {
+		t.Fatalf("expected process failure, got %v", err)
+	}
+
+	calls, err := os.ReadFile(callsPath)
+	if err != nil {
+		t.Fatalf("failed to read calls: %v", err)
+	}
+	if string(calls) != "call\n" {
+		t.Fatalf("expected exactly one process invocation, got %q", calls)
+	}
+
+	args, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("failed to read args: %v", err)
+	}
+	if string(args) != "run\n"+queryPath+"\n" {
+		t.Fatalf("unexpected invocation args: %q", args)
+	}
+}
+
+func TestBinaryRunPreservesProcessEnvironmentAndWorkingDirectory(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "environment-runtime.sh")
+	content := "#!/bin/sh\nprintf '%s\\n%s' \"$LAB_BINARY_ENV_TEST\" \"$PWD\"\n"
+	if err := os.WriteFile(binary, []byte(content), 0o755); err != nil {
+		t.Fatalf("failed to write helper script: %v", err)
+	}
+	t.Setenv("LAB_BINARY_ENV_TEST", "inherited")
+
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+
+	rt, err := NewBinary(BinaryOptions{
+		Path:     binary,
+		Protocol: ProtocolCLIDirect,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	out, err := rt.Run(context.Background(), ferretsource.New("generated", "RETURN 1"), nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if string(out) != "inherited\n"+workingDirectory {
+		t.Fatalf("unexpected process environment: %q", out)
+	}
+}
+
+func TestBinaryRunPreservesCombinedOutputAndExitCodeHandling(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	t.Run("combined output", func(t *testing.T) {
+		capturedPath := filepath.Join(t.TempDir(), "script-path.txt")
+		t.Setenv("LAB_CAPTURED_SCRIPT", capturedPath)
+		binary := writeExecutable(t, "#!/bin/sh\nprintf '%s' \"$1\" > \"$LAB_CAPTURED_SCRIPT\"\nprintf 'stdout'\nprintf 'stderr' >&2\nexit 7\n")
+		rt, err := NewBinary(BinaryOptions{
+			Path:     binary,
+			Protocol: ProtocolCLIDirect,
+		})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		_, err = rt.Run(context.Background(), ferretsource.New("generated", "RETURN 1"), nil)
+		if err == nil || err.Error() != "stdoutstderr" {
+			t.Fatalf("expected combined output error, got %v", err)
+		}
+
+		scriptPath, err := os.ReadFile(capturedPath)
+		if err != nil {
+			t.Fatalf("failed to read captured script path: %v", err)
+		}
+		if _, err := os.Stat(string(scriptPath)); !os.IsNotExist(err) {
+			t.Fatalf("expected failed invocation snapshot to be removed, got %v", err)
+		}
+	})
+
+	t.Run("exit code without output", func(t *testing.T) {
+		binary := writeExecutable(t, "#!/bin/sh\nexit 7\n")
+		rt, err := NewBinary(BinaryOptions{
+			Path:     binary,
+			Protocol: ProtocolCLIDirect,
+		})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		_, err = rt.Run(context.Background(), ferretsource.New("generated", "RETURN 1"), nil)
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 7 {
+			t.Fatalf("expected exit code 7, got %v", err)
+		}
+	})
+}
+
+func TestBinaryRunHonorsContextCancellation(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	capturedPath := filepath.Join(t.TempDir(), "script-path.txt")
+	t.Setenv("LAB_CAPTURED_SCRIPT", capturedPath)
+	binary := writeExecutable(t, "#!/bin/sh\nprintf '%s' \"$1\" > \"$LAB_CAPTURED_SCRIPT\"\nexec sleep 10\n")
+	rt, err := NewBinary(BinaryOptions{
+		Path:     binary,
+		Protocol: ProtocolCLIDirect,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	start := time.Now()
+	done := make(chan error, 1)
+	go func() {
+		_, runErr := rt.Run(ctx, ferretsource.New("generated", "RETURN 1"), nil)
+		done <- runErr
+	}()
+
+	var scriptPath []byte
+	deadline := time.After(2 * time.Second)
+	for len(scriptPath) == 0 {
+		scriptPath, _ = os.ReadFile(capturedPath)
+		if len(scriptPath) > 0 {
+			break
+		}
+
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for runtime process to start")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	cancel()
+	err = <-done
+	if err == nil {
+		t.Fatal("expected cancellation error")
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("expected prompt cancellation, took %s", elapsed)
+	}
+
+	if _, err := os.Stat(string(scriptPath)); !os.IsNotExist(err) {
+		t.Fatalf("expected cancelled invocation snapshot to be removed, got %v", err)
 	}
 }
 
@@ -298,16 +656,32 @@ func TestBinaryVersionUsesVersionCommand(t *testing.T) {
 		t.Fatalf("failed to write helper script: %v", err)
 	}
 
-	rt, err := NewBinary(BinaryOptions{Path: script})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	for _, protocol := range []Protocol{"", ProtocolCLIDirect} {
+		rt, err := NewBinary(BinaryOptions{
+			Path:     script,
+			Protocol: protocol,
+		})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		version, err := rt.Version(context.Background())
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if version != "v2-test" {
+			t.Fatalf("expected version output, got %q", version)
+		}
+	}
+}
+
+func writeExecutable(t *testing.T, content string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "runtime.sh")
+	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+		t.Fatalf("failed to write helper script: %v", err)
 	}
 
-	version, err := rt.Version(context.Background())
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if version != "v2-test" {
-		t.Fatalf("expected version output, got %q", version)
-	}
+	return path
 }

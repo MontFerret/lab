@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 
+	"github.com/MontFerret/lab/v2/cmd/internal/flags"
+
 	"github.com/MontFerret/lab/v2/pkg/reporters"
 	"github.com/MontFerret/lab/v2/pkg/runner"
 	"github.com/MontFerret/lab/v2/pkg/sources"
@@ -26,7 +28,7 @@ func RunCommand() *cli.Command {
 }
 
 func RunFlags(hidden bool) []cli.Flag {
-	flags := []cli.Flag{
+	flagList := []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:    "files",
 			Aliases: []string{"f"},
@@ -148,9 +150,9 @@ func RunFlags(hidden bool) []cli.Flag {
 		},
 	}
 
-	flags = append(flags, fsPolicyFlags(hidden)...)
+	flagList = append(flagList, flags.FSPolicy(hidden)...)
 
-	return append(flags, httpPolicyFlags(hidden)...)
+	return append(flagList, flags.HTTPPolicyFlags(hidden)...)
 }
 
 func RunAction(ctx context.Context, cmd *cli.Command) error {

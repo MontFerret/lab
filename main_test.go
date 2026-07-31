@@ -228,6 +228,7 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	assertContains(t, stdout, "--serve-host string")
 	assertContains(t, stdout, "--timeout uint")
 	assertContains(t, stdout, "--runtime string")
+	assertContains(t, stdout, "--runtime-protocol string")
 	assertContains(t, stdout, "--policy-fs-root string")
 	assertContains(t, stdout, "--policy-fs-read-only")
 
@@ -828,6 +829,9 @@ func TestRunCommandForwardsPoliciesToBinaryRuntime(t *testing.T) {
 	if len(lines) == 0 || lines[0] != "run" {
 		t.Fatalf("expected Ferret CLI run command, got %q", args)
 	}
+	if len(lines) < 2 || lines[1] != script {
+		t.Fatalf("expected script path as the second argument, got %q", args)
+	}
 
 	for _, expected := range []string{
 		"--log-output=none",
@@ -855,6 +859,181 @@ func TestRunCommandForwardsPoliciesToBinaryRuntime(t *testing.T) {
 	}
 	assertEqual(t, string(stdin), "RETURN 1\n")
 	assertContains(t, stdout, "Passed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandUsesExplicitFerretProtocol(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	binary, argsPath, scriptContentPath := writeFakeFerretCLI(t)
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLIWithEnv(
+		t,
+		map[string]string{
+			"LAB_BINARY_TEST_ARGS":  argsPath,
+			"LAB_BINARY_TEST_STDIN": scriptContentPath,
+		},
+		"run",
+		"--runtime=bin:"+binary,
+		"--runtime-protocol=ferret",
+		"--reporter=simple",
+		"--timeout=1",
+		"--attempts=1",
+		"--concurrency=1",
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	args, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("failed to read captured binary args: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(args)), "\n")
+	if len(lines) < 2 || lines[0] != "run" || lines[1] != script {
+		t.Fatalf("unexpected Ferret invocation: %q", args)
+	}
+	for _, line := range lines {
+		for _, labOnly := range []string{"reporter", "timeout", "attempts", "concurrency"} {
+			if strings.Contains(line, labOnly) {
+				t.Fatalf("expected Lab-only option %q not to be forwarded, got %q", labOnly, args)
+			}
+		}
+	}
+
+	scriptContent, err := os.ReadFile(scriptContentPath)
+	if err != nil {
+		t.Fatalf("failed to read captured script content: %v", err)
+	}
+	assertEqual(t, string(scriptContent), "RETURN 1\n")
+	assertContains(t, stdout, "PASS file=")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandUsesDirectProtocol(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	binary, argsPath, scriptContentPath := writeFakeFerretCLI(t)
+	script := writeNamedScript(t, "test with spaces.fql", "RETURN 1")
+
+	stdout, stderr, err := runCLIWithEnv(
+		t,
+		map[string]string{
+			"LAB_BINARY_TEST_ARGS":  argsPath,
+			"LAB_BINARY_TEST_STDIN": scriptContentPath,
+		},
+		"run",
+		"--runtime=bin:"+binary,
+		"--runtime-protocol=direct",
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	args, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("failed to read captured binary args: %v", err)
+	}
+	if string(args) != script+"\n" {
+		t.Fatalf("expected exactly one script argument, got %q", args)
+	}
+
+	scriptContent, err := os.ReadFile(scriptContentPath)
+	if err != nil {
+		t.Fatalf("failed to read captured script content: %v", err)
+	}
+	assertEqual(t, string(scriptContent), "RETURN 1\n")
+	assertContains(t, stdout, "Passed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandUsesRuntimeProtocolEnvironment(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	binary, argsPath, scriptContentPath := writeFakeFerretCLI(t)
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLIWithEnv(
+		t,
+		map[string]string{
+			"LAB_BINARY_TEST_ARGS":  argsPath,
+			"LAB_BINARY_TEST_STDIN": scriptContentPath,
+			"LAB_RUNTIME_PROTOCOL":  "direct",
+		},
+		"run",
+		"--runtime=bin:"+binary,
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	args, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("failed to read captured binary args: %v", err)
+	}
+	if string(args) != script+"\n" {
+		t.Fatalf("expected direct invocation from environment, got %q", args)
+	}
+	assertContains(t, stdout, "Passed")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsUnknownRuntimeProtocol(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime=bin:/missing/runtime",
+		"--runtime-protocol=custom",
+		script,
+	)
+
+	assertErrorMessage(t, err, `unknown runtime protocol "custom"; expected one of: ferret, direct`)
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsExplicitProtocolForNonBinaryRuntime(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime-protocol=ferret",
+		script,
+	)
+
+	assertErrorMessage(t, err, `runtime protocol "ferret" is only supported by binary runtimes`)
+	assertEqual(t, stdout, "")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsDirectBindParameters(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--runtime=bin:/missing/runtime",
+		"--runtime-protocol=direct",
+		"--param=name:\"value\"",
+		script,
+	)
+
+	assertErrorMessage(t, err, "has errors")
+	assertContains(t, stdout, "Failed")
+	assertContains(t, stdout, "does not support bind parameters")
 	assertEqual(t, stderr, "")
 }
 
@@ -1257,8 +1436,41 @@ func TestVersionHelpRemainsMinimal(t *testing.T) {
 
 	assertContains(t, stdout, "lab version [options]")
 	assertContains(t, stdout, "--runtime string")
+	assertContains(t, stdout, "--runtime-protocol string")
 	assertNotContains(t, stdout, "--timeout uint")
 	assertNotContains(t, stdout, "--files string")
+	assertEqual(t, stderr, "")
+}
+
+func TestVersionCommandKeepsBinaryVersionInvocationForDirectProtocol(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	binary, argsPath, scriptContentPath := writeFakeFerretCLI(t)
+
+	stdout, stderr, err := runCLIWithEnv(
+		t,
+		map[string]string{
+			"LAB_BINARY_TEST_ARGS":  argsPath,
+			"LAB_BINARY_TEST_STDIN": scriptContentPath,
+		},
+		"version",
+		"--runtime=bin:"+binary,
+		"--runtime-protocol=direct",
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	args, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("failed to read captured binary args: %v", err)
+	}
+	if string(args) != "version\n" {
+		t.Fatalf("expected version invocation, got %q", args)
+	}
+	assertContains(t, stdout, "Runtime: fake-version")
 	assertEqual(t, stderr, "")
 }
 
@@ -1365,8 +1577,20 @@ func writeFakeFerretCLI(t *testing.T) (string, string, string) {
 	stdinPath := filepath.Join(dir, "stdin.txt")
 	content := `#!/bin/sh
 printf '%s\n' "$@" > "$LAB_BINARY_TEST_ARGS"
-cat > "$LAB_BINARY_TEST_STDIN"
-printf 'true'
+case "$1" in
+  run)
+    cat "$2" > "$LAB_BINARY_TEST_STDIN"
+    printf 'true'
+    ;;
+  version)
+    : > "$LAB_BINARY_TEST_STDIN"
+    printf 'fake-version'
+    ;;
+  *)
+    cat "$1" > "$LAB_BINARY_TEST_STDIN"
+    printf 'true'
+    ;;
+esac
 `
 	if err := os.WriteFile(binary, []byte(content), 0o755); err != nil {
 		t.Fatalf("failed to write fake Ferret CLI: %v", err)

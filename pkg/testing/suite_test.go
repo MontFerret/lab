@@ -2,6 +2,9 @@ package testing_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	stdruntime "runtime"
 	stdtesting "testing"
 	"time"
 
@@ -81,5 +84,53 @@ assert:
 
 	if dataPhase != "query" {
 		t.Fatalf("expected assertion data context to retain query params, got %q", dataPhase)
+	}
+}
+
+func TestSuiteRunRejectsDirectProtocolBeforeExecution(t *stdtesting.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "executed")
+	binary := filepath.Join(dir, "runtime.sh")
+	content := "#!/bin/sh\ntouch \"$LAB_SUITE_EXECUTION_MARKER\"\nprintf 'true'\n"
+	if err := os.WriteFile(binary, []byte(content), 0o755); err != nil {
+		t.Fatalf("failed to write helper script: %v", err)
+	}
+	t.Setenv("LAB_SUITE_EXECUTION_MARKER", marker)
+
+	rt, err := labruntime.NewBinary(labruntime.BinaryOptions{
+		Path:     binary,
+		Protocol: labruntime.ProtocolCLIDirect,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	testCase, err := testing2.New(testing2.Options{
+		File: sources.File{
+			Name: "suite.yaml",
+			Content: []byte(`
+query:
+  text: RETURN 1
+assert:
+  text: RETURN true
+`),
+		},
+		Timeout: time.Second,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = testCase.Run(context.Background(), rt, testing2.NewParams())
+	if err == nil || err.Error() != `runtime protocol "direct" does not support YAML test suites` {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("expected runtime not to execute, got %v", err)
 	}
 }

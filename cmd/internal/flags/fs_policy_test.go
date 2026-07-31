@@ -1,4 +1,4 @@
-package cmd
+package flags
 
 import (
 	"context"
@@ -63,10 +63,10 @@ func runFSPolicyCommand(t *testing.T, args ...string) (*runtime.FileSystemPolicy
 	var policy *runtime.FileSystemPolicy
 	command := &cli.Command{
 		Name:  "run",
-		Flags: fsPolicyFlags(false),
+		Flags: FSPolicy(false),
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			var err error
-			policy, err = fsPolicyFromCommand(cmd)
+			policy, err = FSPolicyFromCommand(cmd)
 
 			return err
 		},

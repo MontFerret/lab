@@ -10,6 +10,8 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/MontFerret/lab/v2/cmd/internal/flags"
+
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/localserver"
 	"github.com/MontFerret/lab/v2/pkg/mockserver"
@@ -114,12 +116,12 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 }
 
 func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtime, error) {
-	fsPolicy, err := fsPolicyFromCommand(cmd)
+	fsPolicy, err := flags.FSPolicyFromCommand(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	httpPolicy, err := httpPolicyFromCommand(cmd)
+	httpPolicy, err := flags.HTTPPolicyFromCommand(cmd)
 	if err != nil {
 		return nil, err
 	}

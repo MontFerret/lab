@@ -70,7 +70,7 @@ func BenchmarkBinaryArgumentConcatenation(b *testing.B) {
 		b.ReportAllocs()
 
 		for b.Loop() {
-			args, runErr := rt.runArgs(queryParams)
+			args, runErr := rt.runArgs("benchmark.fql", queryParams)
 			if runErr != nil {
 				b.Fatal(runErr)
 			}

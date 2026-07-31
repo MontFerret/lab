@@ -666,7 +666,7 @@ Mock API entries use the same binding syntax as static serving: `<path>`, `<path
 
 ### 🔒 Filesystem Policy
 
-The built-in runtime exposes FQL filesystem functions through a sandbox rooted at Lab's current working directory. Use `--policy-fs-root` to select a narrower relative or absolute root, and add `--policy-fs-read-only` to permit reads while rejecting writes, directory changes, and removals. When `--runtime=bin:...` selects a Ferret CLI v2 binary, Lab forwards the same explicitly configured policy values to `ferret run`.
+The built-in runtime exposes FQL filesystem functions through a sandbox rooted at Lab's current working directory. Use `--policy-fs-root` to select a narrower relative or absolute root, and add `--policy-fs-read-only` to permit reads while rejecting writes, directory changes, and removals. When `--runtime=bin:...` selects a binary using the default `ferret` protocol, Lab forwards the same explicitly configured policy values to `ferret run`.
 
 ```bash
 lab run \
@@ -697,7 +697,7 @@ lab run \
 
 When the runtime URL already includes a path, Lab sends `run` requests to that exact path. The optional `runtime-param=path` value overrides the run endpoint only. `lab version --runtime=...` uses the runtime URL path and requests its sibling `/info` endpoint.
 
-Lab rejects `--policy-fs-*` and `--policy-http-*` options for HTTP runtimes because their request protocol has no policy contract. Built-in and Ferret CLI v2 binary runtimes both support these options.
+Lab rejects `--policy-fs-*` and `--policy-http-*` options for HTTP runtimes because their request protocol has no policy contract. Built-in runtimes and binary runtimes using the `ferret` protocol support these options.
 
 The HTTP runtime sends POST requests with:
 
@@ -712,11 +712,28 @@ The HTTP runtime sends POST requests with:
 
 #### External Binary Runtime
 
-Use Ferret CLI v2-compatible installations. Lab invokes the binary as `ferret run`, passes the FQL source through stdin, and serializes test parameters as `--param=name=<JSON>` arguments.
+Binary runtimes support two explicit invocation protocols. `ferret` is the default and implements the official Ferret CLI contract:
 
 ```bash
-# Use specific Ferret binary
-lab run --runtime=bin:./custom-ferret tests/
+lab run --runtime=bin://./dist/runtime test.fql
+```
+
+Equivalent external invocation:
+
+```bash
+./dist/runtime run test.fql
+```
+
+Lab passes the script as one process argument, serializes bind parameters as `--param=name=<JSON>`, and forwards supported runtime options with the official Ferret CLI names. For a local source whose on-disk contents still match Lab's source snapshot, the original path is used. Generated, HTTP, Git-backed, or changed sources are materialized as a temporary `.fql` snapshot and removed after the process finishes.
+
+Additional Ferret-protocol examples:
+
+```bash
+# Explicitly select the default protocol
+lab run \
+  --runtime=bin:/usr/local/bin/ferret \
+  --runtime-protocol=ferret \
+  tests/
 
 # With shared runtime params forwarded as --param entries
 lab run \
@@ -740,6 +757,25 @@ lab run \
 ```
 
 Only explicitly configured Lab policy values are forwarded, so unset values retain the external CLI's configuration and defaults. Raw policy flags remain available when the corresponding Lab policy option is unset. Lab rejects raw flags that duplicate a managed policy option or conflict with its timeout/limit counterpart.
+
+The `direct` protocol preserves the single-file custom-binary contract:
+
+```bash
+lab run \
+  --runtime=bin://./dist/runtime \
+  --runtime-protocol=direct \
+  test.fql
+```
+
+Equivalent external invocation:
+
+```bash
+./dist/runtime test.fql
+```
+
+Direct mode is deliberately limited to standalone FQL files. It rejects bind parameters, raw runtime flags, filesystem and HTTP policy options, local static/mock bindings, and YAML suites before starting the affected runtime process. Lab-only controls such as reporting, retries, repeated runs, concurrency, waiting, and test timeouts remain local and are not forwarded.
+
+Existing custom binaries that expect only a script path must migrate by adding `--runtime-protocol=direct` (or `LAB_RUNTIME_PROTOCOL=direct`). Lab never retries a failed `ferret` invocation as `direct`, because doing so could execute a script twice or hide an incompatible binary. `lab version` continues to invoke binary runtimes as `<binary> version` for either protocol.
 
 #### Runtime Comparison Testing
 
@@ -804,7 +840,8 @@ These flags apply to `lab run`.
 | `--timeout` | `-t` | `LAB_TIMEOUT` | `30` | Test timeout in seconds |
 | `--cdp` | - | `LAB_CDP` | `http://127.0.0.1:9222` | Chrome DevTools Protocol address |
 | `--reporter` | - | `LAB_REPORTER` | `console` | Output reporter: `console`, `simple` |
-| `--runtime` | `-r` | `LAB_RUNTIME` | - | Built-in, HTTP, or Ferret CLI v2 binary runtime |
+| `--runtime` | `-r` | `LAB_RUNTIME` | - | Built-in, HTTP, or external binary runtime |
+| `--runtime-protocol` | - | `LAB_RUNTIME_PROTOCOL` | `ferret` | Binary invocation protocol: `ferret` or `direct` |
 | `--runtime-param` | `--rp` | `LAB_RUNTIME_PARAM` | - | Runtime adapter parameters and binary raw flags |
 | `--concurrency` | `-c` | `LAB_CONCURRENCY` | `1` | Number of parallel test executions |
 | `--times` | - | `LAB_TIMES` | `1` | Number of times to run each test |
@@ -934,14 +971,14 @@ lab run \
   --runtime-param='path:"/v2/execute"' \
   tests/
 
-# Binary runtime with custom flags
+# Ferret-protocol binary runtime with custom flags
 lab run \
   --runtime=bin:/usr/local/bin/ferret \
   --runtime-param='flags:["--log-output=none", "--browser-headless"]' \
   tests/
 ```
 
-For HTTP runtimes, `path` overrides the run endpoint only. For binary runtimes, `flags` is special and is appended after the generated `run` subcommand. All other binary runtime params are passed as `--param=name=<JSON>`. Raw flags that conflict with managed policy options are rejected before execution.
+For HTTP runtimes, `path` overrides the run endpoint only. For `ferret`-protocol binary runtimes, `flags` is special and is appended to the generated `run <script>` invocation. All other binary runtime params are passed as `--param=name=<JSON>`. Raw flags that conflict with managed policy options are rejected before execution. Direct-protocol binaries reject all runtime parameters and flags rather than silently discarding them.
 
 ## Architecture
 

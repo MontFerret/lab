@@ -34,6 +34,12 @@ type (
 		Close() error
 	}
 
+	// SuiteValidator allows runtimes to reject unsupported multi-phase test
+	// suites before the first phase starts.
+	SuiteValidator interface {
+		ValidateSuite() error
+	}
+
 	FuncStruct struct {
 		fn Func
 	}
@@ -76,8 +82,15 @@ func New(opts Options) (Runtime, error) {
 
 		return NewRemote(opts.Type, params)
 	case "bin":
+		proto, err := ParseProtocolFrom(u, ProtocolCLI)
+
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to parse binary runtime protocol")
+		}
+
 		return NewBinary(BinaryOptions{
 			Path:       binaryPath(u),
+			Protocol:   proto,
 			Params:     params,
 			Flags:      opts.BinaryFlags,
 			FSPolicy:   opts.FSPolicy,
@@ -90,27 +103,6 @@ func New(opts Options) (Runtime, error) {
 
 		return newConfiguredBuiltin(params, opts.FSPolicy, opts.HTTPPolicy)
 	}
-}
-
-func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, httpPolicy *HTTPPolicy) (*Builtin, error) {
-	if err := fsPolicy.validate(); err != nil {
-		return nil, err
-	}
-
-	options, err := httpPolicy.validatedFerretOptions()
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "HTTP policy")
-	}
-
-	return newBuiltin(params, fsPolicy, options...)
-}
-
-func binaryPath(u *url.URL) string {
-	if u.Opaque != "" {
-		return u.Opaque
-	}
-
-	return u.Host + u.Path
 }
 
 func AsFunc(fn Func) Runtime {

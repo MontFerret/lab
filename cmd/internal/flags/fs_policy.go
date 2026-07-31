@@ -1,4 +1,4 @@
-package cmd
+package flags
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 )
 
-func fsPolicyFlags(hidden bool) []cli.Flag {
+func FSPolicy(hidden bool) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "policy-fs-root",
@@ -26,7 +26,7 @@ func fsPolicyFlags(hidden bool) []cli.Flag {
 	}
 }
 
-func fsPolicyFromCommand(cmd *cli.Command) (*runtime.FileSystemPolicy, error) {
+func FSPolicyFromCommand(cmd *cli.Command) (*runtime.FileSystemPolicy, error) {
 	if cmd == nil {
 		return nil, nil
 	}

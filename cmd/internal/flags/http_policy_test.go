@@ -1,4 +1,4 @@
-package cmd
+package flags
 
 import (
 	"context"
@@ -77,9 +77,9 @@ func runHTTPPolicyCommand(t *testing.T, args ...string) error {
 
 	command := &cli.Command{
 		Name:  "run",
-		Flags: httpPolicyFlags(false),
+		Flags: HTTPPolicyFlags(false),
 		Action: func(_ context.Context, cmd *cli.Command) error {
-			policy, err := httpPolicyFromCommand(cmd)
+			policy, err := HTTPPolicyFromCommand(cmd)
 			if err != nil {
 				return err
 			}
