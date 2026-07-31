@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 
 	pkgerrors "github.com/pkg/errors"
@@ -19,7 +20,7 @@ type (
 		FSPolicy *FileSystemPolicy
 		// HTTPPolicy configures outbound HTTP for built-in and binary runtimes.
 		HTTPPolicy *HTTPPolicy
-		// BinaryFlags contains additional arguments for the Ferret CLI run command.
+		// BinaryFlags contains additional arguments forwarded to binary runtimes.
 		BinaryFlags []string
 	}
 
@@ -32,12 +33,6 @@ type (
 
 		// Close releases resources owned by the runtime after all runs finish.
 		Close() error
-	}
-
-	// SuiteValidator allows runtimes to reject unsupported multi-phase test
-	// suites before the first phase starts.
-	SuiteValidator interface {
-		ValidateSuite() error
 	}
 
 	FuncStruct struct {
@@ -82,10 +77,10 @@ func New(opts Options) (Runtime, error) {
 
 		return NewRemote(opts.Type, params)
 	case "bin":
-		proto, err := ParseProtocolFrom(u, ProtocolCLI)
+		proto, err := ParseProtocolFrom(u, ProtocolCLIDirect)
 
 		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to parse binary runtime protocol")
+			return nil, fmt.Errorf("failed to parse binary runtime protocol: %w", err)
 		}
 
 		return NewBinary(BinaryOptions{

@@ -228,7 +228,9 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	assertContains(t, stdout, "--serve-host string")
 	assertContains(t, stdout, "--timeout uint")
 	assertContains(t, stdout, "--runtime string")
-	assertContains(t, stdout, "--runtime-protocol string")
+	assertContains(t, stdout, "protocol=cli|cli-direct")
+	assertContains(t, stdout, "default: cli-direct")
+	assertNotContains(t, stdout, "--runtime-protocol")
 	assertContains(t, stdout, "--policy-fs-root string")
 	assertContains(t, stdout, "--policy-fs-read-only")
 
@@ -809,7 +811,7 @@ func TestRunCommandForwardsPoliciesToBinaryRuntime(t *testing.T) {
 			"LAB_POLICY_HTTP_ALLOW_LOCALHOST": "true",
 		},
 		"run",
-		"--runtime=bin:"+binary,
+		"--runtime=bin://"+binary+"?protocol=cli",
 		`--runtime-param=flags:["--log-output=none"]`,
 		"--policy-fs-read-only=false",
 		"--policy-http-follow-redirects=false",
@@ -862,7 +864,7 @@ func TestRunCommandForwardsPoliciesToBinaryRuntime(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
-func TestRunCommandUsesExplicitFerretProtocol(t *testing.T) {
+func TestRunCommandUsesExplicitCLIProtocol(t *testing.T) {
 	if stdruntime.GOOS == "windows" {
 		t.Skip("shell script test is Unix-only")
 	}
@@ -877,8 +879,7 @@ func TestRunCommandUsesExplicitFerretProtocol(t *testing.T) {
 			"LAB_BINARY_TEST_STDIN": scriptContentPath,
 		},
 		"run",
-		"--runtime=bin:"+binary,
-		"--runtime-protocol=ferret",
+		"--runtime=bin://"+binary+"?protocol=cli",
 		"--reporter=simple",
 		"--timeout=1",
 		"--attempts=1",
@@ -914,7 +915,7 @@ func TestRunCommandUsesExplicitFerretProtocol(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
-func TestRunCommandUsesDirectProtocol(t *testing.T) {
+func TestRunCommandDefaultsToCLIDirectProtocol(t *testing.T) {
 	if stdruntime.GOOS == "windows" {
 		t.Skip("shell script test is Unix-only")
 	}
@@ -929,8 +930,10 @@ func TestRunCommandUsesDirectProtocol(t *testing.T) {
 			"LAB_BINARY_TEST_STDIN": scriptContentPath,
 		},
 		"run",
-		"--runtime=bin:"+binary,
-		"--runtime-protocol=direct",
+		"--runtime=bin://"+binary,
+		`--runtime-param=flags:["--log-level=debug"]`,
+		`--runtime-param=shared:"value"`,
+		`--param=name:"value"`,
 		script,
 	)
 	if err != nil {
@@ -941,8 +944,14 @@ func TestRunCommandUsesDirectProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read captured binary args: %v", err)
 	}
-	if string(args) != script+"\n" {
-		t.Fatalf("expected exactly one script argument, got %q", args)
+	wantArgs := strings.Join([]string{
+		"--log-level=debug",
+		`--param=shared:"value"`,
+		`--param=name:"value"`,
+		script,
+	}, "\n") + "\n"
+	if string(args) != wantArgs {
+		t.Fatalf("unexpected CLI-direct invocation:\nwant: %q\ngot:  %q", wantArgs, args)
 	}
 
 	scriptContent, err := os.ReadFile(scriptContentPath)
@@ -954,7 +963,7 @@ func TestRunCommandUsesDirectProtocol(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
-func TestRunCommandUsesRuntimeProtocolEnvironment(t *testing.T) {
+func TestRunCommandUsesProtocolFromRuntimeEnvironment(t *testing.T) {
 	if stdruntime.GOOS == "windows" {
 		t.Skip("shell script test is Unix-only")
 	}
@@ -967,10 +976,9 @@ func TestRunCommandUsesRuntimeProtocolEnvironment(t *testing.T) {
 		map[string]string{
 			"LAB_BINARY_TEST_ARGS":  argsPath,
 			"LAB_BINARY_TEST_STDIN": scriptContentPath,
-			"LAB_RUNTIME_PROTOCOL":  "direct",
+			"LAB_RUNTIME":           "bin://" + binary + "?protocol=cli-direct",
 		},
 		"run",
-		"--runtime=bin:"+binary,
 		script,
 	)
 	if err != nil {
@@ -994,46 +1002,28 @@ func TestRunCommandRejectsUnknownRuntimeProtocol(t *testing.T) {
 	stdout, stderr, err := runCLI(
 		t,
 		"run",
-		"--runtime=bin:/missing/runtime",
-		"--runtime-protocol=custom",
+		"--runtime=bin://./missing/runtime?protocol=custom",
 		script,
 	)
 
-	assertErrorMessage(t, err, `unknown runtime protocol "custom"; expected one of: ferret, direct`)
+	assertErrorMessage(t, err, `failed to parse binary runtime protocol: unknown runtime protocol "custom"; expected one of: cli, cli-direct`)
 	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }
 
-func TestRunCommandRejectsExplicitProtocolForNonBinaryRuntime(t *testing.T) {
+func TestRunCommandRejectsCLIDirectPolicyOptions(t *testing.T) {
 	script := writeScript(t)
 
 	stdout, stderr, err := runCLI(
 		t,
 		"run",
-		"--runtime-protocol=ferret",
+		"--runtime=bin://./missing/runtime",
+		"--policy-http-allow-localhost",
 		script,
 	)
 
-	assertErrorMessage(t, err, `runtime protocol "ferret" is only supported by binary runtimes`)
+	assertErrorMessage(t, err, `runtime protocol "cli-direct" does not support HTTP policy options`)
 	assertEqual(t, stdout, "")
-	assertEqual(t, stderr, "")
-}
-
-func TestRunCommandRejectsDirectBindParameters(t *testing.T) {
-	script := writeScript(t)
-
-	stdout, stderr, err := runCLI(
-		t,
-		"run",
-		"--runtime=bin:/missing/runtime",
-		"--runtime-protocol=direct",
-		"--param=name:\"value\"",
-		script,
-	)
-
-	assertErrorMessage(t, err, "has errors")
-	assertContains(t, stdout, "Failed")
-	assertContains(t, stdout, "does not support bind parameters")
 	assertEqual(t, stderr, "")
 }
 
@@ -1043,7 +1033,7 @@ func TestRunCommandRejectsConflictingRawBinaryPolicyFlag(t *testing.T) {
 	stdout, stderr, err := runCLI(
 		t,
 		"run",
-		"--runtime=bin:/missing/ferret",
+		"--runtime=bin:///missing/ferret?protocol=cli",
 		`--runtime-param=flags:["--policy-http-no-timeout"]`,
 		"--policy-http-timeout=1s",
 		script,
@@ -1436,13 +1426,15 @@ func TestVersionHelpRemainsMinimal(t *testing.T) {
 
 	assertContains(t, stdout, "lab version [options]")
 	assertContains(t, stdout, "--runtime string")
-	assertContains(t, stdout, "--runtime-protocol string")
+	assertContains(t, stdout, "protocol=cli|cli-direct")
+	assertContains(t, stdout, "default: cli-direct")
+	assertNotContains(t, stdout, "--runtime-protocol")
 	assertNotContains(t, stdout, "--timeout uint")
 	assertNotContains(t, stdout, "--files string")
 	assertEqual(t, stderr, "")
 }
 
-func TestVersionCommandKeepsBinaryVersionInvocationForDirectProtocol(t *testing.T) {
+func TestVersionCommandKeepsBinaryVersionInvocationForCLIDirectProtocol(t *testing.T) {
 	if stdruntime.GOOS == "windows" {
 		t.Skip("shell script test is Unix-only")
 	}
@@ -1456,8 +1448,7 @@ func TestVersionCommandKeepsBinaryVersionInvocationForDirectProtocol(t *testing.
 			"LAB_BINARY_TEST_STDIN": scriptContentPath,
 		},
 		"version",
-		"--runtime=bin:"+binary,
-		"--runtime-protocol=direct",
+		"--runtime=bin://"+binary+"?protocol=cli-direct",
 	)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
@@ -1587,7 +1578,10 @@ case "$1" in
     printf 'fake-version'
     ;;
   *)
-    cat "$1" > "$LAB_BINARY_TEST_STDIN"
+    for arg in "$@"; do
+      script="$arg"
+    done
+    cat "$script" > "$LAB_BINARY_TEST_STDIN"
     printf 'true'
     ;;
 esac

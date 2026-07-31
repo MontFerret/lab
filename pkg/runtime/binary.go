@@ -22,7 +22,8 @@ type (
 
 	// BinaryOptions configures a binary runtime.
 	BinaryOptions struct {
-		Path       string
+		Path string
+		// Protocol selects the binary invocation contract. An empty value uses ProtocolCLIDirect.
 		Protocol   Protocol
 		Params     map[string]any
 		Flags      []string
@@ -37,10 +38,14 @@ func NewBinary(opts BinaryOptions) (*Binary, error) {
 		return nil, errors.New("binary runtime path cannot be empty")
 	}
 
-	protocol := opts.Protocol
-
-	if err := validateBinaryRuntimeProtocol(protocol); err != nil {
+	protocol, err := normalizeBinaryRuntimeProtocol(opts.Protocol)
+	if err != nil {
 		return nil, err
+	}
+
+	rt := &Binary{
+		path:     opts.Path,
+		protocol: protocol,
 	}
 
 	if protocol == ProtocolCLIDirect {
@@ -48,10 +53,14 @@ func NewBinary(opts BinaryOptions) (*Binary, error) {
 			return nil, err
 		}
 
-		return &Binary{
-			path:     opts.Path,
-			protocol: protocol,
-		}, nil
+		sharedArgs, err := rt.paramsToArg(opts.Params)
+		if err != nil {
+			return nil, err
+		}
+
+		rt.baseArgs = slices.Concat(opts.Flags, sharedArgs)
+
+		return rt, nil
 	}
 
 	if err := opts.FSPolicy.validate(); err != nil {
@@ -75,11 +84,6 @@ func NewBinary(opts BinaryOptions) (*Binary, error) {
 	httpArgs, err := opts.HTTPPolicy.ferretCLIArgs()
 	if err != nil {
 		return nil, err
-	}
-
-	rt := &Binary{
-		path:     opts.Path,
-		protocol: protocol,
 	}
 
 	sharedArgs, err := rt.paramsToArg(opts.Params)
@@ -109,10 +113,6 @@ func (rt *Binary) Version(ctx context.Context) (string, error) {
 }
 
 func (rt *Binary) Run(ctx context.Context, query *source.Source, params map[string]any) (result []byte, resultErr error) {
-	if err := rt.validateRunParams(params); err != nil {
-		return nil, err
-	}
-
 	scriptPath, cleanup, err := resolveBinaryScript(query)
 	if err != nil {
 		return nil, err
@@ -143,16 +143,6 @@ func (rt *Binary) Run(ctx context.Context, query *source.Source, params map[stri
 	return out, nil
 }
 
-// ValidateSuite rejects suite execution when the selected protocol cannot
-// carry the bindings between suite phases.
-func (rt *Binary) ValidateSuite() error {
-	if rt.protocol == ProtocolCLIDirect {
-		return rt.protocol.unsupported("YAML test suites")
-	}
-
-	return nil
-}
-
 func (rt *Binary) Close() error {
 	return nil
 }
@@ -161,7 +151,11 @@ func (rt *Binary) paramsToArg(params map[string]any) ([]string, error) {
 	args := make([]string, 0, len(params))
 	keys := make([]string, 0, len(params))
 
-	for key := range params {
+	for key, value := range params {
+		if rt.protocol == ProtocolCLIDirect && key == "lab" && isEmptyLabBindings(value) {
+			continue
+		}
+
 		keys = append(keys, key)
 	}
 
@@ -175,33 +169,26 @@ func (rt *Binary) paramsToArg(params map[string]any) ([]string, error) {
 			return nil, fmt.Errorf("failed to serialize parameter: %s: %w", k, err)
 		}
 
-		args = append(args, fmt.Sprintf("--param=%s=%s", k, j))
+		separator := "="
+		if rt.protocol == ProtocolCLIDirect {
+			separator = ":"
+		}
+
+		args = append(args, fmt.Sprintf("--param=%s%s%s", k, separator, j))
 	}
 
 	return args, nil
 }
 
 func (rt *Binary) runArgs(scriptPath string, params map[string]any) ([]string, error) {
-	if err := rt.validateRunParams(params); err != nil {
-		return nil, err
-	}
-
-	if rt.protocol == ProtocolCLIDirect {
-		return []string{scriptPath}, nil
-	}
-
 	queryArgs, err := rt.paramsToArg(params)
 	if err != nil {
 		return nil, err
 	}
 
-	return slices.Concat([]string{"run", scriptPath}, rt.baseArgs, queryArgs), nil
-}
-
-func (rt *Binary) validateRunParams(params map[string]any) error {
-	if rt.protocol != ProtocolCLIDirect || !hasDirectBindParameters(params) {
-		return nil
+	if rt.protocol == ProtocolCLIDirect {
+		return slices.Concat(rt.baseArgs, queryArgs, []string{scriptPath}), nil
 	}
 
-	return rt.protocol.unsupported("bind parameters")
+	return slices.Concat([]string{"run", scriptPath}, rt.baseArgs, queryArgs), nil
 }

@@ -46,16 +46,6 @@ func validateRawBinaryFlags(rawFlags []string, conflictingFlags map[string]struc
 	return nil
 }
 
-func hasDirectBindParameters(params map[string]any) bool {
-	for name, value := range params {
-		if name != "lab" || !isEmptyLabBindings(value) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func isEmptyLabBindings(value any) bool {
 	bindings, ok := value.(map[string]any)
 	if !ok {

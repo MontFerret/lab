@@ -34,9 +34,10 @@ func TestBinaryRunUsesFerretCLIv2Contract(t *testing.T) {
 	}
 
 	rt, err := NewBinary(BinaryOptions{
-		Path:   script,
-		Flags:  []string{"--log-output=none"},
-		Params: map[string]any{"limit": 3},
+		Path:     script,
+		Protocol: ProtocolCLI,
+		Flags:    []string{"--log-output=none"},
+		Params:   map[string]any{"limit": 3},
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -70,8 +71,9 @@ func TestBinaryArgumentsIncludePoliciesAndAreDeterministic(t *testing.T) {
 	maxRedirects := 3
 
 	rt, err := NewBinary(BinaryOptions{
-		Path:  "/tmp/ferret",
-		Flags: []string{"--log-output=none"},
+		Path:     "/tmp/ferret",
+		Protocol: ProtocolCLI,
+		Flags:    []string{"--log-output=none"},
 		Params: map[string]any{
 			"zeta":  2,
 			"alpha": 1,
@@ -144,14 +146,14 @@ func TestBinaryArgumentsIncludePoliciesAndAreDeterministic(t *testing.T) {
 	}
 }
 
-func TestNewBinaryDefaultsToFerretProtocol(t *testing.T) {
+func TestNewBinaryDefaultsToCLIDirectProtocol(t *testing.T) {
 	rt, err := NewBinary(BinaryOptions{Path: "/tmp/ferret"})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if rt.protocol != ProtocolCLI {
-		t.Fatalf("expected %q protocol, got %q", ProtocolCLI, rt.protocol)
+	if rt.protocol != ProtocolCLIDirect {
+		t.Fatalf("expected %q protocol, got %q", ProtocolCLIDirect, rt.protocol)
 	}
 
 	args, err := rt.runArgs("test.fql", nil)
@@ -159,12 +161,12 @@ func TestNewBinaryDefaultsToFerretProtocol(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if !slices.Equal(args, []string{"run", "test.fql"}) {
+	if !slices.Equal(args, []string{"test.fql"}) {
 		t.Fatalf("unexpected args: %#v", args)
 	}
 }
 
-func TestBinaryDirectArgumentsContainOnlyScriptPath(t *testing.T) {
+func TestBinaryCLIDirectArgumentsContainOnlyScriptPath(t *testing.T) {
 	rt, err := NewBinary(BinaryOptions{
 		Path:     "/tmp/runtime",
 		Protocol: ProtocolCLIDirect,
@@ -189,39 +191,25 @@ func TestBinaryDirectArgumentsContainOnlyScriptPath(t *testing.T) {
 	}
 }
 
-func TestNewBinaryRejectsUnsupportedDirectOptions(t *testing.T) {
+func TestNewBinaryRejectsCLIDirectPolicies(t *testing.T) {
 	tests := []struct {
 		name string
 		opts BinaryOptions
 		want string
 	}{
 		{
-			name: "shared bind parameters",
-			opts: BinaryOptions{
-				Params: map[string]any{"name": "value"},
-			},
-			want: `runtime protocol "direct" does not support bind parameters`,
-		},
-		{
-			name: "runtime flags",
-			opts: BinaryOptions{
-				Flags: []string{"--log-output=none"},
-			},
-			want: `runtime protocol "direct" does not support runtime flags`,
-		},
-		{
 			name: "filesystem policy",
 			opts: BinaryOptions{
 				FSPolicy: &FileSystemPolicy{Root: "./fixtures"},
 			},
-			want: `runtime protocol "direct" does not support filesystem policy options`,
+			want: `runtime protocol "cli-direct" does not support filesystem policy options`,
 		},
 		{
 			name: "HTTP policy",
 			opts: BinaryOptions{
 				HTTPPolicy: &HTTPPolicy{AllowLocalhost: pointerTo(true)},
 			},
-			want: `runtime protocol "direct" does not support HTTP policy options`,
+			want: `runtime protocol "cli-direct" does not support HTTP policy options`,
 		},
 	}
 
@@ -238,26 +226,66 @@ func TestNewBinaryRejectsUnsupportedDirectOptions(t *testing.T) {
 	}
 }
 
-func TestBinaryDirectRejectsMeaningfulRunBindings(t *testing.T) {
+func TestBinaryCLIDirectArgumentsIncludeFlagsAndParams(t *testing.T) {
 	rt, err := NewBinary(BinaryOptions{
-		Path:     "/tmp/runtime",
-		Protocol: ProtocolCLIDirect,
+		Path:  "/tmp/runtime",
+		Flags: []string{"--log-level=debug", "--dry-run"},
+		Params: map[string]any{
+			"zeta":  2,
+			"alpha": "shared",
+		},
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	tests := []map[string]any{
-		{"name": "value"},
-		{"lab": map[string]any{"static": map[string]any{"app": "http://localhost"}}},
-		{"lab": map[string]any{"data": map[string]any{"query": 1}}},
+	args, err := rt.runArgs("path with spaces/test.fql", map[string]any{
+		"lab":   map[string]any{"static": map[string]any{"app": "http://localhost"}},
+		"alpha": "run",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
 
-	for _, params := range tests {
-		_, err := rt.runArgs("test.fql", params)
-		if err == nil || err.Error() != `runtime protocol "direct" does not support bind parameters` {
-			t.Fatalf("expected bind parameter error for %#v, got %v", params, err)
-		}
+	want := []string{
+		"--log-level=debug",
+		"--dry-run",
+		`--param=alpha:"shared"`,
+		"--param=zeta:2",
+		`--param=alpha:"run"`,
+		`--param=lab:{"static":{"app":"http://localhost"}}`,
+		"path with spaces/test.fql",
+	}
+	if !slices.Equal(args, want) {
+		t.Fatalf("unexpected args:\nwant: %#v\ngot:  %#v", want, args)
+	}
+}
+
+func TestBinaryCLIDirectReturnsParamSerializationErrorBeforeStartingProcess(t *testing.T) {
+	if stdruntime.GOOS == "windows" {
+		t.Skip("shell script test is Unix-only")
+	}
+
+	marker := filepath.Join(t.TempDir(), "executed")
+	t.Setenv("LAB_BINARY_EXECUTION_MARKER", marker)
+	binary := writeExecutable(t, "#!/bin/sh\ntouch \"$LAB_BINARY_EXECUTION_MARKER\"\n")
+
+	rt, err := NewBinary(BinaryOptions{Path: binary})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	_, err = rt.Run(
+		context.Background(),
+		ferretsource.New("generated", "RETURN 1"),
+		map[string]any{"invalid": make(chan struct{})},
+	)
+	if err == nil || !strings.Contains(err.Error(), "failed to serialize parameter: invalid") {
+		t.Fatalf("expected parameter serialization error, got %v", err)
+	}
+
+	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
+		t.Fatalf("expected runtime not to execute, got %v", statErr)
 	}
 }
 
@@ -304,7 +332,7 @@ func TestBinaryRunMaterializesSyntheticSourceAndCleansUp(t *testing.T) {
 	}
 }
 
-func TestBinaryRunDoesNotFallbackAfterFerretFailure(t *testing.T) {
+func TestBinaryRunDoesNotFallbackAfterCLIFailure(t *testing.T) {
 	if stdruntime.GOOS == "windows" {
 		t.Skip("shell script test is Unix-only")
 	}
@@ -325,7 +353,7 @@ func TestBinaryRunDoesNotFallbackAfterFerretFailure(t *testing.T) {
 		t.Fatalf("failed to write query: %v", err)
 	}
 
-	rt, err := NewBinary(BinaryOptions{Path: binary})
+	rt, err := NewBinary(BinaryOptions{Path: binary, Protocol: ProtocolCLI})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -493,7 +521,8 @@ func TestBinaryRunHonorsContextCancellation(t *testing.T) {
 
 func TestBinaryArgumentsIncludeUnlimitedPolicyFlags(t *testing.T) {
 	rt, err := NewBinary(BinaryOptions{
-		Path: "/tmp/ferret",
+		Path:     "/tmp/ferret",
+		Protocol: ProtocolCLI,
 		HTTPPolicy: &HTTPPolicy{
 			NoTimeout:             pointerTo(true),
 			UnlimitedRequestSize:  pointerTo(true),
@@ -517,7 +546,8 @@ func TestBinaryArgumentsIncludeUnlimitedPolicyFlags(t *testing.T) {
 
 func TestBinaryArgumentsPreserveExplicitEmptyPolicyCollections(t *testing.T) {
 	rt, err := NewBinary(BinaryOptions{
-		Path: "/tmp/ferret",
+		Path:     "/tmp/ferret",
+		Protocol: ProtocolCLI,
 		HTTPPolicy: &HTTPPolicy{
 			AllowedHosts:   []string{},
 			DefaultHeaders: map[string]string{},
@@ -575,6 +605,7 @@ func TestNewBinaryRejectsRawManagedPolicyConflicts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewBinary(BinaryOptions{
 				Path:       "/tmp/ferret",
+				Protocol:   ProtocolCLI,
 				Flags:      tt.flags,
 				FSPolicy:   tt.fs,
 				HTTPPolicy: tt.http,
@@ -588,8 +619,9 @@ func TestNewBinaryRejectsRawManagedPolicyConflicts(t *testing.T) {
 
 func TestNewBinaryAllowsRawPolicyFlagWhenUnmanaged(t *testing.T) {
 	rt, err := NewBinary(BinaryOptions{
-		Path:  "/tmp/ferret",
-		Flags: []string{"--policy-http-allow-localhost=true"},
+		Path:     "/tmp/ferret",
+		Protocol: ProtocolCLI,
+		Flags:    []string{"--policy-http-allow-localhost=true"},
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -611,6 +643,7 @@ func TestNewBinaryRejectsInvalidConfiguration(t *testing.T) {
 	t.Run("HTTP policy", func(t *testing.T) {
 		_, err := NewBinary(BinaryOptions{
 			Path:       "/tmp/ferret",
+			Protocol:   ProtocolCLI,
 			HTTPPolicy: &HTTPPolicy{AllowedHosts: []string{"bad host"}},
 		})
 		if err == nil || !strings.Contains(err.Error(), "WithAllowedHosts") {
@@ -656,7 +689,7 @@ func TestBinaryVersionUsesVersionCommand(t *testing.T) {
 		t.Fatalf("failed to write helper script: %v", err)
 	}
 
-	for _, protocol := range []Protocol{"", ProtocolCLIDirect} {
+	for _, protocol := range []Protocol{"", ProtocolCLI, ProtocolCLIDirect} {
 		rt, err := NewBinary(BinaryOptions{
 			Path:     script,
 			Protocol: protocol,

@@ -8,7 +8,7 @@ var (
 )
 
 func BenchmarkBinaryArgumentAssembly(b *testing.B) {
-	rt := &Binary{}
+	rt := &Binary{protocol: ProtocolCLI}
 	params := map[string]any{
 		"active": true,
 		"count":  42,
@@ -31,8 +31,9 @@ func BenchmarkBinaryArgumentAssembly(b *testing.B) {
 
 func BenchmarkBinaryArgumentConcatenation(b *testing.B) {
 	opts := BinaryOptions{
-		Path:  "ferret",
-		Flags: []string{"--log-output=none", "--browser-headless"},
+		Path:     "ferret",
+		Protocol: ProtocolCLI,
+		Flags:    []string{"--log-output=none", "--browser-headless"},
 		Params: map[string]any{
 			"active": true,
 			"count":  42,

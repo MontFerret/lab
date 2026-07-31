@@ -1,9 +1,8 @@
 package runtime
 
 import (
+	"fmt"
 	"net/url"
-
-	"errors"
 )
 
 func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, httpPolicy *HTTPPolicy) (*Builtin, error) {
@@ -13,7 +12,7 @@ func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, htt
 
 	options, err := httpPolicy.validatedFerretOptions()
 	if err != nil {
-		return nil, errors.New("HTTP policy: " + err.Error())
+		return nil, fmt.Errorf("HTTP policy: %w", err)
 	}
 
 	return newBuiltin(params, fsPolicy, options...)

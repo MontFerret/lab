@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -123,6 +124,15 @@ func TestBuiltinHTTPPolicyRejectsInvalidConfiguration(t *testing.T) {
 	_, err := NewBuiltin(nil, ferrethttp.WithAllowedHosts("bad host"))
 	if err == nil || !strings.Contains(err.Error(), "WithAllowedHosts") {
 		t.Fatalf("expected allowed-host policy error, got %v", err)
+	}
+}
+
+func TestNewPreservesHTTPPolicyConfigurationError(t *testing.T) {
+	_, err := New(Options{
+		HTTPPolicy: &HTTPPolicy{AllowedHosts: []string{"bad host"}},
+	})
+	if !errors.Is(err, ferrethttp.ErrInvalidPolicyConfiguration) {
+		t.Fatalf("expected wrapped policy configuration error, got %v", err)
 	}
 }
 

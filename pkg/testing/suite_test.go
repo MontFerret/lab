@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -87,23 +88,33 @@ assert:
 	}
 }
 
-func TestSuiteRunRejectsDirectProtocolBeforeExecution(t *stdtesting.T) {
+func TestSuiteRunSupportsCLIDirectProtocolParams(t *stdtesting.T) {
 	if stdruntime.GOOS == "windows" {
 		t.Skip("shell script test is Unix-only")
 	}
 
 	dir := t.TempDir()
-	marker := filepath.Join(dir, "executed")
+	argsPath := filepath.Join(dir, "args.txt")
 	binary := filepath.Join(dir, "runtime.sh")
-	content := "#!/bin/sh\ntouch \"$LAB_SUITE_EXECUTION_MARKER\"\nprintf 'true'\n"
+	content := `#!/bin/sh
+printf '%s\n' "$@" >> "$LAB_SUITE_ARGS"
+printf '%s\n' -- >> "$LAB_SUITE_ARGS"
+for arg in "$@"; do
+  script="$arg"
+done
+case "$(cat "$script")" in
+  *"RETURN 1"*) printf '1' ;;
+  *"RETURN true"*) printf 'true' ;;
+  *) exit 2 ;;
+esac
+`
 	if err := os.WriteFile(binary, []byte(content), 0o755); err != nil {
 		t.Fatalf("failed to write helper script: %v", err)
 	}
-	t.Setenv("LAB_SUITE_EXECUTION_MARKER", marker)
+	t.Setenv("LAB_SUITE_ARGS", argsPath)
 
 	rt, err := labruntime.NewBinary(labruntime.BinaryOptions{
-		Path:     binary,
-		Protocol: labruntime.ProtocolCLIDirect,
+		Path: binary,
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -115,8 +126,12 @@ func TestSuiteRunRejectsDirectProtocolBeforeExecution(t *stdtesting.T) {
 			Content: []byte(`
 query:
   text: RETURN 1
+  params:
+    phase: query
 assert:
   text: RETURN true
+  params:
+    phase: assert
 `),
 		},
 		Timeout: time.Second,
@@ -125,12 +140,26 @@ assert:
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	err = testCase.Run(context.Background(), rt, testing2.NewParams())
-	if err == nil || err.Error() != `runtime protocol "direct" does not support YAML test suites` {
-		t.Fatalf("unexpected error: %v", err)
+	if err := testCase.Run(context.Background(), rt, testing2.NewParams()); err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if _, err := os.Stat(marker); !os.IsNotExist(err) {
-		t.Fatalf("expected runtime not to execute, got %v", err)
+	args, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("failed to read captured args: %v", err)
+	}
+
+	captured := string(args)
+	if strings.Count(captured, "--\n") != 2 {
+		t.Fatalf("expected two runtime invocations, got %q", captured)
+	}
+	for _, expected := range []string{
+		`--param=phase:"query"`,
+		`--param=phase:"assert"`,
+		`--param=lab:{"data":`,
+	} {
+		if !strings.Contains(captured, expected) {
+			t.Fatalf("expected captured args to contain %q, got %q", expected, captured)
+		}
 	}
 }

@@ -74,12 +74,6 @@ func NewSuite(opts Options) (*Suite, error) {
 }
 
 func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) error {
-	if validator, ok := rt.(runtime.SuiteValidator); ok {
-		if err := validator.ValidateSuite(); err != nil {
-			return err
-		}
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, suite.timeout)
 	defer cancel()
 
