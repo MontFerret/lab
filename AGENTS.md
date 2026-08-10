@@ -539,7 +539,7 @@ Agents must follow repository-specific engineering discipline rather than generi
 
 ### Required workflow for non-trivial changes
 
-Before making a non-trivial change:
+For every non-trivial change:
 
 1. Identify the owning subsystem.
 2. Identify the contract, invariant, or behavior being preserved or changed.
@@ -547,7 +547,9 @@ Before making a non-trivial change:
 4. Determine whether the change is significant.
 5. Add or update correctness tests.
 6. Capture a benchmark baseline and add or update benchmarks when the change is significant.
-7. Run relevant validation and summarize the evidence accurately.
+7. Run the relevant initial validation and summarize the evidence accurately.
+8. Review the complete resulting diff using the mandatory final self-review requirements below.
+9. Correct substantive findings and rerun all validation or benchmarks affected by those corrections.
 
 ### Significant changes
 
@@ -585,6 +587,62 @@ When uncertain, treat the change as significant and benchmark it.
 - Report the exact benchmark command and summarize the delta.
 - Add a benchmark when no relevant benchmark covers the changed hot path.
 - If the environment cannot run benchmarks, state that limitation and do not claim benchmark validation.
+
+### Mandatory final self-review
+
+After completing the implementation and initial validation for any non-trivial task, agents must review the complete resulting diff before considering the task finished.
+
+The purpose of this review is to catch problems in the implementation itself, not to generate additional work or redesign unrelated parts of the repository.
+
+Review the final change for:
+
+- Correctness
+    - Verify that the implementation satisfies the task requirements completely.
+    - Look for missing cases, incorrect assumptions, regressions, boundary conditions, and failure paths.
+    - Check error handling, cancellation, cleanup, state transitions, ownership, and lifecycle behavior where applicable.
+    - Verify that tests exercise the intended contract rather than merely mirroring the implementation.
+- Code clarity and cleanliness
+    - Look for unnecessary complexity, duplication, excessive nesting, awkward control flow, misleading naming, or code that is difficult to reason about.
+    - Prefer straightforward and idiomatic Go over clever implementations.
+    - Remove implementation artifacts that are no longer necessary after the final design has taken shape.
+- Repository and Go best practices
+    - Verify that the implementation follows the conventions and mandatory structure rules in this file.
+    - Check relevant Go practices, error handling, resource ownership, concurrency behavior, and API design.
+    - Do not introduce a pattern merely because it is generally fashionable; it must improve this repository specifically.
+- Architecture
+    - Verify that responsibilities remain in the correct package, type, and layer.
+    - Check dependency direction and existing architectural boundaries.
+    - Look for unwanted coupling, leaked implementation details, misplaced semantics, or abstractions at the wrong level.
+    - Verify that shared semantics remain owned by the appropriate subsystem rather than being duplicated by consumers.
+- Code organization and split
+    - Verify that files, types, methods, functions, and packages have clear responsibilities.
+    - Check compliance with the Go type/file and function/method ownership rules in this file.
+    - Look for files or functions doing too much.
+    - Also avoid unnecessary fragmentation where closely related logic has been split into excessive helpers or files.
+    - Ensure that the primary execution path remains easy to follow.
+- Tests
+    - Look for meaningful behavioral gaps, especially negative cases and boundary conditions.
+    - Check for brittle tests, redundant tests, tests coupled unnecessarily to implementation details, and assertions too weak to catch plausible regressions.
+    - For bug fixes, verify that a test would fail without the fix whenever practical.
+- Performance
+    - For significant changes, inspect the final implementation for accidental allocations, repeated work, unnecessary materialization, or additional hot-path overhead.
+    - Compare required benchmark results with the baseline.
+    - Do not trade clear correctness for speculative micro-optimization.
+
+When the review finds a problem:
+
+1. Fix correctness issues and regressions.
+2. Fix meaningful architectural, ownership, lifecycle, or maintainability problems.
+3. Simplify unnecessarily complicated code when doing so clearly improves the implementation.
+4. Add or improve tests when the review exposes a behavioral coverage gap.
+5. Rerun validation affected by the review-driven changes.
+6. Rerun relevant benchmarks if a review-driven change affects benchmarked code.
+
+Do not use the self-review as justification for speculative refactoring, unrelated cleanup, API redesign, or stylistic churn.
+
+Distinguish actual problems from optional preferences. Existing code that is already clear, correct, idiomatic, and appropriately structured should be left alone.
+
+The first working implementation is not automatically the final implementation. The task is complete only after implementation, validation, self-review, necessary corrections, and final validation have been performed.
 
 ## Test placement rules
 
