@@ -318,6 +318,8 @@ Time:  1.23s
 
 Lab supports test suites defined in YAML format, enabling more complex scenarios with assertions, parameters, setup, and cleanup steps.
 
+Use a plain `.fql` file for normal successful execution and in-query assertions. Use YAML when the test needs a richer execution-level expectation, such as requiring the query to return an error.
+
 ### 📋 Basic Test Suite Structure
 
 ```yaml
@@ -343,6 +345,35 @@ Save as `github-test.yaml` and run:
 ```bash
 lab run github-test.yaml
 ```
+
+### Expected Runtime Errors
+
+Use `expect.error` when a query must fail. An empty error object accepts any error returned by the runtime:
+
+```yaml
+query:
+  text: |
+    RETURN 1 / 0
+
+expect:
+  error: {}
+```
+
+Add `contains` to require a stable part of the error message:
+
+```yaml
+query:
+  text: |
+    RETURN 1 / 0
+
+expect:
+  error:
+    contains: "division by zero"
+```
+
+Message matching prevents an unrelated runtime failure from accidentally satisfying the test. A suite using `expect.error` must not define `assert`, because the expected query failure produces no result for an assertion script.
+
+The legacy `.fail.fql` filename convention remains supported: it passes when execution returns any error and fails when execution succeeds. It is deprecated; prefer a YAML suite with `expect.error` for new negative tests.
 
 ### 🔗 Reference External Scripts
 

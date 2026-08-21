@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"sync/atomic"
 	"testing"
@@ -113,5 +114,54 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("expected exactly one runtime invocation, got %d", got)
+	}
+}
+
+func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
+	var calls atomic.Int32
+
+	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]interface{}) ([]byte, error) {
+		calls.Add(1)
+
+		return nil, errors.New("expected runtime failure")
+	})
+
+	r, err := New(Options{
+		Runtime: rt,
+		Times:   2,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	stream := r.Run(NewContext(context.Background(), testing2.NewParams()), singleFileSource{
+		file: sources.File{
+			Name:    "test.fail.fql",
+			Content: []byte("RETURN 1"),
+		},
+	})
+
+	result := <-stream.Progress
+	const warning = "'.fail.fql' expected-failure tests are deprecated; use a YAML test with 'expect.error' instead"
+
+	if result.Error != nil {
+		t.Fatalf("expected no error, got %v", result.Error)
+	}
+
+	if result.Warning != warning {
+		t.Fatalf("expected warning %q, got %q", warning, result.Warning)
+	}
+
+	if result.Times != 2 {
+		t.Fatalf("expected two successful runs, got %d", result.Times)
+	}
+
+	summary := <-stream.Summary
+	if summary.Passed != 1 || summary.Failed != 0 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("expected exactly two runtime invocations, got %d", got)
 	}
 }

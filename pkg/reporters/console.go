@@ -23,6 +23,10 @@ func NewConsole(out io.Writer) *Console {
 
 func (c *Console) Report(ctx context.Context, stream runner.Stream) error {
 	for res := range stream.Progress {
+		if res.Warning != "" {
+			c.logger.Warn().Str("File", res.Filename).Msg(res.Warning)
+		}
+
 		var evt *zerolog.Event
 
 		if res.Error != nil {

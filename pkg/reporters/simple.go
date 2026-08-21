@@ -19,6 +19,10 @@ func NewSimple(out io.Writer) *Simple {
 
 func (s *Simple) Report(ctx context.Context, stream runner.Stream) error {
 	for res := range stream.Progress {
+		if res.Warning != "" {
+			fmt.Fprintf(s.out, "WARN file=%q warning=%q\n", res.Filename, res.Warning)
+		}
+
 		if res.Error != nil {
 			fmt.Fprintf(s.out, "FAIL file=%q duration=%s attempts=%d times=%d error=%q\n", res.Filename, res.Duration, res.Attempts, res.Times, res.Error.Error())
 			continue
