@@ -25,8 +25,8 @@ func toMockAPIEntries(values []string) (mockserver.Entries, error) {
 	return mockserver.ParseEntries(values)
 }
 
-func toParams(values []string) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
+func toParams(values []string) (map[string]any, error) {
+	res := make(map[string]any)
 
 	for _, entry := range values {
 		pair := strings.SplitN(entry, ":", 2)
@@ -35,7 +35,7 @@ func toParams(values []string) (map[string]interface{}, error) {
 			return nil, ferretrt.Error(ferretrt.ErrInvalidArgument, entry)
 		}
 
-		var value interface{}
+		var value any
 		key := pair[0]
 
 		err := json.Unmarshal([]byte(pair[1]), &value)
@@ -113,7 +113,7 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 	}
 }
 
-func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtime, error) {
+func newRuntime(cmd *cli.Command, params map[string]any) (runtime.Runtime, error) {
 	fsPolicy, err := fsPolicyFromCommand(cmd)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func newRuntime(cmd *cli.Command, params map[string]interface{}) (runtime.Runtim
 	return rt, nil
 }
 
-func extractBinaryFlags(params map[string]interface{}) ([]string, error) {
+func extractBinaryFlags(params map[string]any) ([]string, error) {
 	value, exists := params["flags"]
 	if !exists {
 		return nil, nil

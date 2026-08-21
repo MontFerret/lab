@@ -26,8 +26,8 @@ type (
 	}
 
 	remoteQuery struct {
-		Text   string                 `json:"text"`
-		Params map[string]interface{} `json:"params"`
+		Text   string         `json:"text"`
+		Params map[string]any `json:"params"`
 	}
 
 	HTTPParams struct {
@@ -43,7 +43,7 @@ type (
 	}
 )
 
-func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
+func NewRemote(u string, params map[string]any) (*Remote, error) {
 	p := HTTPParams{
 		Headers: http.Header{
 			"Content-Type":    []string{"application/json"},
@@ -59,7 +59,7 @@ func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
 		headers, exists := params["headers"]
 
 		if exists {
-			headers, ok := headers.(map[string]interface{})
+			headers, ok := headers.(map[string]any)
 
 			if !ok {
 				return nil, errors.New("invalid type of headers (expected map)")
@@ -91,7 +91,7 @@ func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
 		cookies, exists := params["cookies"]
 
 		if exists {
-			cookies, ok := cookies.(map[string]interface{})
+			cookies, ok := cookies.(map[string]any)
 
 			if !ok {
 				return nil, errors.New("invalid type of cookies (expected map)")
@@ -141,7 +141,7 @@ func (rt *Remote) Version(ctx context.Context) (string, error) {
 	return info.Version.Ferret, nil
 }
 
-func (rt *Remote) Run(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error) {
+func (rt *Remote) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
 	body, err := json.Marshal(remoteQuery{
 		Text:   query.Content(),
 		Params: params,

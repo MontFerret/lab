@@ -17,9 +17,9 @@ type (
 	}
 
 	ScriptManifest struct {
-		Text   string                 `yaml:"text"`
-		Ref    string                 `yaml:"ref"`
-		Params map[string]interface{} `yaml:"params"`
+		Text   string         `yaml:"text"`
+		Ref    string         `yaml:"ref"`
+		Params map[string]any `yaml:"params"`
 	}
 
 	ExpectationManifest struct {
@@ -33,10 +33,10 @@ type (
 
 // UnmarshalYAML rejects unknown nested fields without enabling strict decoding
 // for the rest of the suite manifest.
-func (manifest *ErrorExpectationManifest) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (manifest *ErrorExpectationManifest) UnmarshalYAML(unmarshal func(any) error) error {
 	decoded := struct {
-		Contains string                 `yaml:"contains,omitempty"`
-		Unknown  map[string]interface{} `yaml:",inline"`
+		Contains string         `yaml:"contains,omitempty"`
+		Unknown  map[string]any `yaml:",inline"`
 	}{}
 
 	if err := unmarshal(&decoded); err != nil {
@@ -106,7 +106,7 @@ func (manifest ScriptManifest) validate() error {
 	return nil
 }
 
-func (manifest ScriptManifest) runtimeParams(params Params) map[string]interface{} {
+func (manifest ScriptManifest) runtimeParams(params Params) map[string]any {
 	params.SetUserValues(manifest.Params)
 
 	return params.ToMap()

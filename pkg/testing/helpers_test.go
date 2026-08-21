@@ -11,8 +11,8 @@ import (
 func TestHelpers(t *t.T) {
 	Convey("ToMap", t, func() {
 		Convey("Should copy plain map", func() {
-			original := map[string]interface{}{
-				"foo": map[string]interface{}{
+			original := map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
 				},
 			}
@@ -34,7 +34,7 @@ func TestHelpers(t *t.T) {
 				Bar: 1,
 			}
 
-			original := map[string]interface{}{
+			original := map[string]any{
 				"test": stct,
 			}
 			copied := testing.ToMap(original)
@@ -42,8 +42,8 @@ func TestHelpers(t *t.T) {
 			So(&original, ShouldNotPointTo, &copied)
 			So(original, ShouldNotEqual, copied)
 			So(original, ShouldNotResemble, copied)
-			So(copied["test"].(map[string]interface{})["Foo"], ShouldEqual, stct.Foo)
-			So(copied["test"].(map[string]interface{})["Bar"], ShouldEqual, stct.Bar)
+			So(copied["test"].(map[string]any)["Foo"], ShouldEqual, stct.Foo)
+			So(copied["test"].(map[string]any)["Bar"], ShouldEqual, stct.Bar)
 		})
 
 		Convey("Should respect struct's json tags", func() {
@@ -62,7 +62,7 @@ func TestHelpers(t *t.T) {
 				Bar: 1,
 			}
 
-			original := map[string]interface{}{
+			original := map[string]any{
 				"test": stct,
 			}
 			copied := testing.ToMap(original)
@@ -70,9 +70,9 @@ func TestHelpers(t *t.T) {
 			So(&original, ShouldNotPointTo, &copied)
 			So(original, ShouldNotEqual, copied)
 			So(original, ShouldNotResemble, copied)
-			So(copied["test"].(map[string]interface{})["foo"], ShouldEqual, stct.Foo)
-			So(copied["test"].(map[string]interface{})["bar"], ShouldEqual, stct.Bar)
-			So(copied["test"].(map[string]interface{})["nested"].(map[string]interface{})["baz"], ShouldEqual, stct.Nested.Baz)
+			So(copied["test"].(map[string]any)["foo"], ShouldEqual, stct.Foo)
+			So(copied["test"].(map[string]any)["bar"], ShouldEqual, stct.Bar)
+			So(copied["test"].(map[string]any)["nested"].(map[string]any)["baz"], ShouldEqual, stct.Nested.Baz)
 		})
 	})
 }

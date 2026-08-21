@@ -298,21 +298,21 @@ func addAllowedMethods(allowed map[string]struct{}, rt *route) {
 
 func normalizeValue(value any) any {
 	switch typed := value.(type) {
-	case map[interface{}]interface{}:
+	case map[any]any:
 		out := make(map[string]any, len(typed))
 		for key, child := range typed {
 			out[fmt.Sprint(key)] = normalizeValue(child)
 		}
 
 		return out
-	case map[string]interface{}:
+	case map[string]any:
 		out := make(map[string]any, len(typed))
 		for key, child := range typed {
 			out[key] = normalizeValue(child)
 		}
 
 		return out
-	case []interface{}:
+	case []any:
 		out := make([]any, len(typed))
 		for idx, child := range typed {
 			out[idx] = normalizeValue(child)

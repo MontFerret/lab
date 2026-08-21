@@ -244,10 +244,10 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 		return cli.Exit(err.Error(), 1)
 	}
 
-	staticURLs := make(map[string]interface{})
+	staticURLs := make(map[string]any)
 	params.SetSystemValue("static", staticURLs)
 
-	mockURLs := make(map[string]interface{})
+	mockURLs := make(map[string]any)
 	params.SetSystemValue("mock", mockURLs)
 
 	manager, err := createStaticServerManagerFromCommand(cmd, serveEntries)

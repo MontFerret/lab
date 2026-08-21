@@ -28,8 +28,8 @@ type (
 	}
 
 	DataContextValues struct {
-		Result interface{}            `json:"result"`
-		Params map[string]interface{} `json:"params"`
+		Result any            `json:"result"`
+		Params map[string]any `json:"params"`
 	}
 )
 
@@ -121,12 +121,12 @@ func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manife
 	}
 }
 
-func (suite *Suite) deserializeQueryOutput(values []byte) (interface{}, error) {
+func (suite *Suite) deserializeQueryOutput(values []byte) (any, error) {
 	if len(values) == 0 {
 		return nil, nil
 	}
 
-	var o interface{}
+	var o any
 
 	if err := json.Unmarshal(values, &o); err != nil {
 		return nil, err
