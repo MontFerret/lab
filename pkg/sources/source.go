@@ -2,9 +2,9 @@ package sources
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
-
-	"github.com/pkg/errors"
 )
 
 type (
@@ -87,7 +87,7 @@ func CreateFrom(u *url.URL) (Source, error) {
 	factory, found := factoryByType[srcType]
 
 	if !found {
-		return nil, errors.Errorf("unknown source provider: %s", u.Scheme)
+		return nil, fmt.Errorf("unknown source provider: %s", u.Scheme)
 	}
 
 	return factory(u)

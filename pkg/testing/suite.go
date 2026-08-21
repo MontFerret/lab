@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
 	"github.com/MontFerret/lab/v2/pkg/runtime"
@@ -37,7 +36,7 @@ func NewSuite(opts Options) (*Suite, error) {
 	manifest := SuiteManifest{}
 
 	if err := yaml.Unmarshal(opts.File.Content, &manifest); err != nil {
-		return nil, errors.Wrap(err, "failed to parse file")
+		return nil, fmt.Errorf("failed to parse file: %w", err)
 	}
 
 	if err := manifest.validate(); err != nil {
@@ -63,7 +62,7 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 
 	query, err := suite.resolveScript(ctx, "query", suite.manifest.Query)
 	if err != nil {
-		return errors.Wrap(err, "resolve query script")
+		return fmt.Errorf("resolve query script: %w", err)
 	}
 
 	if expectedError := suite.manifest.Expect.Error; expectedError != nil {
@@ -74,19 +73,19 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 
 	assertion, err := suite.resolveScript(ctx, "assert", *suite.manifest.Assert)
 	if err != nil {
-		return errors.Wrap(err, "resolve assertion script")
+		return fmt.Errorf("resolve assertion script: %w", err)
 	}
 
 	queryParams := suite.manifest.Query.runtimeParams(params.Clone())
 
 	out, err := rt.Run(ctx, query, queryParams)
 	if err != nil {
-		return errors.Wrap(err, "failed to execute query script")
+		return fmt.Errorf("failed to execute query script: %w", err)
 	}
 
 	outVal, err := suite.deserializeQueryOutput(out)
 	if err != nil {
-		return errors.Wrap(err, "deserialize query output")
+		return fmt.Errorf("deserialize query output: %w", err)
 	}
 
 	params.SetSystemValue("data", DataContext{
@@ -108,14 +107,14 @@ func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manife
 
 	u, err := url.Parse(manifest.Ref)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse 'ref'")
+		return nil, fmt.Errorf("parse 'ref': %w", err)
 	}
 
 	onNext, onError := suite.file.Resolve(ctx, u)
 
 	select {
 	case e := <-onError:
-		return nil, errors.Wrap(e, "resolve 'ref'")
+		return nil, fmt.Errorf("resolve 'ref': %w", e)
 	case f := <-onNext:
 		return source.New(f.Name, string(f.Content)), nil
 	}

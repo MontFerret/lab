@@ -1,11 +1,10 @@
 package mockserver
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/pkg/errors"
 
 	"github.com/MontFerret/lab/v2/pkg/localserver"
 )
@@ -47,14 +46,14 @@ func validateSpecPath(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errors.Errorf("mock API spec %q does not exist", path)
+			return fmt.Errorf("mock API spec %q does not exist", path)
 		}
 
-		return errors.Wrapf(err, "inspect mock API spec %q", path)
+		return fmt.Errorf("inspect mock API spec %q: %w", path, err)
 	}
 
 	if info.IsDir() {
-		return errors.Errorf("mock API spec %q is not a file", path)
+		return fmt.Errorf("mock API spec %q is not a file", path)
 	}
 
 	return nil

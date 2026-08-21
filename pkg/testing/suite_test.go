@@ -86,6 +86,38 @@ assert:
 	}
 }
 
+func TestSuiteRunPreservesRuntimeErrorChain(t *stdtesting.T) {
+	runtimeErr := errors.New("runtime failed")
+	testCase, err := testing2.New(testing2.Options{
+		File: sources.File{
+			Name: "suite.yaml",
+			Content: []byte(`
+query:
+  text: RETURN 1
+assert:
+  text: RETURN true
+`),
+		},
+		Timeout: time.Second,
+	})
+	if err != nil {
+		t.Fatalf("expected no construction error, got %v", err)
+	}
+
+	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
+		return nil, runtimeErr
+	})
+
+	err = testCase.Run(context.Background(), rt, testing2.NewParams())
+	if !errors.Is(err, runtimeErr) {
+		t.Fatalf("expected runtime error in chain, got %v", err)
+	}
+
+	if err.Error() != "failed to execute query script: runtime failed" {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
 func TestSuiteExpectedError(t *stdtesting.T) {
 	tests := []struct {
 		name       string

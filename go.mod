@@ -13,7 +13,6 @@ require (
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/labstack/echo/v4 v4.15.4
-	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/urfave/cli/v3 v3.11.0
@@ -48,6 +47,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.2 // indirect

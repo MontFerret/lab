@@ -2,10 +2,10 @@ package mockserver
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -62,7 +62,7 @@ func renderStringTemplate(source string, ctx TemplateContext, templates map[stri
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, ctx); err != nil {
-		return "", errors.Wrap(err, "render template")
+		return "", fmt.Errorf("render template: %w", err)
 	}
 
 	return buf.String(), nil

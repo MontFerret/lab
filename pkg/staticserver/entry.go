@@ -1,10 +1,10 @@
 package staticserver
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/pkg/errors"
 
 	"github.com/MontFerret/lab/v2/pkg/localserver"
 )
@@ -25,7 +25,7 @@ func ParseServeEntries(bindings []string) (ServeEntries, error) {
 		}
 
 		if _, found := aliases[entry.Alias]; found {
-			return nil, errors.Errorf("duplicate static alias %q", entry.Alias)
+			return nil, fmt.Errorf("duplicate static alias %q", entry.Alias)
 		}
 
 		aliases[entry.Alias] = struct{}{}
@@ -46,12 +46,12 @@ func ParseServeEntry(binding string) (ServeEntry, error) {
 	}
 
 	if pathPart == "" {
-		return ServeEntry{}, errors.Errorf("invalid serve entry %q", binding)
+		return ServeEntry{}, fmt.Errorf("invalid serve entry %q", binding)
 	}
 
 	hasExplicitAlias := alias != ""
 	if hasExplicitAlias && !localserver.IsValidAlias(alias) {
-		return ServeEntry{}, errors.Errorf("invalid serve alias %q", alias)
+		return ServeEntry{}, fmt.Errorf("invalid serve alias %q", alias)
 	}
 
 	if err := validateServeEntryPath(pathPart); err != nil {
@@ -63,7 +63,7 @@ func ParseServeEntry(binding string) (ServeEntry, error) {
 	}
 
 	if !localserver.IsValidAlias(alias) {
-		return ServeEntry{}, errors.Errorf("invalid serve alias %q", alias)
+		return ServeEntry{}, fmt.Errorf("invalid serve alias %q", alias)
 	}
 
 	return ServeEntry{
@@ -77,14 +77,14 @@ func validateServeEntryPath(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errors.Errorf("served directory %q does not exist", path)
+			return fmt.Errorf("served directory %q does not exist", path)
 		}
 
-		return errors.Wrapf(err, "inspect served directory %q", path)
+		return fmt.Errorf("inspect served directory %q: %w", path, err)
 	}
 
 	if !info.IsDir() {
-		return errors.Errorf("served directory %q is not a directory", path)
+		return fmt.Errorf("served directory %q is not a directory", path)
 	}
 
 	return nil

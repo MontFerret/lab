@@ -3,9 +3,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
-
-	pkgerrors "github.com/pkg/errors"
 
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )
@@ -57,7 +56,7 @@ func New(opts Options) (Runtime, error) {
 	u, err := url.Parse(opts.Type)
 
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to parse remote runtime url")
+		return nil, fmt.Errorf("failed to parse remote runtime url: %w", err)
 	}
 
 	switch u.Scheme {
@@ -99,7 +98,7 @@ func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, htt
 
 	options, err := httpPolicy.validatedFerretOptions()
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "HTTP policy")
+		return nil, fmt.Errorf("HTTP policy: %w", err)
 	}
 
 	return newBuiltin(params, fsPolicy, options...)

@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-waitfor/waitfor"
 	http "github.com/go-waitfor/waitfor-http"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 
 	"github.com/MontFerret/lab/v2/pkg/reporters"
@@ -183,7 +183,7 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 		)
 
 		if err != nil {
-			return cli.Exit(errors.Wrap(err, "timeout"), 1)
+			return cli.Exit(fmt.Errorf("timeout: %w", err), 1)
 		}
 	}
 

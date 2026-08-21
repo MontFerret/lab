@@ -1,11 +1,10 @@
 package testing
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 type (
@@ -72,7 +71,7 @@ func (manifest *ErrorExpectationManifest) UnmarshalYAML(unmarshal func(any) erro
 
 func (manifest SuiteManifest) validate() error {
 	if err := manifest.Query.validate(); err != nil {
-		return errors.Wrap(err, "query")
+		return fmt.Errorf("query: %w", err)
 	}
 
 	if manifest.Expect.Error != nil {
@@ -88,7 +87,7 @@ func (manifest SuiteManifest) validate() error {
 	}
 
 	if err := manifest.Assert.validate(); err != nil {
-		return errors.Wrap(err, "assert")
+		return fmt.Errorf("assert: %w", err)
 	}
 
 	return nil
