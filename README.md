@@ -371,7 +371,7 @@ expect:
     contains: "division by zero"
 ```
 
-Message matching prevents an unrelated runtime failure from accidentally satisfying the test. A suite using `expect.error` must not define `assert`, because the expected query failure produces no result for an assertion script.
+Message matching prevents an unrelated runtime failure from accidentally satisfying the test. Only `contains` is supported inside `expect.error`; unknown fields fail during suite construction instead of falling back to an unqualified error expectation. A suite using `expect.error` must not define `assert`, because the expected query failure produces no result for an assertion script.
 
 The legacy `.fail.fql` filename convention remains supported: it passes when execution returns any error and fails when execution succeeds. It is deprecated; prefer a YAML suite with `expect.error` for new negative tests.
 

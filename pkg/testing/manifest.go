@@ -2,6 +2,7 @@ package testing
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -29,6 +30,45 @@ type (
 		Contains string `yaml:"contains,omitempty"`
 	}
 )
+
+// UnmarshalYAML rejects unknown nested fields without enabling strict decoding
+// for the rest of the suite manifest.
+func (manifest *ErrorExpectationManifest) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	decoded := struct {
+		Contains string                 `yaml:"contains,omitempty"`
+		Unknown  map[string]interface{} `yaml:",inline"`
+	}{}
+
+	if err := unmarshal(&decoded); err != nil {
+		return err
+	}
+
+	if len(decoded.Unknown) > 0 {
+		fields := make([]string, 0, len(decoded.Unknown))
+
+		for field := range decoded.Unknown {
+			fields = append(fields, field)
+		}
+
+		sort.Strings(fields)
+
+		if len(fields) == 1 {
+			return fmt.Errorf("expect.error contains unsupported field %q", fields[0])
+		}
+
+		quotedFields := make([]string, len(fields))
+
+		for i, field := range fields {
+			quotedFields[i] = fmt.Sprintf("%q", field)
+		}
+
+		return fmt.Errorf("expect.error contains unsupported fields %s", strings.Join(quotedFields, ", "))
+	}
+
+	manifest.Contains = decoded.Contains
+
+	return nil
+}
 
 func (manifest SuiteManifest) validate() error {
 	if err := manifest.Query.validate(); err != nil {

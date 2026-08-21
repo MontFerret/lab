@@ -244,11 +244,34 @@ expect:
 `,
 			wantErr: "cannot unmarshal",
 		},
+		{
+			name: "unknown error expectation fields",
+			content: `
+query:
+  text: RETURN 1
+expect:
+  error:
+    suffix: unavailable
+    prefix: network
+`,
+			wantErr: `expect.error contains unsupported fields "prefix", "suffix"`,
+		},
+		{
+			name: "misspelled contains field",
+			content: `
+query:
+  text: RETURN 1
+expect:
+  error:
+    contians: expected Array
+`,
+			wantErr: `expect.error contains unsupported field "contians"`,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *stdtesting.T) {
-			_, err := testing2.New(testing2.Options{
+			testCase, err := testing2.NewSuite(testing2.Options{
 				File: sources.File{
 					Name:    "suite.yaml",
 					Content: []byte(test.content),
@@ -258,6 +281,34 @@ expect:
 			if err == nil || !strings.Contains(err.Error(), test.wantErr) {
 				t.Fatalf("expected error containing %q, got %v", test.wantErr, err)
 			}
+
+			if testCase != nil {
+				t.Fatal("expected construction failure to return no test case")
+			}
 		})
+	}
+}
+
+func TestSuiteExpectedErrorValidationIsScoped(t *stdtesting.T) {
+	testCase, err := testing2.NewSuite(testing2.Options{
+		File: sources.File{
+			Name: "suite.yaml",
+			Content: []byte(`
+unsupported: true
+query:
+  text: RETURN 1
+expect:
+  unsupported: true
+  error: {}
+`),
+		},
+		Timeout: time.Second,
+	})
+	if err != nil {
+		t.Fatalf("expected unknown fields outside expect.error to remain supported, got %v", err)
+	}
+
+	if testCase == nil {
+		t.Fatal("expected a constructed suite")
 	}
 }
