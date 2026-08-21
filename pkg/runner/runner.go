@@ -31,6 +31,10 @@ type (
 		testCount    uint64
 		testInterval uint64
 	}
+
+	deprecationWarningCase interface {
+		DeprecationWarning() string
+	}
 )
 
 func New(opts Options) (*Runner, error) {
@@ -184,6 +188,12 @@ func (r *Runner) runCase(ctx context.Context, file sources2.File, params testing
 		}
 	}
 
+	var warning string
+
+	if deprecated, ok := testCase.(deprecationWarningCase); ok {
+		warning = deprecated.DeprecationWarning()
+	}
+
 	attemptCounter := uint64(0)
 	runCounter := uint64(0)
 	totalDuration := int64(0)
@@ -237,5 +247,6 @@ loop:
 		Filename: file.Name,
 		Duration: time.Duration(totalDuration / int64(runCounter)), // average duration
 		Error:    err,
+		Warning:  warning,
 	}
 }

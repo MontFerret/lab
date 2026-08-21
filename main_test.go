@@ -65,6 +65,43 @@ func TestRunCommandExecutesFilesFlag(t *testing.T) {
 	assertEqual(t, stderr, "")
 }
 
+func TestRunCommandExecutesExpectedErrorSuite(t *testing.T) {
+	suite := writeNamedScript(t, "test.yaml", `
+query:
+  text: RETURN 1 / 0
+expect:
+  error:
+    contains: division by zero
+`)
+
+	stdout, stderr, err := runCLI(t, "run", suite)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandWarnsForLegacyExpectedFailure(t *testing.T) {
+	script := writeNamedScript(t, "test.fail.fql", "RETURN T::OBJECT([])")
+
+	stdout, stderr, err := runCLI(t, "run", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	const warning = "'.fail.fql' expected-failure tests are deprecated; use a YAML test with 'expect.error' instead"
+	if count := strings.Count(stdout, warning); count != 1 {
+		t.Fatalf("expected warning once, got %d occurrences in %q", count, stdout)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
 func TestRunCommandWithoutFilesShowsHelp(t *testing.T) {
 	stdout, stderr, err := runCLI(t, "run")
 	helpStdout, helpStderr, helpErr := runCLI(t, "run", "--help")

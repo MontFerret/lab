@@ -23,18 +23,6 @@ type (
 		manifest SuiteManifest
 	}
 
-	SuiteManifest struct {
-		Timeout uint64         `yaml:"timeout"`
-		Query   ScriptManifest `yaml:"query"`
-		Assert  ScriptManifest `yaml:"assert"`
-	}
-
-	ScriptManifest struct {
-		Text   string                 `yaml:"text"`
-		Ref    string                 `yaml:"ref"`
-		Params map[string]interface{} `yaml:"params"`
-	}
-
 	DataContext struct {
 		Query DataContextValues `json:"query"`
 	}
@@ -52,12 +40,8 @@ func NewSuite(opts Options) (*Suite, error) {
 		return nil, errors.Wrap(err, "failed to parse file")
 	}
 
-	if err := validateScriptManifest(manifest.Query); err != nil {
-		return nil, errors.Wrap(err, "query")
-	}
-
-	if err := validateScriptManifest(manifest.Assert); err != nil {
-		return nil, errors.Wrap(err, "assert")
+	if err := manifest.validate(); err != nil {
+		return nil, err
 	}
 
 	timeout := opts.Timeout
@@ -78,27 +62,29 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 	defer cancel()
 
 	query, err := suite.resolveScript(ctx, "query", suite.manifest.Query)
-
 	if err != nil {
 		return errors.Wrap(err, "resolve query script")
 	}
 
-	assertion, err := suite.resolveScript(ctx, "assert", suite.manifest.Assert)
+	if expectedError := suite.manifest.Expect.Error; expectedError != nil {
+		_, err := rt.Run(ctx, query, suite.manifest.Query.runtimeParams(params.Clone()))
 
+		return expectedError.evaluate(err)
+	}
+
+	assertion, err := suite.resolveScript(ctx, "assert", *suite.manifest.Assert)
 	if err != nil {
 		return errors.Wrap(err, "resolve assertion script")
 	}
 
-	queryParams := resolveRuntimeParams(params.Clone(), suite.manifest.Query)
+	queryParams := suite.manifest.Query.runtimeParams(params.Clone())
 
 	out, err := rt.Run(ctx, query, queryParams)
-
 	if err != nil {
 		return errors.Wrap(err, "failed to execute query script")
 	}
 
-	outVal, err := toAny(out)
-
+	outVal, err := suite.deserializeQueryOutput(out)
 	if err != nil {
 		return errors.Wrap(err, "deserialize query output")
 	}
@@ -110,7 +96,7 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 		},
 	})
 
-	_, err = rt.Run(ctx, assertion, resolveRuntimeParams(params, suite.manifest.Assert))
+	_, err = rt.Run(ctx, assertion, suite.manifest.Assert.runtimeParams(params))
 
 	return err
 }
@@ -121,7 +107,6 @@ func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manife
 	}
 
 	u, err := url.Parse(manifest.Ref)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "parse 'ref'")
 	}
@@ -136,13 +121,7 @@ func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manife
 	}
 }
 
-func resolveRuntimeParams(params Params, manifest ScriptManifest) map[string]interface{} {
-	params.SetUserValues(manifest.Params)
-
-	return params.ToMap()
-}
-
-func toAny(values []byte) (interface{}, error) {
+func (suite *Suite) deserializeQueryOutput(values []byte) (interface{}, error) {
 	if len(values) == 0 {
 		return nil, nil
 	}
@@ -154,16 +133,4 @@ func toAny(values []byte) (interface{}, error) {
 	}
 
 	return o, nil
-}
-
-func validateScriptManifest(manifest ScriptManifest) error {
-	if manifest.Ref == "" && manifest.Text == "" {
-		return errors.New("ref or text must have value")
-	}
-
-	if manifest.Ref != "" && manifest.Text != "" {
-		return errors.New("only either ref or text must have value")
-	}
-
-	return nil
 }

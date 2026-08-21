@@ -9,6 +9,7 @@ type (
 		Filename string
 		Duration time.Duration
 		Error    error
+		Warning  string
 	}
 
 	Summary struct {

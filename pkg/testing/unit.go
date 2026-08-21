@@ -11,6 +11,8 @@ import (
 	"github.com/MontFerret/lab/v2/pkg/sources"
 )
 
+const legacyExpectedFailureWarning = "'.fail.fql' expected-failure tests are deprecated; use a YAML test with 'expect.error' instead"
+
 type Unit struct {
 	file    sources.File
 	timeout time.Duration
@@ -39,4 +41,13 @@ func (unit *Unit) Run(ctx context.Context, rt runtime.Runtime, params Params) er
 
 func (unit *Unit) mustFail() bool {
 	return strings.HasSuffix(unit.file.Name, ".fail.fql")
+}
+
+// DeprecationWarning reports the compatibility warning for legacy expected-failure units.
+func (unit *Unit) DeprecationWarning() string {
+	if unit.mustFail() {
+		return legacyExpectedFailureWarning
+	}
+
+	return ""
 }
