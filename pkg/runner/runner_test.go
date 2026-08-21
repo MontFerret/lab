@@ -44,7 +44,7 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 	var calls atomic.Int32
 	firstCall := make(chan struct{}, 1)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]interface{}) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
 		if calls.Add(1) == 1 {
 			firstCall <- struct{}{}
 		}
@@ -120,7 +120,7 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 	var calls atomic.Int32
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]interface{}) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
 		calls.Add(1)
 
 		return nil, errors.New("expected runtime failure")

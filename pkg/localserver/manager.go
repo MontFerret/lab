@@ -3,10 +3,10 @@ package localserver
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"sync/atomic"
-
-	"github.com/pkg/errors"
 )
 
 type (
@@ -121,7 +121,7 @@ func (m *Manager) Start(ctx context.Context) error {
 		}
 	}
 
-	return errors.Errorf("%s: %s", m.startErrorLabel, m.joinErrors(failed))
+	return fmt.Errorf("%s: %s", m.startErrorLabel, m.joinErrors(failed))
 }
 
 func (m *Manager) Stop(ctx context.Context) error {
@@ -143,7 +143,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	return errors.Errorf("%s: %s", m.stopErrorLabel, m.joinErrors(failed))
+	return fmt.Errorf("%s: %s", m.stopErrorLabel, m.joinErrors(failed))
 }
 
 func (m *Manager) joinErrors(failed map[int]error) string {

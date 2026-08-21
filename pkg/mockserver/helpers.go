@@ -3,6 +3,7 @@ package mockserver
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
@@ -24,7 +24,7 @@ func loadSpec(opts Options) ([]byte, error) {
 	case hasPath:
 		data, err := os.ReadFile(opts.SpecPath)
 		if err != nil {
-			return nil, errors.Wrapf(err, "read mock API spec %q", opts.SpecPath)
+			return nil, fmt.Errorf("read mock API spec %q: %w", opts.SpecPath, err)
 		}
 
 		return data, nil
@@ -38,7 +38,7 @@ func loadSpec(opts Options) ([]byte, error) {
 func parseSpec(data []byte) (map[string]any, error) {
 	var raw any
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, errors.Wrap(err, "parse mock API spec")
+		return nil, fmt.Errorf("parse mock API spec: %w", err)
 	}
 
 	root, ok := normalizeValue(raw).(map[string]any)
@@ -62,7 +62,7 @@ func buildServer(root map[string]any) (*Server, error) {
 	for path, pathItemRaw := range pathsRaw {
 		pathItem, ok := pathItemRaw.(map[string]any)
 		if !ok {
-			return nil, errors.Errorf("mock API path %q must be an object", path)
+			return nil, fmt.Errorf("mock API path %q must be an object", path)
 		}
 
 		for methodRaw, operationRaw := range pathItem {
@@ -73,7 +73,7 @@ func buildServer(root map[string]any) (*Server, error) {
 
 			operationMap, ok := operationRaw.(map[string]any)
 			if !ok {
-				return nil, errors.Errorf("mock API operation %s %s must be an object", methodRaw, path)
+				return nil, fmt.Errorf("mock API operation %s %s must be an object", methodRaw, path)
 			}
 
 			mockRaw, ok := operationMap["x-lab-mock"]
@@ -92,7 +92,7 @@ func buildServer(root map[string]any) (*Server, error) {
 			}
 
 			if rt.ops[method] != nil {
-				return nil, errors.Errorf("duplicate mock API operation %s %s", methodRaw, path)
+				return nil, fmt.Errorf("duplicate mock API operation %s %s", methodRaw, path)
 			}
 
 			rt.ops[method] = op
@@ -119,7 +119,7 @@ func buildServer(root map[string]any) (*Server, error) {
 
 func routeForPath(routes map[string]*route, matchKeys map[string]string, path string) (*route, error) {
 	if !strings.HasPrefix(path, "/") {
-		return nil, errors.Errorf("mock API path %q must start with /", path)
+		return nil, fmt.Errorf("mock API path %q must start with /", path)
 	}
 
 	if rt, ok := routes[path]; ok {
@@ -129,7 +129,7 @@ func routeForPath(routes map[string]*route, matchKeys map[string]string, path st
 	segments := parseRouteSegments(path)
 	matchKey := routeMatchKey(segments)
 	if existing, ok := matchKeys[matchKey]; ok && existing != path {
-		return nil, errors.Errorf("ambiguous mock API routes %q and %q", existing, path)
+		return nil, fmt.Errorf("ambiguous mock API routes %q and %q", existing, path)
 	}
 
 	rt := &route{
@@ -148,7 +148,7 @@ func routeForPath(routes map[string]*route, matchKeys map[string]string, path st
 func parseOperation(path string, method string, raw any) (*operation, error) {
 	mock, ok := raw.(map[string]any)
 	if !ok {
-		return nil, errors.Errorf("x-lab-mock for %s %s must be an object", method, path)
+		return nil, fmt.Errorf("x-lab-mock for %s %s must be an object", method, path)
 	}
 
 	op := &operation{
@@ -159,7 +159,7 @@ func parseOperation(path string, method string, raw any) (*operation, error) {
 	if rawStatus, ok := mock["status"]; ok {
 		status, err := parseStatus(rawStatus)
 		if err != nil {
-			return nil, errors.Wrapf(err, "x-lab-mock status for %s %s", method, path)
+			return nil, fmt.Errorf("x-lab-mock status for %s %s: %w", method, path, err)
 		}
 
 		op.status = status
@@ -168,7 +168,7 @@ func parseOperation(path string, method string, raw any) (*operation, error) {
 	if rawHeaders, ok := mock["headers"]; ok {
 		headers, err := parseHeaders(rawHeaders)
 		if err != nil {
-			return nil, errors.Wrapf(err, "x-lab-mock headers for %s %s", method, path)
+			return nil, fmt.Errorf("x-lab-mock headers for %s %s: %w", method, path, err)
 		}
 
 		op.headers = headers
@@ -177,7 +177,7 @@ func parseOperation(path string, method string, raw any) (*operation, error) {
 	rawBody, hasBody := mock["body"]
 	rawBodyTemplate, hasBodyTemplate := mock["bodyTemplate"]
 	if hasBody && hasBodyTemplate {
-		return nil, errors.Errorf("x-lab-mock body and bodyTemplate for %s %s are mutually exclusive", method, path)
+		return nil, fmt.Errorf("x-lab-mock body and bodyTemplate for %s %s are mutually exclusive", method, path)
 	}
 
 	if hasBody {
@@ -186,7 +186,7 @@ func parseOperation(path string, method string, raw any) (*operation, error) {
 
 		templates, err := compileBodyTemplates(rawBody)
 		if err != nil {
-			return nil, errors.Wrapf(err, "x-lab-mock body for %s %s", method, path)
+			return nil, fmt.Errorf("x-lab-mock body for %s %s: %w", method, path, err)
 		}
 
 		op.bodyTemplates = templates
@@ -195,12 +195,12 @@ func parseOperation(path string, method string, raw any) (*operation, error) {
 	if hasBodyTemplate {
 		bodyTemplate, ok := rawBodyTemplate.(string)
 		if !ok {
-			return nil, errors.Errorf("x-lab-mock bodyTemplate for %s %s must be a string", method, path)
+			return nil, fmt.Errorf("x-lab-mock bodyTemplate for %s %s must be a string", method, path)
 		}
 
 		tmpl, err := parseTemplate(bodyTemplate)
 		if err != nil {
-			return nil, errors.Wrapf(err, "x-lab-mock bodyTemplate for %s %s", method, path)
+			return nil, fmt.Errorf("x-lab-mock bodyTemplate for %s %s: %w", method, path, err)
 		}
 
 		op.bodyTemplate = tmpl
@@ -213,25 +213,25 @@ func parseStatus(raw any) (int, error) {
 	switch value := raw.(type) {
 	case int:
 		if value < 100 || value > 599 {
-			return 0, errors.Errorf("must be between 100 and 599")
+			return 0, fmt.Errorf("must be between 100 and 599")
 		}
 
 		return value, nil
 	case int64:
 		if value < 100 || value > 599 {
-			return 0, errors.Errorf("must be between 100 and 599")
+			return 0, fmt.Errorf("must be between 100 and 599")
 		}
 
 		return int(value), nil
 	case float64:
 		status := int(value)
 		if value != float64(status) || status < 100 || status > 599 {
-			return 0, errors.Errorf("must be an integer between 100 and 599")
+			return 0, fmt.Errorf("must be an integer between 100 and 599")
 		}
 
 		return status, nil
 	default:
-		return 0, errors.Errorf("must be a number")
+		return 0, fmt.Errorf("must be a number")
 	}
 }
 
@@ -245,7 +245,7 @@ func parseHeaders(raw any) (map[string]string, error) {
 	for name, rawValue := range source {
 		value, ok := rawValue.(string)
 		if !ok {
-			return nil, errors.Errorf("header %q must be a string", name)
+			return nil, fmt.Errorf("header %q must be a string", name)
 		}
 
 		headers[name] = value
@@ -298,21 +298,21 @@ func addAllowedMethods(allowed map[string]struct{}, rt *route) {
 
 func normalizeValue(value any) any {
 	switch typed := value.(type) {
-	case map[interface{}]interface{}:
+	case map[any]any:
 		out := make(map[string]any, len(typed))
 		for key, child := range typed {
 			out[fmt.Sprint(key)] = normalizeValue(child)
 		}
 
 		return out
-	case map[string]interface{}:
+	case map[string]any:
 		out := make(map[string]any, len(typed))
 		for key, child := range typed {
 			out[key] = normalizeValue(child)
 		}
 
 		return out
-	case []interface{}:
+	case []any:
 		out := make([]any, len(typed))
 		for idx, child := range typed {
 			out[idx] = normalizeValue(child)

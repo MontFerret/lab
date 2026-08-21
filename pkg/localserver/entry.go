@@ -1,12 +1,11 @@
 package localserver
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 var (
@@ -43,7 +42,7 @@ func ParseEntries(bindings []string, opts EntryParseOptions) (Entries, error) {
 		}
 
 		if _, found := aliases[entry.Alias]; found {
-			return nil, errors.Errorf("duplicate %s %q", duplicateName(opts), entry.Alias)
+			return nil, fmt.Errorf("duplicate %s %q", duplicateName(opts), entry.Alias)
 		}
 
 		aliases[entry.Alias] = struct{}{}
@@ -55,7 +54,7 @@ func ParseEntries(bindings []string, opts EntryParseOptions) (Entries, error) {
 
 func ParseEntry(binding string, opts EntryParseOptions) (Entry, error) {
 	if binding == "" {
-		return Entry{}, errors.Errorf("invalid %s \"\"", entryName(opts))
+		return Entry{}, fmt.Errorf("invalid %s \"\"", entryName(opts))
 	}
 
 	pathPart, alias, port, err := SplitEntryBinding(binding, opts)
@@ -64,13 +63,13 @@ func ParseEntry(binding string, opts EntryParseOptions) (Entry, error) {
 	}
 
 	if pathPart == "" {
-		return Entry{}, errors.Errorf("invalid %s %q", entryName(opts), binding)
+		return Entry{}, fmt.Errorf("invalid %s %q", entryName(opts), binding)
 	}
 
 	hasExplicitAlias := alias != ""
 
 	if hasExplicitAlias && !IsValidAlias(alias) {
-		return Entry{}, errors.Errorf("invalid %s %q", aliasName(opts), alias)
+		return Entry{}, fmt.Errorf("invalid %s %q", aliasName(opts), alias)
 	}
 
 	if !hasExplicitAlias {
@@ -78,7 +77,7 @@ func ParseEntry(binding string, opts EntryParseOptions) (Entry, error) {
 	}
 
 	if !IsValidAlias(alias) {
-		return Entry{}, errors.Errorf("invalid %s %q", aliasName(opts), alias)
+		return Entry{}, fmt.Errorf("invalid %s %q", aliasName(opts), alias)
 	}
 
 	return Entry{
@@ -95,11 +94,11 @@ func SplitEntryBinding(binding string, opts EntryParseOptions) (string, string, 
 	if match := entryPortExp.FindStringSubmatch(binding); match != nil {
 		value, err := strconv.Atoi(match[1])
 		if err != nil {
-			return "", "", 0, errors.Wrapf(err, "invalid %s %q", portName(opts), match[1])
+			return "", "", 0, fmt.Errorf("invalid %s %q: %w", portName(opts), match[1], err)
 		}
 
 		if value <= 0 || value > 65535 {
-			return "", "", 0, errors.Errorf("invalid %s %q", portName(opts), match[1])
+			return "", "", 0, fmt.Errorf("invalid %s %q", portName(opts), match[1])
 		}
 
 		port = value
@@ -115,11 +114,11 @@ func SplitEntryBinding(binding string, opts EntryParseOptions) (string, string, 
 	alias := base[aliasIdx+1:]
 
 	if entryPortExp.MatchString(pathPart) {
-		return "", "", 0, errors.Errorf("invalid %s %q: use <path>@<alias>:<port>", entryName(opts), binding)
+		return "", "", 0, fmt.Errorf("invalid %s %q: use <path>@<alias>:<port>", entryName(opts), binding)
 	}
 
 	if alias == "" {
-		return "", "", 0, errors.Errorf("invalid %s %q", aliasName(opts), alias)
+		return "", "", 0, fmt.Errorf("invalid %s %q", aliasName(opts), alias)
 	}
 
 	return pathPart, alias, port, nil

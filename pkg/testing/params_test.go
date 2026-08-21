@@ -15,23 +15,23 @@ func TestParams(t *t.T) {
 				params := testing2.NewParams()
 				params.SetSystemValue("data", testing2.DataContext{
 					Query: testing2.DataContextValues{
-						Result: map[string]interface{}{
+						Result: map[string]any{
 							"Foo": "Bar",
 						},
-						Params: make(map[string]interface{}),
+						Params: make(map[string]any),
 					},
 				})
 
 				m := params.ToMap()
 
-				So(m, ShouldResemble, map[string]interface{}{
-					"lab": map[string]interface{}{
-						"data": map[string]interface{}{
-							"query": map[string]interface{}{
-								"result": map[string]interface{}{
+				So(m, ShouldResemble, map[string]any{
+					"lab": map[string]any{
+						"data": map[string]any{
+							"query": map[string]any{
+								"result": map[string]any{
 									"Foo": "Bar",
 								},
-								"params": make(map[string]interface{}),
+								"params": make(map[string]any),
 							},
 						},
 					},

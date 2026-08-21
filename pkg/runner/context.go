@@ -31,7 +31,7 @@ func (c Context) Err() error {
 	return c.root.Err()
 }
 
-func (c Context) Value(key interface{}) interface{} {
+func (c Context) Value(key any) any {
 	return c.root.Value(key)
 }
 

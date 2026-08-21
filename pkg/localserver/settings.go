@@ -1,10 +1,9 @@
 package localserver
 
 import (
+	"fmt"
 	"net"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 const DefaultHost = "127.0.0.1"
@@ -53,7 +52,7 @@ func normalizeHost(value, option string) (string, error) {
 
 	if host, port, err := net.SplitHostPort(value); err == nil {
 		if port != "" {
-			return "", errors.Errorf("invalid %s %q: must not include a port", option, original)
+			return "", fmt.Errorf("invalid %s %q: must not include a port", option, original)
 		}
 
 		value = host
@@ -63,16 +62,16 @@ func normalizeHost(value, option string) (string, error) {
 		if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
 			value = strings.TrimSuffix(strings.TrimPrefix(value, "["), "]")
 		} else {
-			return "", errors.Errorf("invalid %s %q", option, original)
+			return "", fmt.Errorf("invalid %s %q", option, original)
 		}
 	}
 
 	if value == "" {
-		return "", errors.Errorf("invalid %s %q", option, original)
+		return "", fmt.Errorf("invalid %s %q", option, original)
 	}
 
 	if strings.Count(value, ":") == 1 {
-		return "", errors.Errorf("invalid %s %q: must not include a port", option, original)
+		return "", fmt.Errorf("invalid %s %q: must not include a port", option, original)
 	}
 
 	return value, nil

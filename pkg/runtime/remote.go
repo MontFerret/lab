@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
-
-	"github.com/pkg/errors"
 
 	"github.com/MontFerret/ferret/v2/pkg/source"
 )
@@ -26,8 +26,8 @@ type (
 	}
 
 	remoteQuery struct {
-		Text   string                 `json:"text"`
-		Params map[string]interface{} `json:"params"`
+		Text   string         `json:"text"`
+		Params map[string]any `json:"params"`
 	}
 
 	HTTPParams struct {
@@ -43,7 +43,7 @@ type (
 	}
 )
 
-func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
+func NewRemote(u string, params map[string]any) (*Remote, error) {
 	p := HTTPParams{
 		Headers: http.Header{
 			"Content-Type":    []string{"application/json"},
@@ -59,7 +59,7 @@ func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
 		headers, exists := params["headers"]
 
 		if exists {
-			headers, ok := headers.(map[string]interface{})
+			headers, ok := headers.(map[string]any)
 
 			if !ok {
 				return nil, errors.New("invalid type of headers (expected map)")
@@ -69,7 +69,7 @@ func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
 				str, ok := v.(string)
 
 				if !ok {
-					return nil, errors.Errorf("invalid value type of a header: %s (expected string)", k)
+					return nil, fmt.Errorf("invalid value type of a header: %s (expected string)", k)
 				}
 
 				p.Headers.Add(k, str)
@@ -91,7 +91,7 @@ func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
 		cookies, exists := params["cookies"]
 
 		if exists {
-			cookies, ok := cookies.(map[string]interface{})
+			cookies, ok := cookies.(map[string]any)
 
 			if !ok {
 				return nil, errors.New("invalid type of cookies (expected map)")
@@ -101,7 +101,7 @@ func NewRemote(u string, params map[string]interface{}) (*Remote, error) {
 				str, ok := v.(string)
 
 				if !ok {
-					return nil, errors.Errorf("invalid value type of a header: %s (expected string)", k)
+					return nil, fmt.Errorf("invalid value type of a header: %s (expected string)", k)
 				}
 
 				p.Cookies = append(p.Cookies, http.Cookie{
@@ -135,20 +135,20 @@ func (rt *Remote) Version(ctx context.Context) (string, error) {
 	info := remoteInfo{}
 
 	if err := json.Unmarshal(data, &info); err != nil {
-		return "", errors.Wrap(err, "deserialize response data")
+		return "", fmt.Errorf("deserialize response data: %w", err)
 	}
 
 	return info.Version.Ferret, nil
 }
 
-func (rt *Remote) Run(ctx context.Context, query *source.Source, params map[string]interface{}) ([]byte, error) {
+func (rt *Remote) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
 	body, err := json.Marshal(remoteQuery{
 		Text:   query.Content(),
 		Params: params,
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "serialize query")
+		return nil, fmt.Errorf("serialize query: %w", err)
 	}
 
 	return rt.makeRequest(ctx, "POST", rt.runEndpoint(), body)
@@ -216,13 +216,13 @@ func (rt *Remote) makeRequest(ctx context.Context, method, endpoint string, body
 	req, err := rt.createRequest(ctx, method, endpoint, body)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "create request")
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	resp, err := rt.client.Do(req)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "make HTTP request to remote runtime")
+		return nil, fmt.Errorf("make HTTP request to remote runtime: %w", err)
 	}
 
 	defer resp.Body.Close()
@@ -234,7 +234,7 @@ func (rt *Remote) makeRequest(ctx context.Context, method, endpoint string, body
 	data, err := io.ReadAll(resp.Body)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "read response data")
+		return nil, fmt.Errorf("read response data: %w", err)
 	}
 
 	return data, nil

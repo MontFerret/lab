@@ -2,11 +2,10 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 	sources2 "github.com/MontFerret/lab/v2/pkg/sources"

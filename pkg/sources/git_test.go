@@ -443,7 +443,7 @@ assert:
 				case e := <-onError:
 					So(e, ShouldBeNil)
 				case f := <-onNext:
-					rt := runtime.AsFunc(func(_ context.Context, _ *source.Source, _ map[string]interface{}) ([]byte, error) {
+					rt := runtime.AsFunc(func(_ context.Context, _ *source.Source, _ map[string]any) ([]byte, error) {
 						return []byte(""), nil
 					})
 

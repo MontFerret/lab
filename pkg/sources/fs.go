@@ -2,12 +2,12 @@ package sources
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 
 	"github.com/gobwas/glob"
-	"github.com/pkg/errors"
 )
 
 type FileSystem struct {
@@ -37,7 +37,7 @@ func NewFileSystem(u *url.URL) (Source, error) {
 		fp, err := filepath.Abs(fullPath)
 
 		if err != nil {
-			return nil, errors.Wrap(err, "get absolute path")
+			return nil, fmt.Errorf("get absolute path: %w", err)
 		}
 
 		fullPath = fp

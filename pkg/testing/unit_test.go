@@ -49,7 +49,7 @@ func TestUnitExpectedFailureCompatibility(t *stdtesting.T) {
 				t.Fatalf("expected no construction error, got %v", err)
 			}
 
-			rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]interface{}) ([]byte, error) {
+			rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
 				return []byte(`1`), test.runtimeErr
 			})
 

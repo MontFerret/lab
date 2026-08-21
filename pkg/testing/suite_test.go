@@ -42,7 +42,7 @@ assert:
 		callCount   int
 	)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, params map[string]interface{}) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, params map[string]any) ([]byte, error) {
 		callCount++
 
 		switch callCount {
@@ -52,10 +52,10 @@ assert:
 		case 2:
 			assertPhase, _ = params["phase"].(string)
 
-			lab, _ := params["lab"].(map[string]interface{})
-			data, _ := lab["data"].(map[string]interface{})
-			query, _ := data["query"].(map[string]interface{})
-			queryParams, _ := query["params"].(map[string]interface{})
+			lab, _ := params["lab"].(map[string]any)
+			data, _ := lab["data"].(map[string]any)
+			query, _ := data["query"].(map[string]any)
+			queryParams, _ := query["params"].(map[string]any)
 			dataPhase, _ = queryParams["phase"].(string)
 
 			return []byte(`true`), nil
@@ -83,6 +83,38 @@ assert:
 
 	if dataPhase != "query" {
 		t.Fatalf("expected assertion data context to retain query params, got %q", dataPhase)
+	}
+}
+
+func TestSuiteRunPreservesRuntimeErrorChain(t *stdtesting.T) {
+	runtimeErr := errors.New("runtime failed")
+	testCase, err := testing2.New(testing2.Options{
+		File: sources.File{
+			Name: "suite.yaml",
+			Content: []byte(`
+query:
+  text: RETURN 1
+assert:
+  text: RETURN true
+`),
+		},
+		Timeout: time.Second,
+	})
+	if err != nil {
+		t.Fatalf("expected no construction error, got %v", err)
+	}
+
+	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
+		return nil, runtimeErr
+	})
+
+	err = testCase.Run(context.Background(), rt, testing2.NewParams())
+	if !errors.Is(err, runtimeErr) {
+		t.Fatalf("expected runtime error in chain, got %v", err)
+	}
+
+	if err.Error() != "failed to execute query script: runtime failed" {
+		t.Fatalf("unexpected error message: %v", err)
 	}
 }
 
@@ -135,7 +167,7 @@ func TestSuiteExpectedError(t *stdtesting.T) {
 			}
 
 			calls := 0
-			rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]interface{}) ([]byte, error) {
+			rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
 				calls++
 
 				return []byte(`1`), test.runtimeErr
@@ -174,7 +206,7 @@ expect:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]interface{}) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
 		t.Fatal("runtime must not run when query resolution fails")
 
 		return nil, nil

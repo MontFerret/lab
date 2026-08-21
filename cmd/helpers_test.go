@@ -7,7 +7,7 @@ import (
 )
 
 func TestExtractBinaryFlags(t *testing.T) {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"flags": []any{"--log-output=none", "--browser-headless"},
 		"value": 1,
 	}
@@ -27,7 +27,7 @@ func TestExtractBinaryFlags(t *testing.T) {
 
 func TestExtractBinaryFlagsRejectsInvalidValues(t *testing.T) {
 	invalidFlags := []any{"--ok", 1}
-	params := map[string]interface{}{
+	params := map[string]any{
 		"flags": invalidFlags,
 	}
 

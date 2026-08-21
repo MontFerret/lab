@@ -7,5 +7,5 @@ import (
 type Settings struct {
 	CDPAddress string
 	Source     sources.Source
-	Params     map[string]interface{}
+	Params     map[string]any
 }

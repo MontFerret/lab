@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-waitfor/waitfor"
 	http "github.com/go-waitfor/waitfor-http"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 
 	"github.com/MontFerret/lab/v2/pkg/reporters"
@@ -183,7 +183,7 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 		)
 
 		if err != nil {
-			return cli.Exit(errors.Wrap(err, "timeout"), 1)
+			return cli.Exit(fmt.Errorf("timeout: %w", err), 1)
 		}
 	}
 
@@ -244,10 +244,10 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 		return cli.Exit(err.Error(), 1)
 	}
 
-	staticURLs := make(map[string]interface{})
+	staticURLs := make(map[string]any)
 	params.SetSystemValue("static", staticURLs)
 
-	mockURLs := make(map[string]interface{})
+	mockURLs := make(map[string]any)
 	params.SetSystemValue("mock", mockURLs)
 
 	manager, err := createStaticServerManagerFromCommand(cmd, serveEntries)
