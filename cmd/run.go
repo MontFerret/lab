@@ -125,6 +125,12 @@ func RunFlags(hidden bool) []cli.Flag {
 			Hidden:  hidden,
 		},
 		&cli.StringSliceFlag{
+			Name:    "param-bind",
+			Usage:   "bind a query parameter path to an existing parameter (<target>=@<source>, --param-bind baseUrl=@lab.static.fixtures)",
+			Sources: cli.EnvVars("LAB_PARAM_BIND"),
+			Hidden:  hidden,
+		},
+		&cli.StringSliceFlag{
 			Name:    "wait",
 			Aliases: []string{"w"},
 			Usage:   "tests and waits on the availability of remote resources (--wait http://127.0.0.1:9222/json/version --wait postgres://localhost:5432/mydb)",
@@ -168,6 +174,21 @@ func RunAction(ctx context.Context, cmd *cli.Command) error {
 }
 
 func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runErr error) {
+	params := testing.NewParams()
+	paramValues := cmd.StringSlice("param")
+
+	userParams, err := toParams(paramValues)
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	paramBindings, err := toParamBindings(cmd.StringSlice("param-bind"), paramValues)
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	params.SetUserValues(userParams)
+
 	waitFor := cmd.StringSlice("wait")
 
 	if len(waitFor) > 0 {
@@ -223,16 +244,6 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 	if err != nil {
 		return cli.Exit(err, 1)
 	}
-
-	params := testing.NewParams()
-
-	userParams, err := toParams(cmd.StringSlice("param"))
-
-	if err != nil {
-		return cli.Exit(err, 1)
-	}
-
-	params.SetUserValues(userParams)
 
 	serveEntries, err := toServeEntries(cmd.StringSlice("serve"))
 	if err != nil {
@@ -290,6 +301,10 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 		for alias, address := range mockManager.Endpoints() {
 			mockURLs[alias] = address
 		}
+	}
+
+	if err := params.ApplyBindings(paramBindings); err != nil {
+		return cli.Exit(err, 1)
 	}
 
 	stream := r.Run(runner.NewContext(ctx, params), src)

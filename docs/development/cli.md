@@ -22,15 +22,16 @@ The root command shows application help. Script execution requires the `run` sub
 `lab run` coordinates a complete test run:
 
 1. Resolve test locations from positional arguments or `--files`.
-2. Wait for requested dependencies when `--wait` is configured.
-3. Parse runtime adapter parameters and select a runtime.
-4. Construct runner settings for concurrency, attempts, timeout, repetitions, and intervals.
-5. Construct the aggregate source for the requested locations.
-6. Parse user query parameters while keeping system parameters separate.
+2. Parse user query parameters and parameter bindings while keeping system parameters separate.
+3. Wait for requested dependencies when `--wait` is configured.
+4. Parse runtime adapter parameters and select a runtime.
+5. Construct runner settings for concurrency, attempts, timeout, repetitions, and intervals.
+6. Construct the aggregate source for the requested locations.
 7. Parse and start optional static and mock services.
 8. Publish service endpoints under `@lab.static` and `@lab.mock`.
-9. Run the source through the runner and selected reporter.
-10. Close the runtime and stop owned local services on every return path.
+9. Resolve parameter bindings from one materialized snapshot into user parameter paths.
+10. Run the source through the runner and selected reporter.
+11. Close the runtime and stop owned local services on every return path.
 
 Runtime and local-service options are validated before execution proceeds. Cleanup uses bounded contexts for local servers. A failure returned by runtime cleanup is surfaced when no earlier run error already owns the result.
 
@@ -57,6 +58,8 @@ Each CLI option that supports environment configuration declares its `LAB_*` bin
 Positional `run` locations take precedence when present; otherwise `--files` supplies the locations. Missing locations produce command help and a failing exit status.
 
 Runtime parameters and query parameters use separate flags and maps. The binary runtime's `flags` runtime parameter is extracted as adapter configuration rather than forwarded as an FQL query parameter.
+
+`--param-bind <target>=@<source>` adapts an existing parameter to an ordinary user parameter path. Binding declarations are validated before external setup where possible. Sources are resolved only after dynamic Lab values are available, and all sources use the same pre-binding snapshot so declaration order cannot create binding chains. Targets may be nested but cannot use the reserved `lab` namespace or overlap another binding or `--param` target.
 
 Filesystem and outbound HTTP policy flags are parsed in `cmd`, converted to `pkg/runtime` policy types, and validated by the adapter layer. Their support differs by adapter; see [Runtime](runtime.md).
 

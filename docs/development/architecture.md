@@ -21,6 +21,7 @@ CLI flags and environment
     -> pkg/staticserver or pkg/mockserver
     -> endpoint URLs
     -> @lab.static and @lab.mock
+    -> optional user parameter bindings
 ```
 
 The command layer assembles these components. It does not own source discovery, test semantics, scheduling, runtime integration, server internals, or result formatting.
@@ -76,7 +77,7 @@ Packages under `pkg` are internal-to-Lab boundaries despite exported Go names. E
 ## Architectural invariants
 
 - Ferret owns FQL syntax, compilation, bytecode, VM behavior, and runtime values.
-- User parameters and Lab system parameters remain isolated until execution materializes them. Lab values use the `lab` namespace.
+- User parameters and Lab system parameters remain isolated until execution materializes them. Lab values use the `lab` namespace; explicit CLI bindings copy already-materialized values into user parameter paths only after Lab setup completes.
 - Context cancellation must propagate through source loading, scheduling, runtimes, reporters, and local services wherever the integration supports it.
 - Owned resources must be released on success, failure, timeout, cancellation, and partial startup.
 - Source identity and useful error context must survive the pipeline.

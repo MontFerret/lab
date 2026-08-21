@@ -116,6 +116,7 @@ func TestRunCommandWithoutFilesShowsHelp(t *testing.T) {
 	assertContains(t, stdout, "--files string")
 	assertContains(t, stdout, "--serve string")
 	assertContains(t, stdout, "--mock string")
+	assertContains(t, stdout, "--param-bind string")
 	assertNotContains(t, stdout, "--mock-api string")
 	assertNotContains(t, stdout, "--cdn")
 	assertNotContains(t, stderr, "No help topic for 'run'")
@@ -265,6 +266,7 @@ func TestRunHelpShowsExecutionFlags(t *testing.T) {
 	assertContains(t, stdout, "--serve-host string")
 	assertContains(t, stdout, "--timeout uint")
 	assertContains(t, stdout, "--runtime string")
+	assertContains(t, stdout, "--param-bind string")
 	assertContains(t, stdout, "--policy-fs-root string")
 	assertContains(t, stdout, "--policy-fs-read-only")
 
@@ -582,6 +584,135 @@ RETURN T::EQ(content, "hello")
 
 	assertContains(t, stdout, "Passed")
 	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandWithParamBindFetchesStaticContent(t *testing.T) {
+	root := t.TempDir()
+	fixturesDir := filepath.Join(root, "fixtures")
+	mustMkdir(t, fixturesDir)
+	mustWriteFile(t, filepath.Join(fixturesDir, "products.json"), `[{"name":"Mechanical Keyboard","price":129}]`)
+
+	script := writeNamedScript(t, "fixture_products.fql", `
+LET products = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@baseUrl + "/products.json")))
+RETURN T::EQ(products[0].name, "Mechanical Keyboard")
+`)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		"--policy-http-allow-localhost",
+		"--serve", fixturesDir+"@fixtures",
+		"--param-bind", "baseUrl=@lab.static.fixtures",
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandBindsOrdinaryAndNestedParameters(t *testing.T) {
+	script := writeNamedScript(t, "bound_params.fql", `
+RETURN T::EQ(@baseUrl, "https://example.test")
+  AND T::EQ(@config.api.enabled, true)
+  AND T::EQ(@config.api.limit, 3)
+`)
+
+	stdout, stderr, err := runCLI(
+		t,
+		"run",
+		`--param=endpoint:"https://example.test"`,
+		"--param=enabled:true",
+		"--param=limit:3",
+		"--param-bind", "baseUrl=@endpoint",
+		"--param-bind", "config.api.enabled=@enabled",
+		"--param-bind", "config.api.limit=@limit",
+		script,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandSupportsParamBindFromEnv(t *testing.T) {
+	script := writeNamedScript(t, "bound_env.fql", `RETURN T::EQ(@baseUrl, "https://env.example.test")`)
+
+	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
+		"LAB_PARAM":      `endpoint:"https://env.example.test"`,
+		"LAB_PARAM_BIND": "baseUrl=@endpoint",
+	}, "run", script)
+	if err != nil {
+		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+
+	assertContains(t, stdout, "Passed")
+	assertContains(t, stdout, "Done")
+	assertEqual(t, stderr, "")
+}
+
+func TestRunCommandRejectsInvalidParamBindings(t *testing.T) {
+	script := writeScript(t)
+	tests := []struct {
+		name     string
+		args     []string
+		expected string
+	}{
+		{
+			name:     "malformed target",
+			args:     []string{"--param-bind", "config..baseUrl=@source"},
+			expected: `invalid parameter binding target "config..baseUrl"`,
+		},
+		{
+			name:     "malformed source",
+			args:     []string{"--param-bind", "baseUrl=lab.static.fixtures"},
+			expected: `invalid parameter binding source "lab.static.fixtures" for target "baseUrl": must start with @`,
+		},
+		{
+			name:     "duplicate target",
+			args:     []string{"--param-bind", "baseUrl=@one", "--param-bind", "baseUrl=@two"},
+			expected: `duplicate parameter binding target "baseUrl"`,
+		},
+		{
+			name: "param conflict",
+			args: []string{
+				`--param=baseUrl:"https://example.test"`,
+				"--param-bind", "baseUrl=@source",
+			},
+			expected: `parameter target "baseUrl" is assigned by both --param and --param-bind`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := append([]string{"run"}, tt.args...)
+			args = append(args, script)
+
+			stdout, stderr, err := runCLI(t, args...)
+
+			assertExitCode(t, err, 1)
+			assertContains(t, err.Error(), tt.expected)
+			assertEqual(t, stdout, "")
+			assertEqual(t, stderr, "")
+		})
+	}
+}
+
+func TestRunCommandRejectsMissingParamBindSourceBeforeExecution(t *testing.T) {
+	script := writeScript(t)
+
+	stdout, stderr, err := runCLI(t, "run", "--param-bind", "baseUrl=@lab.static.missing", script)
+
+	assertExitCode(t, err, 1)
+	assertErrorMessage(t, err, `parameter binding target "baseUrl": source "@lab.static.missing" does not exist`)
+	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")
 }
 
