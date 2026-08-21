@@ -481,6 +481,24 @@ lab run --param=testUrl:"https://example.com" \
     test-suite.yaml
 ```
 
+Use `--param-bind` when a script should keep a production-oriented parameter
+while Lab supplies its value. The target is a dot-separated user parameter path;
+the source starts with `@` and must already exist when Lab finishes setup:
+
+```bash
+lab run tests/ \
+  --param='environment:{"api":{"baseUrl":"https://example.com"}}' \
+  --param-bind config.api.baseUrl=@environment.api.baseUrl
+```
+
+Bindings preserve the source value's type. Duplicate or overlapping binding
+targets, conflicts with `--param`, malformed paths, and missing sources are
+configuration errors rather than runtime precedence rules. Paths are
+case-sensitive and dot-separated; each segment starts with a letter or
+underscore and may then contain letters, numbers, underscores, or hyphens.
+Bracket expressions are not accepted, and the `lab` target namespace is
+reserved.
+
 ### 📊 Data-Driven Testing
 
 Use external data sources for broader test coverage:
@@ -565,7 +583,7 @@ lab run https://example.com/tests/suite1.yaml https://example.com/tests/suite2.y
 
 ### 🌐 Static File Serving
 
-Lab can serve local directories over HTTP during test execution. Served endpoints are available in FQL scripts under `@lab.static.<alias>`.
+Lab can serve local directories over HTTP during test execution. Bind a generated endpoint to an ordinary script parameter when the script should remain unaware of Lab.
 
 #### Standalone Static Server
 
@@ -579,17 +597,25 @@ lab serve --static ./website
 lab serve --static ./frontend@app --static ./mockdata@api
 ```
 
-#### Basic Static Serving
+#### Production-Style Fixture Parameters
 
 ```bash
-# Serve files from ./website directory
-lab run --serve ./website tests/
+lab run tests/ \
+  --serve ./tests/fixtures@fixtures \
+  --param-bind baseUrl=@lab.static.fixtures \
+  --policy-http-allow-localhost
 ```
 
 FQL script:
 
 ```sql
-LET doc = DOCUMENT(@lab.static.website, { driver: "cdp" })
+LET response = IO::NET::HTTP::GET(@baseUrl + "/products.json")
+```
+
+Lab resolves the binding after the fixture server has selected its port and before test execution starts. Scripts that deliberately depend on Lab can continue to use `@lab.static.<alias>` directly.
+
+```sql
+LET response = IO::NET::HTTP::GET(@lab.static.fixtures + "/products.json")
 ```
 
 #### Multiple Static Endpoints
@@ -846,6 +872,7 @@ These flags apply to `lab run`.
 | `--serve-bind` | - | `LAB_SERVE_BIND` | - | Host to bind local servers to, without port |
 | `--serve-host` | - | `LAB_SERVE_HOST` | - | Host to advertise local server URLs, without port |
 | `--param` | `-p` | `LAB_PARAM` | - | Query parameters for tests |
+| `--param-bind` | - | `LAB_PARAM_BIND` | - | Bind a user parameter path to an existing parameter reference |
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
 | `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
 | `--wait-attempts` | - | `LAB_WAIT_ATTEMPTS` | `5` | Number of wait attempts |
@@ -1065,7 +1092,7 @@ Output formatting and result presentation:
 Test suite definition and validation:
 
 - **YAML Parser** - Parse test suite definitions
-- **Parameter Injection** - Handle runtime parameters and data binding
+- **Parameter Injection** - Handle user/system parameters and setup-time parameter rebinding
 - **Assertion Engine** - Validate test results
 
 ### 🔄 Execution Flow

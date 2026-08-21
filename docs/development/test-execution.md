@@ -44,10 +44,13 @@ Suite, unit, assertion, parameter, and helper behavior is tested in `pkg/testing
 
 `pkg/testing.Params` keeps user values separate from Lab system values. At execution time, Lab materializes system values under the `lab` key, which exposes service endpoints such as `@lab.static.<alias>` and `@lab.mock.<alias>`.
 
+CLI parameter bindings are an explicit adaptation step over that materialized view. Every source path is resolved from one snapshot after Lab setup, then its existing value is assigned directly to a user parameter target without text conversion. Nested targets create user-owned object maps. Binding application is atomic: a missing source, reserved target, existing target, or non-object intermediate path leaves the parameter set unchanged.
+
 Parameter isolation is a correctness boundary:
 
 - user input must not overwrite the Lab namespace accidentally
 - service managers populate system endpoint maps before test execution
+- parameter bindings resolve only after those endpoint maps contain their final dynamic values
 - per-test and per-attempt state must not leak through shared mutable maps
 - `Params.Clone` and related helpers must protect parallel tests, retries, and repeated runs from shared mutations
 
