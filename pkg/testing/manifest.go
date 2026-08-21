@@ -112,13 +112,13 @@ func (manifest ScriptManifest) runtimeParams(params Params) map[string]interface
 	return params.ToMap()
 }
 
-func (expected ErrorExpectationManifest) evaluate(actual error) error {
+func (manifest ErrorExpectationManifest) evaluate(actual error) error {
 	if actual == nil {
 		return errors.New("expected query to fail, but it completed successfully")
 	}
 
-	if expected.Contains != "" && !strings.Contains(actual.Error(), expected.Contains) {
-		return fmt.Errorf("expected error containing %q, got: %v", expected.Contains, actual)
+	if manifest.Contains != "" && !strings.Contains(actual.Error(), manifest.Contains) {
+		return fmt.Errorf("expected error containing %q, got: %v", manifest.Contains, actual)
 	}
 
 	return nil
