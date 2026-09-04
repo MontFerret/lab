@@ -2,38 +2,46 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/urfave/cli/v3"
+
+	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
 
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 )
 
 func TestHTTPPolicyFlagsRejectInvalidFerretPolicy(t *testing.T) {
 	tests := []struct {
-		name string
-		arg  string
-		want string
+		name      string
+		arg       string
+		wantField string
+		wantValue string
 	}{
-		{name: "allowed scheme", arg: "--policy-http-allowed-schemes=not a scheme", want: "WithAllowedSchemes"},
-		{name: "allowed method", arg: "--policy-http-allowed-methods=bad method", want: "WithAllowedMethods"},
-		{name: "allowed host", arg: "--policy-http-allowed-hosts=bad host", want: "WithAllowedHosts"},
-		{name: "blocked host", arg: "--policy-http-blocked-hosts=bad host", want: "WithBlockedHosts"},
-		{name: "default header", arg: `--policy-http-default-headers={"Host":"example.test"}`, want: "WithDefaultHeaders"},
-		{name: "blocked header", arg: "--policy-http-blocked-request-headers=bad header", want: "WithBlockedRequestHeaders"},
-		{name: "timeout", arg: "--policy-http-timeout=-1s", want: "WithTimeout"},
-		{name: "request size", arg: "--policy-http-max-request-size=-1", want: "WithMaxRequestSize"},
-		{name: "response size", arg: "--policy-http-max-response-size=-1", want: "WithMaxResponseSize"},
-		{name: "response header size", arg: "--policy-http-max-response-header-size=-1", want: "WithMaxResponseHeaderSize"},
-		{name: "redirect count", arg: "--policy-http-max-redirects=-1", want: "WithMaxRedirects"},
+		{name: "allowed scheme", arg: "--policy-http-allowed-schemes=not a scheme", wantField: "allowed schemes", wantValue: "not a scheme"},
+		{name: "allowed method", arg: "--policy-http-allowed-methods=bad method", wantField: "allowed methods", wantValue: "bad method"},
+		{name: "allowed host", arg: "--policy-http-allowed-hosts=bad host", wantField: "allowed hosts", wantValue: "bad host"},
+		{name: "blocked host", arg: "--policy-http-blocked-hosts=bad host", wantField: "blocked hosts", wantValue: "bad host"},
+		{name: "default header", arg: `--policy-http-default-headers={"Host":"example.test"}`, wantField: "default headers", wantValue: "Host"},
+		{name: "blocked header", arg: "--policy-http-blocked-request-headers=bad header", wantField: "blocked request headers", wantValue: "bad header"},
+		{name: "timeout", arg: "--policy-http-timeout=-1s", wantField: "timeout", wantValue: "-1s"},
+		{name: "request size", arg: "--policy-http-max-request-size=-1", wantField: "max request size", wantValue: "-1"},
+		{name: "response size", arg: "--policy-http-max-response-size=-1", wantField: "max response size", wantValue: "-1"},
+		{name: "response header size", arg: "--policy-http-max-response-header-size=-1", wantField: "max response header size", wantValue: "-1"},
+		{name: "redirect count", arg: "--policy-http-max-redirects=-1", wantField: "max redirects", wantValue: "-1"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := runHTTPPolicyCommand(t, tt.arg)
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("expected %s error, got %v", tt.want, err)
+			if !errors.Is(err, ferrethttp.ErrInvalidPolicyConfiguration) {
+				t.Fatalf("expected invalid HTTP policy configuration error, got %v", err)
+			}
+
+			if !strings.Contains(err.Error(), tt.wantField) || !strings.Contains(err.Error(), "value="+tt.wantValue) {
+				t.Fatalf("expected %s diagnostic for %q, got %v", tt.wantField, tt.wantValue, err)
 			}
 		})
 	}

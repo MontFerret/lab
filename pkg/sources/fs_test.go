@@ -10,11 +10,11 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
+	"github.com/MontFerret/ferret/v2"
+
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 	sources2 "github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
-
-	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 func TestFileSystem(t *testing.T) {
@@ -559,7 +559,7 @@ assert:
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					rt := runtime.AsFunc(func(_ context.Context, _ *source.Source, _ map[string]any) ([]byte, error) {
+					rt := runtime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
 						return []byte(""), nil
 					})
 

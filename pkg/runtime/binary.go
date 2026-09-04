@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MontFerret/ferret/v2/pkg/source"
+	"github.com/MontFerret/ferret/v2"
 )
 
 type (
@@ -89,7 +89,7 @@ func (rt *Binary) Version(ctx context.Context) (string, error) {
 	return strings.ReplaceAll(string(out), "\n", ""), nil
 }
 
-func (rt *Binary) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
+func (rt *Binary) Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error) {
 	args, err := rt.runArgs(params)
 
 	if err != nil {

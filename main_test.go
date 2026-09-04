@@ -926,7 +926,7 @@ func TestRunCommandRejectsInvalidHTTPPolicyConfiguration(t *testing.T) {
 
 	stdout, stderr, err := runCLI(t, "run", "--policy-http-allowed-hosts=bad host", script)
 
-	assertContains(t, err.Error(), "WithAllowedHosts")
+	assertContains(t, err.Error(), "allowed hosts")
 	assertContains(t, err.Error(), "bad host")
 	assertEqual(t, stdout, "")
 	assertEqual(t, stderr, "")

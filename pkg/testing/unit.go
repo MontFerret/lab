@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MontFerret/ferret/v2/pkg/source"
+	"github.com/MontFerret/ferret/v2"
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 )
@@ -26,7 +26,7 @@ func (unit *Unit) Run(ctx context.Context, rt runtime.Runtime, params Params) er
 	ctx, cancel := context.WithTimeout(ctx, unit.timeout)
 	defer cancel()
 
-	_, err := rt.Run(ctx, source.New(unit.file.Name, string(unit.file.Content)), params.ToMap())
+	_, err := rt.Run(ctx, ferret.NewSource(unit.file.Name, string(unit.file.Content)), params.ToMap())
 
 	if unit.mustFail() {
 		if err != nil {

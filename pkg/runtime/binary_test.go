@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
@@ -10,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	ferretsource "github.com/MontFerret/ferret/v2/pkg/source"
+	"github.com/MontFerret/ferret/v2"
+	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
 )
 
 func TestBinaryRunUsesFerretCLIv2Contract(t *testing.T) {
@@ -33,7 +35,7 @@ func TestBinaryRunUsesFerretCLIv2Contract(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	out, err := rt.Run(context.Background(), ferretsource.New("test.fql", "RETURN 1"), map[string]any{
+	out, err := rt.Run(context.Background(), ferret.NewSource("test.fql", "RETURN 1"), map[string]any{
 		"foo": "bar",
 	})
 	if err != nil {
@@ -255,8 +257,12 @@ func TestNewBinaryRejectsInvalidConfiguration(t *testing.T) {
 			Path:       "/tmp/ferret",
 			HTTPPolicy: &HTTPPolicy{AllowedHosts: []string{"bad host"}},
 		})
-		if err == nil || !strings.Contains(err.Error(), "WithAllowedHosts") {
+		if !errors.Is(err, ferrethttp.ErrInvalidPolicyConfiguration) {
 			t.Fatalf("expected HTTP policy error, got %v", err)
+		}
+
+		if !strings.Contains(err.Error(), "allowed hosts") || !strings.Contains(err.Error(), "bad host") {
+			t.Fatalf("expected allowed-host diagnostic, got %v", err)
 		}
 	})
 

@@ -8,7 +8,6 @@ import (
 	"github.com/MontFerret/ferret/v2"
 	ferretnet "github.com/MontFerret/ferret/v2/pkg/net"
 	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
-	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 var version = "unknown"
@@ -115,7 +114,7 @@ func (r *Builtin) Version(_ context.Context) (string, error) {
 	return version, nil
 }
 
-func (r *Builtin) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
+func (r *Builtin) Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error) {
 	out, err := r.engine.Run(ctx, query, ferret.WithSessionParams(params))
 
 	if err != nil {

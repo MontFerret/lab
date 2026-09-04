@@ -15,11 +15,11 @@ import (
 	"github.com/gobwas/glob"
 	. "github.com/smartystreets/goconvey/convey"
 
+	"github.com/MontFerret/ferret/v2"
+
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
-
-	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 type MockFile struct {
@@ -443,7 +443,7 @@ assert:
 				case e := <-onError:
 					So(e, ShouldBeNil)
 				case f := <-onNext:
-					rt := runtime.AsFunc(func(_ context.Context, _ *source.Source, _ map[string]any) ([]byte, error) {
+					rt := runtime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
 						return []byte(""), nil
 					})
 
