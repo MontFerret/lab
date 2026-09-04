@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MontFerret/ferret/v2"
 	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
-	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
@@ -30,7 +31,7 @@ func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		source.New("fs_root.fql", `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`),
+		ferret.NewSource("fs_root.fql", `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`),
 		nil,
 	)
 	if err != nil {
@@ -50,7 +51,7 @@ func TestBuiltinFilesystemPolicyEnforcesReadOnly(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		source.New("fs_read_only.fql", `
+		ferret.NewSource("fs_read_only.fql", `
 IO::FS::WRITE("output.txt", TO_BINARY("blocked"))
 RETURN true
 `),
@@ -89,7 +90,7 @@ func TestBuiltinHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		source.New("blocked_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
+		ferret.NewSource("blocked_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
 		nil,
 	)
 	if err == nil || !strings.Contains(err.Error(), "localhost is not allowed") {
@@ -111,7 +112,7 @@ func TestBuiltinHTTPPolicyAllowsConfiguredLocalhost(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		source.New("allowed_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
+		ferret.NewSource("allowed_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
 		nil,
 	)
 	if err != nil {
@@ -121,8 +122,12 @@ func TestBuiltinHTTPPolicyAllowsConfiguredLocalhost(t *testing.T) {
 
 func TestBuiltinHTTPPolicyRejectsInvalidConfiguration(t *testing.T) {
 	_, err := NewBuiltin(nil, ferrethttp.WithAllowedHosts("bad host"))
-	if err == nil || !strings.Contains(err.Error(), "WithAllowedHosts") {
+	if !errors.Is(err, ferrethttp.ErrInvalidPolicyConfiguration) {
 		t.Fatalf("expected allowed-host policy error, got %v", err)
+	}
+
+	if !strings.Contains(err.Error(), "allowed hosts") || !strings.Contains(err.Error(), "bad host") {
+		t.Fatalf("expected allowed-host diagnostic, got %v", err)
 	}
 }
 
@@ -144,7 +149,7 @@ func TestBuiltinHTTPPolicyEnforcesResponseLimit(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		source.New("response_limit.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
+		ferret.NewSource("response_limit.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
 		nil,
 	)
 	if err == nil || !strings.Contains(err.Error(), "response body exceeds") {

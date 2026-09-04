@@ -7,8 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	ferretsource "github.com/MontFerret/ferret/v2/pkg/source"
-
+	"github.com/MontFerret/ferret/v2"
 	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
@@ -42,7 +41,7 @@ assert:
 		callCount   int
 	)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, params map[string]any) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, params map[string]any) ([]byte, error) {
 		callCount++
 
 		switch callCount {
@@ -104,7 +103,7 @@ assert:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
 		return nil, runtimeErr
 	})
 
@@ -167,7 +166,7 @@ func TestSuiteExpectedError(t *stdtesting.T) {
 			}
 
 			calls := 0
-			rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
+			rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
 				calls++
 
 				return []byte(`1`), test.runtimeErr
@@ -206,7 +205,7 @@ expect:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
 		t.Fatal("runtime must not run when query resolution fails")
 
 		return nil, nil

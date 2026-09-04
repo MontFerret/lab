@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/MontFerret/ferret/v2/pkg/source"
+	"github.com/MontFerret/ferret/v2"
 )
 
 type (
@@ -22,12 +22,12 @@ type (
 		BinaryFlags []string
 	}
 
-	Func func(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error)
+	Func func(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error)
 
 	Runtime interface {
 		Version(ctx context.Context) (string, error)
 
-		Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error)
+		Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error)
 
 		// Close releases resources owned by the runtime after all runs finish.
 		Close() error
@@ -120,7 +120,7 @@ func (f FuncStruct) Version(_ context.Context) (string, error) {
 	return version, nil
 }
 
-func (f FuncStruct) Run(ctx context.Context, query *source.Source, params map[string]any) ([]byte, error) {
+func (f FuncStruct) Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error) {
 	return f.fn(ctx, query, params)
 }
 

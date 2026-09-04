@@ -9,10 +9,10 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/MontFerret/ferret/v2"
+
 	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
-
-	"github.com/MontFerret/ferret/v2/pkg/source"
 )
 
 type (
@@ -100,23 +100,23 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 	return err
 }
 
-func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manifest ScriptManifest) (*source.Source, error) {
+func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manifest ScriptManifest) (ferret.Source, error) {
 	if manifest.Text != "" {
-		return source.New(fmt.Sprintf("%s -> %s", suite.file.Name, scriptType), manifest.Text), nil
+		return ferret.NewSource(fmt.Sprintf("%s -> %s", suite.file.Name, scriptType), manifest.Text), nil
 	}
 
 	u, err := url.Parse(manifest.Ref)
 	if err != nil {
-		return nil, fmt.Errorf("parse 'ref': %w", err)
+		return ferret.Source{}, fmt.Errorf("parse 'ref': %w", err)
 	}
 
 	onNext, onError := suite.file.Resolve(ctx, u)
 
 	select {
 	case e := <-onError:
-		return nil, fmt.Errorf("resolve 'ref': %w", e)
+		return ferret.Source{}, fmt.Errorf("resolve 'ref': %w", e)
 	case f := <-onNext:
-		return source.New(f.Name, string(f.Content)), nil
+		return ferret.NewSource(f.Name, string(f.Content)), nil
 	}
 }
 

@@ -8,8 +8,7 @@ import (
 	"testing"
 	"time"
 
-	ferretsource "github.com/MontFerret/ferret/v2/pkg/source"
-
+	"github.com/MontFerret/ferret/v2"
 	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
@@ -44,7 +43,7 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 	var calls atomic.Int32
 	firstCall := make(chan struct{}, 1)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
 		if calls.Add(1) == 1 {
 			firstCall <- struct{}{}
 		}
@@ -120,7 +119,7 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 	var calls atomic.Int32
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ *ferretsource.Source, _ map[string]any) ([]byte, error) {
+	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
 		calls.Add(1)
 
 		return nil, errors.New("expected runtime failure")
