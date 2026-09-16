@@ -594,7 +594,7 @@ func TestRunCommandWithParamBindFetchesStaticContent(t *testing.T) {
 	mustWriteFile(t, filepath.Join(fixturesDir, "products.json"), `[{"name":"Mechanical Keyboard","price":129}]`)
 
 	script := writeNamedScript(t, "fixture_products.fql", `
-LET products = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@baseUrl + "/products.json")))
+LET products = ENCODING::JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@baseUrl + "/products.json")))
 RETURN T::EQ(products[0].name, "Mechanical Keyboard")
 `)
 
@@ -731,7 +731,7 @@ paths:
 `)
 
 	script := writeNamedScript(t, "mock_api.fql", `
-LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/123")))
+LET payload = ENCODING::JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/123")))
 RETURN T::EQ(payload.id, "123")
 `)
 
@@ -1337,7 +1337,7 @@ paths:
 `)
 
 	script := writeNamedScript(t, "mock_api_env.fql", `
-LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.users + "/users")))
+LET payload = ENCODING::JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.users + "/users")))
 RETURN T::EQ(payload.ok, true)
 `)
 

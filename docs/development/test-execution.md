@@ -22,6 +22,8 @@ Supported source forms include:
 
 Source identity travels with each file so later errors and results can identify the original path or URL. Aggregate sources preserve the identity of their children.
 
+Filesystem and Git sources compile the optional `filter` query parameter once with `gobwas/glob`. An absent or empty filter leaves supported files unfiltered; malformed patterns fail during source construction. Filesystem filters match full filesystem paths, while Git filters match repository-relative paths. URL filters use no separator overrides, so `*` can match across directories. `NewGitFrom` accepts a compiled `*glob.Pattern` (including its caller-selected separator rules), or nil for no filter.
+
 Filesystem traversal observes context cancellation and reports useful file context. Git and HTTP sources preserve repository or URL context without exposing credentials or unnecessary response data. Any temporary resource owned by a source must be released across success, error, timeout, and cancellation paths.
 
 New source types implement the existing source contract and are registered in the location/scheme selection path. Source tests belong in `pkg/sources` and should cover selection, identity, errors, cancellation, and owned-resource cleanup.

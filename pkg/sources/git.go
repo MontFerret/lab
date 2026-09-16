@@ -18,11 +18,11 @@ type Git struct {
 	mu     sync.Mutex
 	repo   *git.Repository
 	url    string
-	filter glob.Glob
+	filter *glob.Pattern
 }
 
 func NewGit(u *url.URL) (Source, error) {
-	var filter glob.Glob
+	var filter *glob.Pattern
 
 	pattern := u.Query().Get("filter")
 
@@ -53,7 +53,9 @@ func NewGit(u *url.URL) (Source, error) {
 	return src, nil
 }
 
-func NewGitFrom(repo *git.Repository, filter glob.Glob) (Source, error) {
+// NewGitFrom reads an existing repository using a compiled filter against
+// repository-relative paths. A nil filter includes all supported files.
+func NewGitFrom(repo *git.Repository, filter *glob.Pattern) (Source, error) {
 	if repo == nil {
 		return nil, errors.New("missed repo")
 	}
