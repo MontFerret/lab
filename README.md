@@ -715,7 +715,7 @@ lab serve --static ./dist@app --mock ./users.yaml@api
 FQL script:
 
 ```sql
-LET payload = JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/123")))
+LET payload = ENCODING::JSON_PARSE(TO_STRING(IO::NET::HTTP::GET(@lab.mock.api + "/users/123")))
 RETURN T::EQ(payload.id, "123")
 ```
 

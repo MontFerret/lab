@@ -13,13 +13,13 @@ import (
 type FileSystem struct {
 	dir    string
 	name   string
-	filter glob.Glob
+	filter *glob.Pattern
 }
 
 func NewFileSystem(u *url.URL) (Source, error) {
 	pattern := u.Query().Get("filter")
 
-	var filter glob.Glob
+	var filter *glob.Pattern
 
 	if pattern != "" {
 		f, err := glob.Compile(pattern)

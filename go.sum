@@ -9,8 +9,10 @@ github.com/Masterminds/sprig/v3 v3.3.0/go.mod h1:Zy1iXRYNqNLUolqCpL4uhk6SHUMAOSC
 github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v8QkMxJ6pZY=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
-github.com/MontFerret/ferret/v2 v2.0.0-alpha.53 h1:vPvCP77cHBIFGCOuG9q4QCTyDXLjGTJBtBw+J11+mk8=
-github.com/MontFerret/ferret/v2 v2.0.0-alpha.53/go.mod h1:2wwh8BHG5VHS5Ev5AyeRdDi5VT3NpjBT11UnkcCsvcg=
+github.com/MontFerret/api v1.0.0-alpha.19 h1:zRAb2rAMFxhKggmVTEEQfWxfaSz6+p5D6b+C5P/RXZw=
+github.com/MontFerret/api v1.0.0-alpha.19/go.mod h1:wz5bfUIGYkED8Hqz9CdsW0o2jSgagotbVLOCbHHacSI=
+github.com/MontFerret/ferret/v2 v2.0.0-alpha.55 h1:ylh5oXP8smLSo9P40a52bOQWBF9kk8EAIe6/atWWsck=
+github.com/MontFerret/ferret/v2 v2.0.0-alpha.55/go.mod h1:wjyA9O+zZHXn5+izgqOhuhkdHk9irwL8YsUKPCRRNRk=
 github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67IQOfM=
 github.com/ProtonMail/go-crypto v1.4.1/go.mod h1:e1OaTyu5SYVrO9gKOEhTc+5UcXtTUa+P3uLudwcgPqo=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
@@ -50,8 +52,8 @@ github.com/go-waitfor/waitfor v1.1.0 h1:UAoEJQJlT7m3/JiyAl/rMUbO4QrjvnsPXYqI8XGR
 github.com/go-waitfor/waitfor v1.1.0/go.mod h1:+IZQuxLozWanfl9J0MRY0najpaYT2ewku+NYUBqOfa8=
 github.com/go-waitfor/waitfor-http v1.1.0 h1:TSkWDvlRdfmh1ZT3eulmc3lN/9g12CjgpCA7ZB0JN9A=
 github.com/go-waitfor/waitfor-http v1.1.0/go.mod h1:WlpcslpKIwbjHLTf06WF6SyFkTHGVwIbYbwE7P+WlWE=
-github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
-github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
+github.com/gobwas/glob v1.0.0 h1:p+FKbLEIsK1yZ39/OINwFvqNb5oyPY4H8xcy6uYu8dg=
+github.com/gobwas/glob v1.0.0/go.mod h1:oWCdo522i2P1n/hMXGNWs7yoV4wy/ciZuUIbvKj5rkc=
 github.com/goccy/go-json v0.10.6 h1:p8HrPJzOakx/mn/bQtjgNjdTcN+/S6FcG2CTtQOrHVU=
 github.com/goccy/go-json v0.10.6/go.mod h1:oq7eo15ShAhp70Anwd5lgX2pLfOS3QCiwU/PULtXL6M=
 github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 h1:f+oWsMOmNPc8JmEHVZIycC7hBoQxHH9pNKQORJNozsQ=
@@ -143,8 +145,8 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/xanzy/ssh-agent v0.3.3 h1:+/15pJfg/RsTxqYcX6fHqOXZwwMP+2VyYWJeWM2qQFM=
 github.com/xanzy/ssh-agent v0.3.3/go.mod h1:6dzNDKs0J9rVPHPhaGCukekBHKqfl+L3KghI1Bc68Uw=
-github.com/ziflex/go-options v1.3.1 h1:FtIVL+eKnJDEp20usV8QZ1fU2CpoBig6LyeBPsIzShw=
-github.com/ziflex/go-options v1.3.1/go.mod h1:91KFoEzT1mtEHOoUImFOnoOEAwSn+LvbSECTVoZTlas=
+github.com/ziflex/go-options v1.6.1 h1:CCIn24/7lTj5Ju5cM9zxqVwgGIiZqzjmkGYjSQG8U2U=
+github.com/ziflex/go-options v1.6.1/go.mod h1:r2mjyrYxJ9waL5zVmAoX8aBOq7pZ3LoGku4rn8/8gxk=
 golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
 golang.org/x/crypto v0.55.0 h1:+KWHjbgOaAQ66dh/YlkZKHlz9ZUlq61AFirAR9ntP8M=
 golang.org/x/crypto v0.55.0/go.mod h1:uq0V9dE/fzQuJtbnL+2EhWOE63vo164FY8xqEnV9xis=
