@@ -11,8 +11,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/MontFerret/api v1.0.0-alpha.19 h1:zRAb2rAMFxhKggmVTEEQfWxfaSz6+p5D6b+C5P/RXZw=
 github.com/MontFerret/api v1.0.0-alpha.19/go.mod h1:wz5bfUIGYkED8Hqz9CdsW0o2jSgagotbVLOCbHHacSI=
-github.com/MontFerret/ferret/v2 v2.0.0-alpha.55 h1:ylh5oXP8smLSo9P40a52bOQWBF9kk8EAIe6/atWWsck=
-github.com/MontFerret/ferret/v2 v2.0.0-alpha.55/go.mod h1:wjyA9O+zZHXn5+izgqOhuhkdHk9irwL8YsUKPCRRNRk=
+github.com/MontFerret/ferret/v2 v2.0.0-alpha.56 h1:CBBWg2om+Nxw04W8hU0duMtAQUtY5NEmtdMP88h6hAY=
+github.com/MontFerret/ferret/v2 v2.0.0-alpha.56/go.mod h1:wjyA9O+zZHXn5+izgqOhuhkdHk9irwL8YsUKPCRRNRk=
 github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67IQOfM=
 github.com/ProtonMail/go-crypto v1.4.1/go.mod h1:e1OaTyu5SYVrO9gKOEhTc+5UcXtTUa+P3uLudwcgPqo=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
