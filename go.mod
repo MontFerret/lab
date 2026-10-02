@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/MontFerret/ferret/v2 v2.0.0-alpha.56
+	github.com/MontFerret/ferret/v2 v2.0.0-alpha.57
 	github.com/go-git/go-billy/v5 v5.9.1
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/go-waitfor/waitfor v1.1.0
@@ -24,7 +24,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/MontFerret/api v1.0.0-alpha.19 // indirect
+	github.com/MontFerret/api v1.0.0-alpha.20 // indirect
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
