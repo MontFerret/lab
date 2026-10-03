@@ -66,7 +66,7 @@ Read the introductory blog post about Lab [here](https://www.montferret.dev/blog
 
 - **Built-in Ferret runtime** - Execute tests using the embedded Ferret engine
 - **Remote HTTP runtime** - Connect to remote Ferret services over HTTP/HTTPS
-- **External binary runtime** - Use custom Ferret CLI installations
+- **Wire runtime** - Execute tests through a hosted Universal Ferret API over gRPC
 - **Multi-runtime testing** - Test against different Ferret versions or runtime configurations
 
 ### 📁 Multiple Source Types
@@ -256,7 +256,7 @@ lab run --concurrency=4 myscripts/
 lab run --times=3 myscript.fql
 ```
 
-Use `lab version --runtime=...` when you want to inspect the version reported by a specific remote or binary runtime.
+Use `lab version --runtime=...` when you want to inspect the version reported by a specific HTTP or Wire runtime.
 
 ### 📝 Your First Test
 
@@ -723,7 +723,7 @@ Mock API entries use the same binding syntax as static serving: `<path>`, `<path
 
 ### 🔒 Filesystem Policy
 
-The built-in runtime exposes FQL filesystem functions through a sandbox rooted at Lab's current working directory. Use `--policy-fs-root` to select a narrower relative or absolute root, and add `--policy-fs-read-only` to permit reads while rejecting writes, directory changes, and removals. When `--runtime=bin:...` selects a Ferret CLI v2 binary, Lab forwards the same explicitly configured policy values to `ferret run`.
+The built-in runtime exposes FQL filesystem functions through a sandbox rooted at Lab's current working directory. Use `--policy-fs-root` to select a narrower relative or absolute root, and add `--policy-fs-read-only` to permit reads while rejecting writes, directory changes, and removals.
 
 ```bash
 lab run \
@@ -754,7 +754,7 @@ lab run \
 
 When the runtime URL already includes a path, Lab sends `run` requests to that exact path. The optional `runtime-param=path` value overrides the run endpoint only. `lab version --runtime=...` uses the runtime URL path and requests its sibling `/info` endpoint.
 
-Lab rejects `--policy-fs-*` and `--policy-http-*` options for HTTP runtimes because their request protocol has no policy contract. Built-in and Ferret CLI v2 binary runtimes both support these options.
+Lab rejects `--policy-fs-*` and `--policy-http-*` options for HTTP runtimes because their request protocol has no policy contract. The built-in runtime supports these options.
 
 The HTTP runtime sends POST requests with:
 
@@ -788,38 +788,7 @@ Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. It
 
 Lab owns the gRPC transport and closes the logical Wire runtime before that transport. Setup failures also release the transport. Transport loss requires a new Lab invocation; the adapter does not redial or switch runtimes.
 
-The host configures Ferret and its execution policies. Wire therefore rejects Lab's `--policy-fs-*`, `--policy-http-*`, and binary flags. Shared runtime parameter names `headers`, `cookies`, `path`, and `flags` are reserved for other adapters and rejected for Wire; ordinary per-test FQL parameters may use those names. HTTP/Worker support remains separate.
-
-#### External Binary Runtime
-
-Use Ferret CLI v2-compatible installations. Lab invokes the binary as `ferret run`, passes the FQL source through stdin, and serializes test parameters as `--param=name=<JSON>` arguments.
-
-```bash
-# Use specific Ferret binary
-lab run --runtime=bin:./custom-ferret tests/
-
-# With shared runtime params forwarded as --param entries
-lab run \
-  --runtime=bin:/usr/local/bin/ferret \
-  --runtime-param=timeout:30 \
-  tests/
-
-# With Lab-managed I/O policies
-lab run \
-  --runtime=bin:/usr/local/bin/ferret \
-  --policy-fs-root=./fixtures \
-  --policy-fs-read-only \
-  --policy-http-allowed-hosts=api.example.com \
-  tests/
-
-# With additional raw `ferret run` flags
-lab run \
-  --runtime=bin:/usr/local/bin/ferret \
-  --runtime-param='flags:["--log-output=none", "--browser-headless"]' \
-  tests/
-```
-
-Only explicitly configured Lab policy values are forwarded, so unset values retain the external CLI's configuration and defaults. Raw policy flags remain available when the corresponding Lab policy option is unset. Lab rejects raw flags that duplicate a managed policy option or conflict with its timeout/limit counterpart.
+The host configures Ferret and its execution policies. Wire therefore rejects Lab's `--policy-fs-*` and `--policy-http-*` options. Shared runtime parameter names `headers`, `cookies`, `path`, and `flags` are reserved and rejected for Wire; ordinary per-test FQL parameters may use those names. HTTP/Worker support remains separate.
 
 #### Runtime Comparison Testing
 
@@ -884,10 +853,10 @@ These flags apply to `lab run`.
 | `--timeout` | `-t` | `LAB_TIMEOUT` | `30` | Test timeout in seconds |
 | `--cdp` | - | `LAB_CDP` | `http://127.0.0.1:9222` | Chrome DevTools Protocol address |
 | `--reporter` | - | `LAB_REPORTER` | `console` | Output reporter: `console`, `simple` |
-| `--runtime` | `-r` | `LAB_RUNTIME` | - | Built-in, HTTP, Ferret CLI v2 binary, or Wire runtime |
+| `--runtime` | `-r` | `LAB_RUNTIME` | - | Built-in, HTTP, or Wire runtime |
 | `--runtime-endpoint` | - | `LAB_RUNTIME_ENDPOINT` | - | Wire endpoint: `tcp://127.0.0.1:<port>` |
 | `--runtime-connect-timeout` | - | `LAB_RUNTIME_CONNECT_TIMEOUT` | `5s` | Wire connection and handshake timeout |
-| `--runtime-param` | `--rp` | `LAB_RUNTIME_PARAM` | - | Runtime adapter parameters and binary raw flags |
+| `--runtime-param` | `--rp` | `LAB_RUNTIME_PARAM` | - | Runtime adapter parameters or shared FQL values |
 | `--concurrency` | `-c` | `LAB_CONCURRENCY` | `1` | Number of parallel test executions |
 | `--times` | - | `LAB_TIMES` | `1` | Number of times to run each test |
 | `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
@@ -901,8 +870,8 @@ These flags apply to `lab run`.
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
 | `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
 | `--wait-attempts` | - | `LAB_WAIT_ATTEMPTS` | `5` | Number of wait attempts |
-| `--policy-fs-root` | - | `LAB_POLICY_FS_ROOT` | Current working directory | Filesystem root for built-in and binary runtimes |
-| `--policy-fs-read-only` | - | `LAB_POLICY_FS_READ_ONLY` | `false` | Make built-in and binary runtime filesystems read-only |
+| `--policy-fs-root` | - | `LAB_POLICY_FS_ROOT` | Current working directory | Filesystem root for the built-in runtime |
+| `--policy-fs-read-only` | - | `LAB_POLICY_FS_READ_ONLY` | `false` | Make the built-in runtime filesystem read-only |
 | `--policy-http-allowed-schemes` | - | `LAB_POLICY_HTTP_ALLOWED_SCHEMES` | `http,https` | Allowed outbound HTTP URL schemes |
 | `--policy-http-allowed-methods` | - | `LAB_POLICY_HTTP_ALLOWED_METHODS` | `GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS` | Allowed outbound HTTP methods |
 | `--policy-http-allowed-hosts` | - | `LAB_POLICY_HTTP_ALLOWED_HOSTS` | - | Allowed exact hosts or `host:port` values |
@@ -1016,17 +985,11 @@ lab run \
   --runtime-param='headers:{"Authorization":"Bearer token"}' \
   --runtime-param='path:"/v2/execute"' \
   tests/
-
-# Binary runtime with custom flags
-lab run \
-  --runtime=bin:/usr/local/bin/ferret \
-  --runtime-param='flags:["--log-output=none", "--browser-headless"]' \
-  tests/
 ```
 
 Wire runtime params are shared FQL values; per-run values override matching keys. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected.
 
-For HTTP runtimes, `path` overrides the run endpoint only. For binary runtimes, `flags` is special and is appended after the generated `run` subcommand. All other binary runtime params are passed as `--param=name=<JSON>`. Raw flags that conflict with managed policy options are rejected before execution.
+Built-in runtime params are shared FQL values, including `flags`; per-run values override matching keys. For HTTP runtimes, `path` overrides the run endpoint only. Lab does not execute external CLI binaries; `bin:` selectors are rejected.
 
 ## Architecture
 
@@ -1072,7 +1035,6 @@ Manages Ferret script execution:
 
 - **Built-in Runtime** - Uses the embedded Ferret engine
 - **Remote Runtime** - Communicates with remote Ferret services over HTTP
-- **Binary Runtime** - Executes external Ferret CLI binaries
 - **Wire Runtime** - Uses the hosted Universal Ferret API over gRPC
 
 #### Test Runner (`runner/`)
@@ -1128,7 +1090,7 @@ Test suite definition and validation:
 1. **Input Processing** - Parse command-line arguments and environment variables
 2. **Source Resolution** - Fetch test files from configured sources
 3. **Local Service Initialization** - Start static and mock servers, if configured
-4. **Runtime Setup** - Initialize Ferret runtime, built-in, HTTP remote, binary, or Wire
+4. **Runtime Setup** - Initialize Ferret runtime, built-in, HTTP remote, or Wire
 5. **Test Discovery** - Find and parse test files and suites
 6. **Parallel Execution** - Run tests according to concurrency settings
 7. **Result Collection** - Gather execution results and timing data
@@ -1451,7 +1413,7 @@ Error: failed to start static file server on port 8080
 
 - Reduce concurrency with `--concurrency=2`.
 - Implement cleanup in tests.
-- Use an external binary runtime for memory-intensive tests.
+- Use a separately hosted HTTP or Wire runtime for memory-intensive tests.
 
 #### Slow Test Execution
 

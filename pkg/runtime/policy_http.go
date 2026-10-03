@@ -1,16 +1,14 @@
 package runtime
 
 import (
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
 )
 
-// HTTPPolicy describes outbound HTTP policy overrides shared by built-in and
-// binary Ferret runtimes. Nil fields leave the runtime's own setting unchanged.
+// HTTPPolicy describes outbound HTTP policy overrides for the built-in runtime.
+// Nil fields leave the runtime's own setting unchanged.
 type HTTPPolicy struct {
 	AllowedSchemes        []string
 	AllowedMethods        []string
@@ -51,12 +49,6 @@ func (policy *HTTPPolicy) hasSettings() bool {
 		policy.MaxResponseHeaderSize != nil ||
 		policy.FollowRedirects != nil ||
 		policy.MaxRedirects != nil)
-}
-
-func (policy *HTTPPolicy) validate() error {
-	_, err := policy.validatedFerretOptions()
-
-	return err
 }
 
 func (policy *HTTPPolicy) validatedFerretOptions() ([]ferrethttp.PolicyOption, error) {
@@ -148,105 +140,4 @@ func (policy *HTTPPolicy) validatedFerretOptions() ([]ferrethttp.PolicyOption, e
 	}
 
 	return options, nil
-}
-
-func (policy *HTTPPolicy) ferretCLIArgs() ([]string, error) {
-	if policy == nil {
-		return nil, nil
-	}
-
-	args := make([]string, 0, 18)
-	args = appendStringSliceFlag(args, "policy-http-allowed-schemes", policy.AllowedSchemes)
-	args = appendStringSliceFlag(args, "policy-http-allowed-methods", policy.AllowedMethods)
-	args = appendStringSliceFlag(args, "policy-http-allowed-hosts", policy.AllowedHosts)
-	args = appendStringSliceFlag(args, "policy-http-blocked-hosts", policy.BlockedHosts)
-	args = appendBoolFlag(args, "policy-http-allow-localhost", policy.AllowLocalhost)
-	args = appendBoolFlag(args, "policy-http-allow-private-networks", policy.AllowPrivateNetworks)
-	args = appendBoolFlag(args, "policy-http-allow-link-local", policy.AllowLinkLocal)
-
-	if policy.DefaultHeaders != nil {
-		data, err := json.Marshal(policy.DefaultHeaders)
-		if err != nil {
-			return nil, fmt.Errorf("serialize HTTP policy default headers: %w", err)
-		}
-
-		args = append(args, "--policy-http-default-headers="+string(data))
-	}
-
-	args = appendStringSliceFlag(args, "policy-http-blocked-request-headers", policy.BlockedRequestHeaders)
-	if policy.Timeout != nil {
-		args = append(args, "--policy-http-timeout="+policy.Timeout.String())
-	}
-
-	args = appendBoolFlag(args, "policy-http-no-timeout", policy.NoTimeout)
-	if policy.MaxRequestSize != nil {
-		args = append(args, "--policy-http-max-request-size="+strconv.FormatInt(*policy.MaxRequestSize, 10))
-	}
-
-	args = appendBoolFlag(args, "policy-http-unlimited-request-size", policy.UnlimitedRequestSize)
-	if policy.MaxResponseSize != nil {
-		args = append(args, "--policy-http-max-response-size="+strconv.FormatInt(*policy.MaxResponseSize, 10))
-	}
-
-	args = appendBoolFlag(args, "policy-http-unlimited-response-size", policy.UnlimitedResponseSize)
-	if policy.MaxResponseHeaderSize != nil {
-		args = append(args, "--policy-http-max-response-header-size="+strconv.FormatInt(*policy.MaxResponseHeaderSize, 10))
-	}
-
-	args = appendBoolFlag(args, "policy-http-follow-redirects", policy.FollowRedirects)
-	if policy.MaxRedirects != nil {
-		args = append(args, "--policy-http-max-redirects="+strconv.Itoa(*policy.MaxRedirects))
-	}
-
-	return args, nil
-}
-
-func (policy *HTTPPolicy) conflictingRawFlags() map[string]struct{} {
-	flags := make(map[string]struct{}, 18)
-	if policy == nil {
-		return flags
-	}
-
-	addManagedSliceFlag(flags, "--policy-http-allowed-schemes", policy.AllowedSchemes)
-	addManagedSliceFlag(flags, "--policy-http-allowed-methods", policy.AllowedMethods)
-	addManagedSliceFlag(flags, "--policy-http-allowed-hosts", policy.AllowedHosts)
-	addManagedSliceFlag(flags, "--policy-http-blocked-hosts", policy.BlockedHosts)
-	addManagedBoolFlag(flags, "--policy-http-allow-localhost", policy.AllowLocalhost)
-	addManagedBoolFlag(flags, "--policy-http-allow-private-networks", policy.AllowPrivateNetworks)
-	addManagedBoolFlag(flags, "--policy-http-allow-link-local", policy.AllowLinkLocal)
-
-	if policy.DefaultHeaders != nil {
-		flags["--policy-http-default-headers"] = struct{}{}
-	}
-
-	addManagedSliceFlag(flags, "--policy-http-blocked-request-headers", policy.BlockedRequestHeaders)
-
-	if policy.Timeout != nil || policy.NoTimeout != nil {
-		flags["--policy-http-timeout"] = struct{}{}
-		flags["--policy-http-no-timeout"] = struct{}{}
-	}
-
-	if policy.MaxRequestSize != nil || policy.UnlimitedRequestSize != nil {
-		flags["--policy-http-max-request-size"] = struct{}{}
-		flags["--policy-http-unlimited-request-size"] = struct{}{}
-	}
-
-	if policy.MaxResponseSize != nil || policy.UnlimitedResponseSize != nil {
-		flags["--policy-http-max-response-size"] = struct{}{}
-		flags["--policy-http-unlimited-response-size"] = struct{}{}
-	}
-
-	if policy.MaxResponseHeaderSize != nil {
-		flags["--policy-http-max-response-header-size"] = struct{}{}
-	}
-
-	if policy.FollowRedirects != nil {
-		flags["--policy-http-follow-redirects"] = struct{}{}
-	}
-
-	if policy.MaxRedirects != nil {
-		flags["--policy-http-max-redirects"] = struct{}{}
-	}
-
-	return flags
 }

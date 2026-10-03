@@ -13,13 +13,13 @@ func fsPolicyFlags(hidden bool) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "policy-fs-root",
-			Usage:   "filesystem root directory for built-in and binary Ferret runtimes",
+			Usage:   "filesystem root directory for the built-in Ferret runtime",
 			Sources: cli.EnvVars("LAB_POLICY_FS_ROOT"),
 			Hidden:  hidden,
 		},
 		&cli.BoolFlag{
 			Name:    "policy-fs-read-only",
-			Usage:   "make built-in and binary Ferret runtime filesystems read-only",
+			Usage:   "make the built-in Ferret runtime filesystem read-only",
 			Sources: cli.EnvVars("LAB_POLICY_FS_READ_ONLY"),
 			Hidden:  hidden,
 		},

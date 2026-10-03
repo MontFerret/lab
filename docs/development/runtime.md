@@ -19,9 +19,9 @@ All adapters honor context cancellation where their integration permits it. Call
 Runtime selection is centralized in `pkg/runtime`:
 
 - HTTP and HTTPS URLs select the remote adapter.
-- `bin:` URLs select the external Ferret CLI adapter.
+- `bin:` URLs are rejected because external CLI binary execution is no longer supported.
 - Explicit `wire` mode selects the Wire adapter with `--runtime-endpoint tcp://127.0.0.1:<port>`, using Ferret CLI's type normalization and endpoint grammar.
-- After checking explicit Wire mode, an empty value or a parsed URL with a scheme other than HTTP, HTTPS, or `bin` selects the built-in adapter. Invalid URL syntax fails during selection.
+- After checking explicit Wire mode, an empty value or an unrelated unknown URL scheme selects the built-in adapter. Invalid URL syntax fails during selection.
 
 Adapter-specific settings are validated before execution or external resource startup. Options that do not apply to the selected adapter are rejected rather than silently ignored where the contract defines them as unsupported.
 
@@ -33,6 +33,7 @@ The adapter:
 
 - preserves source name and FQL content
 - applies Lab-configured filesystem and outbound HTTP policy through Ferret APIs
+- applies shared FQL parameters, including `flags`, before per-run overrides
 - registers the Lab build's embedded Ferret version for cheap version reporting
 - releases the embedded runtime when closed
 
@@ -67,25 +68,7 @@ Lab returns `Output.Content` as encoded bytes without interpreting `ContentType`
 
 Lab owns the gRPC client transport it creates. Wire borrows it and owns the logical connection. After all runs settle, the adapter closes the logical runtime before the transport, retains both cleanup errors, and supports repeated/concurrent close calls. A lost physical connection is terminal for that adapter; it does not redial or select another runtime. The server owns its hosted runtime and configuration.
 
-Filesystem and outbound HTTP execution policies, binary flags, and HTTP adapter configuration are rejected before connection. Configure Ferret execution policy at the remote host. HTTP/Worker support remains a separate adapter.
-
-## Binary runtime
-
-The binary adapter runs a configured Ferret CLI v2 executable.
-
-Version reporting invokes the executable's `version` command. Test execution invokes its `run` command, sends FQL content through stdin, and captures combined process output. The process is created with the caller's context so cancellation can terminate it.
-
-Argument construction is part of the adapter contract:
-
-1. Start with the `run` subcommand.
-2. Append validated raw runtime flags.
-3. Append Lab-managed filesystem and HTTP policy flags.
-4. Append shared runtime parameters as deterministic `--param` arguments.
-5. Append per-test query parameters using the same deterministic serialization.
-
-Parameter keys are sorted before JSON serialization and argument construction. Raw flags are runtime configuration, not FQL query parameters. Raw flags that conflict with Lab-managed policy flags are rejected before the process starts.
-
-Binary tests should cover exact argument order, deterministic parameter serialization, stdin, combined output, exit failures, invalid flags, policy conversion, version reporting, and cancellation. Benchmarks cover argument and invocation preparation where performance may change.
+Filesystem and outbound HTTP execution policies and reserved adapter configuration are rejected before connection. Configure Ferret execution policy at the remote host. HTTP/Worker support remains a separate adapter.
 
 ## Function-backed runtime
 
@@ -101,8 +84,6 @@ Policy changes should preserve:
 
 - explicit support by adapter
 - validation before execution
-- deterministic CLI argument construction
-- no conflict between raw and managed binary flags
 - cancellation and error context
 - Ferret ownership of the policy's execution semantics
 
@@ -110,4 +91,4 @@ Policy behavior is security-sensitive. Tests should include invalid combinations
 
 ## Performance
 
-Runtime changes are significant when they can affect compilation/execution setup, HTTP/gRPC request latency, Wire handshake/cleanup, process startup, argument serialization, allocations, or cleanup. Run the relevant existing benchmark before and after the change, or add one when the changed hot path is not covered.
+Runtime changes are significant when they can affect compilation/execution setup, HTTP/gRPC request latency, Wire handshake/cleanup, parameter conversion, allocations, or cleanup. Run the relevant existing benchmark before and after the change, or add one when the changed hot path is not covered.

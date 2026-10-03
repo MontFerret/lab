@@ -187,12 +187,3 @@ func TestNewRejectsFilesystemPolicyForHTTPRuntime(t *testing.T) {
 		t.Fatalf("expected unsupported policy error, got %v", err)
 	}
 }
-
-func TestNewRejectsBinaryFlagsForBuiltinRuntime(t *testing.T) {
-	_, err := New(t.Context(), Options{
-		BinaryFlags: []string{"--log-output=none"},
-	})
-	if err == nil || err.Error() != "binary flags are only supported by binary runtimes" {
-		t.Fatalf("expected unsupported binary flags error, got %v", err)
-	}
-}

@@ -59,9 +59,9 @@ Positional `run` locations take precedence when present; otherwise `--files` sup
 
 Runtime parameters and query parameters use separate flags and maps. Wire uses `--runtime=wire`, `--runtime-endpoint=tcp://127.0.0.1:<port>`, and a positive `--runtime-connect-timeout` (default `5s`) on both `run` and `version`. Their environment bindings are `LAB_RUNTIME`, `LAB_RUNTIME_ENDPOINT`, and `LAB_RUNTIME_CONNECT_TIMEOUT`. Connection options are rejected for other adapters. The command context bounds setup; the per-test timeout continues to bound execution.
 
-For Wire, runtime parameters are shared FQL values, with per-run values taking precedence. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected before connecting. Local filesystem/HTTP execution policy and binary flags must be configured at the hosted runtime instead.
+For Wire, runtime parameters are shared FQL values, with per-run values taking precedence. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected before connecting. Local filesystem/HTTP execution policy must be configured at the hosted runtime instead.
 
-The binary runtime's `flags` runtime parameter is extracted as adapter configuration rather than forwarded as an FQL query parameter.
+`flags` has no special command-line meaning. Built-in runtime parameters are shared FQL values, including `flags`; per-run values override matching keys. Removed `bin:` selectors fail before execution.
 
 `--param-bind <target>=@<source>` adapts an existing parameter to an ordinary user parameter path. Binding declarations are validated before external setup where possible. Sources are resolved only after dynamic Lab values are available, and all sources use the same pre-binding snapshot so declaration order cannot create binding chains. Targets may be nested but cannot use the reserved `lab` namespace or overlap another binding or `--param` target.
 
@@ -69,7 +69,7 @@ Filesystem and outbound HTTP policy flags are parsed in `cmd`, converted to `pkg
 
 ## Lifecycle and error handling
 
-The command context is the common cancellation signal for waiting, source loading, execution, reporters, processes, HTTP requests, and server startup. Components that own resources expose cleanup through their package contracts.
+The command context is the common cancellation signal for waiting, source loading, execution, reporters, HTTP/Wire requests, and server startup. Components that own resources expose cleanup through their package contracts.
 
 Command errors should retain the context that helps a user identify the invalid flag, parameter, runtime, source, or service. Credentials, authorization values, and sensitive response bodies should not be included in diagnostics.
 

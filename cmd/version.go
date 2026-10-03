@@ -16,7 +16,7 @@ func VersionCommand(self string) *cli.Command {
 			&cli.StringFlag{
 				Name:    "runtime",
 				Aliases: []string{"r"},
-				Usage:   "Ferret runtime (built-in, HTTP URL, bin:<Ferret CLI v2 path>, or wire with --runtime-endpoint)",
+				Usage:   "Ferret runtime (built-in, HTTP URL, or wire with --runtime-endpoint)",
 				Sources: cli.EnvVars("LAB_RUNTIME"),
 			},
 		}, runtimeConnectionFlags(false)...),

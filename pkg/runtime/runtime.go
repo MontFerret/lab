@@ -20,13 +20,10 @@ type (
 		EndpointSet       bool
 		ConnectTimeout    time.Duration
 		ConnectTimeoutSet bool
-		// FSPolicy configures filesystem access for built-in and binary runtimes.
+		// FSPolicy configures filesystem access for the built-in runtime.
 		FSPolicy *FileSystemPolicy
-		// HTTPPolicy configures outbound HTTP for built-in and binary runtimes.
+		// HTTPPolicy configures outbound HTTP for the built-in runtime.
 		HTTPPolicy *HTTPPolicy
-		// BinaryFlags contains additional arguments for the Ferret CLI run command.
-		// A nil slice means no binary configuration was supplied.
-		BinaryFlags []string
 	}
 
 	Runtime interface {
@@ -70,10 +67,6 @@ func New(ctx context.Context, opts Options) (Runtime, error) {
 	}
 
 	if opts.Type == "" {
-		if len(opts.BinaryFlags) > 0 {
-			return nil, errors.New("binary flags are only supported by binary runtimes")
-		}
-
 		return newConfiguredBuiltin(params, opts.FSPolicy, opts.HTTPPolicy)
 	}
 
@@ -93,24 +86,10 @@ func New(ctx context.Context, opts Options) (Runtime, error) {
 			return nil, errors.New("HTTP policy options are not supported by HTTP runtimes")
 		}
 
-		if len(opts.BinaryFlags) > 0 {
-			return nil, errors.New("binary flags are only supported by binary runtimes")
-		}
-
 		return NewRemote(opts.Type, params)
 	case "bin":
-		return NewBinary(BinaryOptions{
-			Path:       binaryPath(u),
-			Params:     params,
-			Flags:      opts.BinaryFlags,
-			FSPolicy:   opts.FSPolicy,
-			HTTPPolicy: opts.HTTPPolicy,
-		})
+		return nil, errors.New("binary runtimes are no longer supported; use the built-in, HTTP, or Wire runtime")
 	default:
-		if len(opts.BinaryFlags) > 0 {
-			return nil, errors.New("binary flags are only supported by binary runtimes")
-		}
-
 		return newConfiguredBuiltin(params, opts.FSPolicy, opts.HTTPPolicy)
 	}
 }
@@ -126,12 +105,4 @@ func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, htt
 	}
 
 	return newBuiltin(params, fsPolicy, options...)
-}
-
-func binaryPath(u *url.URL) string {
-	if u.Opaque != "" {
-		return u.Opaque
-	}
-
-	return u.Host + u.Path
 }

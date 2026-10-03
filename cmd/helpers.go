@@ -125,11 +125,6 @@ func newRuntime(ctx context.Context, cmd *cli.Command, params map[string]any) (r
 		return nil, err
 	}
 
-	binaryFlags, err := extractBinaryFlags(params)
-	if err != nil {
-		return nil, err
-	}
-
 	connectTimeout := cmd.Duration("runtime-connect-timeout")
 	if !cmd.IsSet("runtime-connect-timeout") {
 		connectTimeout = 0
@@ -144,7 +139,6 @@ func newRuntime(ctx context.Context, cmd *cli.Command, params map[string]any) (r
 		Params:            params,
 		FSPolicy:          fsPolicy,
 		HTTPPolicy:        httpPolicy,
-		BinaryFlags:       binaryFlags,
 	})
 
 	if err != nil {
@@ -152,43 +146,6 @@ func newRuntime(ctx context.Context, cmd *cli.Command, params map[string]any) (r
 	}
 
 	return rt, nil
-}
-
-func extractBinaryFlags(params map[string]any) ([]string, error) {
-	value, exists := params["flags"]
-	if !exists {
-		return nil, nil
-	}
-
-	flags, err := toStringSlice(value)
-	if err != nil {
-		return nil, fmt.Errorf("invalid type of flags (expected array of strings): %w", err)
-	}
-
-	delete(params, "flags")
-
-	return flags, nil
-}
-
-func toStringSlice(value any) ([]string, error) {
-	switch values := value.(type) {
-	case []string:
-		return append([]string(nil), values...), nil
-	case []any:
-		result := make([]string, 0, len(values))
-		for _, value := range values {
-			str, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("expected string value")
-			}
-
-			result = append(result, str)
-		}
-
-		return result, nil
-	default:
-		return nil, fmt.Errorf("expected array")
-	}
 }
 
 func locationsFromCommand(cmd *cli.Command) ([]string, bool) {

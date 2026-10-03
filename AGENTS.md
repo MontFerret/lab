@@ -22,7 +22,7 @@ CLI -> sources -> testing -> runner -> runtime adapter -> Ferret -> reporter
 Keep these boundaries intact:
 
 - Lab coordinates execution; Ferret owns FQL syntax, compilation, VM execution, and runtime value semantics.
-- The built-in runtime uses Ferret's embedding API. Remote and binary runtimes remain explicit integration adapters.
+- The built-in runtime uses Ferret's embedding API. Remote HTTP and Wire runtimes remain explicit integration adapters.
 - User parameters and Lab system parameters stay isolated until materialized for Ferret. Lab system values remain under `@lab`, including `@lab.static` and `@lab.mock`.
 - Owned resources must be released on normal return, error, timeout, and cancellation. Cleanup must remain safe after partial startup.
 - Sources preserve useful identity and error context. Reporters observe runner output and do not control execution semantics.
@@ -37,7 +37,7 @@ Detailed subsystem documentation lives under `docs/development/`. Before making 
 - [Architecture](docs/development/architecture.md): execution flows, dependency direction, package responsibilities, and stability boundaries
 - [CLI](docs/development/cli.md): command wiring, flags and environment values, validation, startup, and cleanup
 - [Test execution](docs/development/test-execution.md): sources, suites, parameters, runner orchestration, streams, and reporters
-- [Runtime](docs/development/runtime.md): built-in, remote, binary, and function-backed adapter contracts and policies
+- [Runtime](docs/development/runtime.md): built-in, HTTP, Wire, and function-backed adapter contracts and policies
 - [Local services](docs/development/local-services.md): shared lifecycle, static serving, OpenAPI mocks, routing, and template safety
 - [Release](docs/development/release.md): development commands, CI, versioning, packaging, releases, and dependency automation
 
@@ -66,7 +66,7 @@ Start with the package that owns the behavior. Do not move behavior across packa
 - Add a doc comment when a new exported symbol is necessary and explain its cross-package contract.
 - Do not expose Ferret internals through Lab APIs unless explicitly requested.
 - Preserve existing behavior unless the task intentionally changes it.
-- Treat CLI commands, flags, environment bindings, runtime HTTP/process contracts, parameter shapes, local-service entry syntax, endpoint aliases, and reporter output as compatibility-sensitive.
+- Treat CLI commands, flags, environment bindings, runtime HTTP/Wire contracts, parameter shapes, local-service entry syntax, endpoint aliases, and reporter output as compatibility-sensitive.
 - Machine-readable output, if introduced, requires an explicit and stricter compatibility contract than human console output.
 - Preserve cancellation, error context, source identity, deterministic serialization, and cleanup behavior at integration boundaries.
 

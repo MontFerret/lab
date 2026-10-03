@@ -58,10 +58,6 @@ func validateWireOptions(opts Options) error {
 		return errors.New("HTTP policy options are not supported by Wire runtimes; configure the runtime host")
 	}
 
-	if opts.BinaryFlags != nil {
-		return errors.New("binary flags are only supported by binary runtimes")
-	}
-
 	for _, key := range []string{"headers", "cookies", "path", "flags"} {
 		if _, exists := opts.Params[key]; exists {
 			return fmt.Errorf("runtime parameter %q is not supported by Wire runtimes", key)

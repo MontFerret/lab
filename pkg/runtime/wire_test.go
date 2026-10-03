@@ -23,7 +23,7 @@ import (
 )
 
 func TestRuntimeSelection(t *testing.T) {
-	for _, value := range []string{"", "builtin", "unknown", "unknown://example", "http://example.test", "https://example.test", "bin:./ferret"} {
+	for _, value := range []string{"", "builtin", "unknown", "unknown://example", "http://example.test", "https://example.test"} {
 		t.Run(value, func(t *testing.T) {
 			rt, err := New(t.Context(), Options{Type: value})
 			if err != nil {
@@ -35,8 +35,6 @@ func TestRuntimeSelection(t *testing.T) {
 			switch {
 			case strings.HasPrefix(value, "http"):
 				_, correct = rt.(*Remote)
-			case strings.HasPrefix(value, "bin:"):
-				_, correct = rt.(*Binary)
 			default:
 				_, correct = rt.(*Builtin)
 			}
@@ -81,8 +79,6 @@ func TestWireRejectsUnsupportedConfiguration(t *testing.T) {
 		{"filesystem", Options{FSPolicy: &FileSystemPolicy{Root: "."}}, "filesystem policy"},
 		{"filesystem false", Options{FSPolicy: &FileSystemPolicy{ReadOnly: pointerTo(false)}}, "filesystem policy"},
 		{"HTTP", Options{HTTPPolicy: &HTTPPolicy{AllowedHosts: []string{"example.test"}}}, "HTTP policy"},
-		{"binary flags", Options{BinaryFlags: []string{"--verbose"}}, "binary flags"},
-		{"empty binary flags", Options{BinaryFlags: []string{}}, "binary flags"},
 		{"zero timeout", Options{ConnectTimeoutSet: true}, "must be positive"},
 		{"negative timeout", Options{ConnectTimeout: -time.Second}, "must be positive"},
 	}
