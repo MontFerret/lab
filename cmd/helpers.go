@@ -11,6 +11,8 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/MontFerret/api"
+
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/localserver"
 	"github.com/MontFerret/lab/v2/pkg/mockserver"
@@ -114,7 +116,7 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 	}
 }
 
-func newRuntime(ctx context.Context, cmd *cli.Command, params map[string]any) (runtime.Runtime, error) {
+func newRuntime(ctx context.Context, cmd *cli.Command, params map[string]any) (api.Runtime, error) {
 	fsPolicy, err := fsPolicyFromCommand(cmd)
 	if err != nil {
 		return nil, err

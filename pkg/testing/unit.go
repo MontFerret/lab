@@ -6,8 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MontFerret/ferret/v2"
-	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 )
 
@@ -22,11 +21,11 @@ func NewUnit(opts Options) (*Unit, error) {
 	return &Unit{file: opts.File, timeout: opts.Timeout}, nil
 }
 
-func (unit *Unit) Run(ctx context.Context, rt runtime.Runtime, params Params) error {
+func (unit *Unit) Run(ctx context.Context, rt api.Runtime, params Params) error {
 	ctx, cancel := context.WithTimeout(ctx, unit.timeout)
 	defer cancel()
 
-	_, err := rt.Run(ctx, ferret.NewSource(unit.file.Name, string(unit.file.Content)), params.ToMap())
+	_, err := rt.Run(ctx, api.NewSource(unit.file.Name, string(unit.file.Content)), api.WithParams(params.ToMap()))
 
 	if unit.mustFail() {
 		if err != nil {

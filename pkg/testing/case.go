@@ -6,7 +6,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 )
 
@@ -17,7 +17,7 @@ type (
 	}
 
 	Case interface {
-		Run(ctx context.Context, rt runtime.Runtime, params Params) error
+		Run(ctx context.Context, rt api.Runtime, params Params) error
 	}
 )
 

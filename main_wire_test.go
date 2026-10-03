@@ -14,11 +14,12 @@ import (
 	"github.com/MontFerret/ferret/v2"
 	native "github.com/MontFerret/ferret/v2/pkg/runtime"
 	"github.com/MontFerret/ferret/v2/uapi"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/internal/testutil/wirehost"
 )
 
 func TestWireVersionCommand(t *testing.T) {
-	host := wirehost.New(t, &wirehost.Runtime{VersionValue: "v2.0.0-alpha.test"})
+	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "v2.0.0-alpha.test"})
 	stdout, stderr, err := runCLI(t, "version", "--runtime=wire", "--runtime-endpoint="+host.Endpoint)
 	if err != nil || stderr != "" || !strings.Contains(stdout, "  Self: test-version\n  Runtime: v2.0.0-alpha.test\n") {
 		t.Fatalf("Wire version: %q, %q, %v", stdout, stderr, err)
@@ -76,7 +77,7 @@ assert:
 }
 
 func TestWireCommandConfigurationAndHelp(t *testing.T) {
-	host := wirehost.New(t, &wirehost.Runtime{VersionValue: "configured"})
+	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "configured"})
 	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
 		"LAB_RUNTIME": "wire", "LAB_RUNTIME_ENDPOINT": "tcp://127.0.0.1:1", "LAB_RUNTIME_CONNECT_TIMEOUT": "0s",
 	}, "version", "--runtime-endpoint="+host.Endpoint, "--runtime-connect-timeout=1s")
@@ -101,7 +102,7 @@ func TestWireCommandConfigurationAndHelp(t *testing.T) {
 }
 
 func TestWireCommandsRejectConfigurationBeforeConnecting(t *testing.T) {
-	host := wirehost.New(t, &wirehost.Runtime{VersionValue: "unused"})
+	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "unused"})
 	script := writeScript(t)
 	for _, extra := range [][]string{
 		{"--runtime-connect-timeout=0s"},
@@ -143,7 +144,7 @@ func TestWireCommandsHonorConstructionCancellation(t *testing.T) {
 	for _, command := range []string{"run", "version"} {
 		t.Run(command, func(t *testing.T) {
 			started := make(chan struct{})
-			host := wirehost.New(t, &wirehost.Runtime{VersionFunc: func(ctx context.Context) (api.Version, error) {
+			host := wirehost.New(t, &apiruntime.Runtime{VersionFunc: func(ctx context.Context) (api.Version, error) {
 				close(started)
 				<-ctx.Done()
 
@@ -183,7 +184,7 @@ func TestWireRunCommandCancellationAndFailureCleanup(t *testing.T) {
 		t.Run(map[bool]string{false: "failure", true: "cancellation"}[cancellation], func(t *testing.T) {
 			started := make(chan struct{})
 			finished := make(chan struct{})
-			host := wirehost.New(t, &wirehost.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+			host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
 				close(started)
 				defer close(finished)
 				if cancellation {
@@ -227,7 +228,7 @@ func TestWireRunCommandCancellationAndFailureCleanup(t *testing.T) {
 }
 
 func TestWireVersionCommandDeadline(t *testing.T) {
-	host := wirehost.New(t, &wirehost.Runtime{VersionFunc: func(ctx context.Context) (api.Version, error) {
+	host := wirehost.New(t, &apiruntime.Runtime{VersionFunc: func(ctx context.Context) (api.Version, error) {
 		<-ctx.Done()
 
 		return "", ctx.Err()

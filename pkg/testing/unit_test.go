@@ -6,8 +6,8 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/MontFerret/ferret/v2"
-	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
 )
@@ -48,9 +48,9 @@ func TestUnitExpectedFailureCompatibility(t *stdtesting.T) {
 				t.Fatalf("expected no construction error, got %v", err)
 			}
 
-			rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
-				return []byte(`1`), test.runtimeErr
-			})
+			rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+				return &api.Output{Content: []byte(`1`)}, test.runtimeErr
+			}}
 
 			err = testCase.Run(context.Background(), rt, testing2.NewParams())
 			if test.wantErr == "" && err != nil {

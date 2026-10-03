@@ -7,38 +7,27 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/api"
 )
 
-type (
-	// Options configures runtime selection and adapter-specific execution values.
-	Options struct {
-		Type   string
-		Params map[string]any
-		// Endpoint and ConnectTimeout configure Wire transport establishment.
-		Endpoint          string
-		EndpointSet       bool
-		ConnectTimeout    time.Duration
-		ConnectTimeoutSet bool
-		// FSPolicy configures filesystem access for the built-in runtime.
-		FSPolicy *FileSystemPolicy
-		// HTTPPolicy configures outbound HTTP for the built-in runtime.
-		HTTPPolicy *HTTPPolicy
-	}
-
-	Runtime interface {
-		Version(ctx context.Context) (string, error)
-
-		Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error)
-
-		// Close releases resources owned by the runtime after all runs finish.
-		Close() error
-	}
-)
+// Options configures runtime selection and adapter-specific execution values.
+type Options struct {
+	Type   string
+	Params map[string]any
+	// Endpoint and ConnectTimeout configure Wire transport establishment.
+	Endpoint          string
+	EndpointSet       bool
+	ConnectTimeout    time.Duration
+	ConnectTimeoutSet bool
+	// FSPolicy configures filesystem access for the built-in runtime.
+	FSPolicy *FileSystemPolicy
+	// HTTPPolicy configures outbound HTTP for the built-in runtime.
+	HTTPPolicy *HTTPPolicy
+}
 
 // New selects and configures a runtime. The context bounds Wire construction;
 // callers supply independent execution contexts and close the runtime after runs settle.
-func New(ctx context.Context, opts Options) (Runtime, error) {
+func New(ctx context.Context, opts Options) (api.Runtime, error) {
 	if isWireType(opts.Type) {
 		if opts.ConnectTimeout == 0 && !opts.ConnectTimeoutSet {
 			opts.ConnectTimeout = DefaultConnectTimeout
@@ -86,7 +75,12 @@ func New(ctx context.Context, opts Options) (Runtime, error) {
 			return nil, errors.New("HTTP policy options are not supported by HTTP runtimes")
 		}
 
-		return NewRemote(opts.Type, params)
+		rt, err := NewRemote(opts.Type, params)
+		if err != nil {
+			return nil, err
+		}
+
+		return rt, nil
 	case "bin":
 		return nil, errors.New("binary runtimes are no longer supported; use the built-in, HTTP, or Wire runtime")
 	default:
@@ -94,7 +88,7 @@ func New(ctx context.Context, opts Options) (Runtime, error) {
 	}
 }
 
-func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, httpPolicy *HTTPPolicy) (*Builtin, error) {
+func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, httpPolicy *HTTPPolicy) (api.Runtime, error) {
 	if err := fsPolicy.validate(); err != nil {
 		return nil, err
 	}
@@ -104,5 +98,10 @@ func newConfiguredBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, htt
 		return nil, fmt.Errorf("HTTP policy: %w", err)
 	}
 
-	return newBuiltin(params, fsPolicy, options...)
+	rt, err := newBuiltin(params, fsPolicy, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	return rt, nil
 }

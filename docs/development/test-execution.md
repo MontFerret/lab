@@ -30,7 +30,7 @@ New source types implement the existing source contract and are registered in th
 
 ## Test cases and suites
 
-`pkg/testing` converts a source file into an executable Lab test case. Direct FQL files execute as units. YAML suite files define a query followed by either an assertion or a structured `expect.error` runtime-error expectation. Query and assertion scripts may be inline FQL or referenced scripts.
+`pkg/testing` converts a source file into an executable Lab test case. Direct FQL files execute as units. YAML suite files define a query followed by either an assertion or a structured `expect.error` runtime-error expectation. Query and assertion scripts may be inline FQL or referenced scripts. Cases accept `api.Runtime` directly and preserve each script's identity and content in `api.Source`. They pass materialized values through `api.WithParams` and use one-shot `Run`, leaving temporary plans and sessions to the runtime. Suites deserialize `Output.Content` as JSON without inspecting its content type; nil and empty outputs retain the existing absent-result behavior.
 
 An empty `expect.error` object accepts any error returned by the runtime. Its optional `contains` field performs a substring match against the error message. Unknown fields inside `expect.error` fail during suite construction rather than degrading to an unqualified error expectation. Expected-error suites do not deserialize query output or resolve and run an assertion, and combining `assert` with `expect.error` is invalid.
 

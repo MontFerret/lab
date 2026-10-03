@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MontFerret/ferret/v2"
-	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
 )
@@ -43,13 +43,13 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 	var calls atomic.Int32
 	firstCall := make(chan struct{}, 1)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
 		if calls.Add(1) == 1 {
 			firstCall <- struct{}{}
 		}
 
-		return []byte(`1`), nil
-	})
+		return &api.Output{Content: []byte(`1`)}, nil
+	}}
 
 	r, err := New(Options{
 		Runtime:       rt,
@@ -119,11 +119,11 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 	var calls atomic.Int32
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
 		calls.Add(1)
 
 		return nil, errors.New("expected runtime failure")
-	})
+	}}
 
 	r, err := New(Options{
 		Runtime: rt,

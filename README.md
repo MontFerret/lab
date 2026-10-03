@@ -736,6 +736,8 @@ The equivalent environment variables are `LAB_POLICY_FS_ROOT` and `LAB_POLICY_FS
 
 ### 🔄 Remote Ferret Runtime
 
+Lab's built-in, HTTP, and Wire adapters implement `api.Runtime` from the Universal Ferret API. The runner uses one-shot `Run` for every unit, query, and assertion. Built-in and Wire also expose compilation to Go callers who own and close their plans and sessions.
+
 Lab can execute tests against remote Ferret instances instead of using the built-in runtime.
 
 #### HTTP/HTTPS Runtime
@@ -767,6 +769,8 @@ The HTTP runtime sends POST requests with:
 }
 ```
 
+HTTP responses retain encoded bytes and their content type in `api.Output`, including partial output alongside read or body-close errors. Suites continue to decode JSON bytes without interpreting the content type. The HTTP protocol supports execution and version reporting; UAPI compilation, filesystem-root, and output-codec options are rejected without sending requests.
+
 #### Wire Runtime
 
 Wire exposes the Universal Ferret API over gRPC. Select it with the same syntax as Ferret CLI:
@@ -784,7 +788,7 @@ Start a Wire host separately. The endpoint must be exactly `tcp://127.0.0.1:<por
 
 `--runtime-connect-timeout` defaults to `5s` and must be positive. It bounds connection and handshake setup; `--timeout` continues to bound each test. The same connection flags work with `lab version`. Environment bindings are `LAB_RUNTIME_ENDPOINT` and `LAB_RUNTIME_CONNECT_TIMEOUT`.
 
-Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. It returns encoded output bytes, including output accompanied by an error. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
+Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. The adapter preserves the output pointer and error independently; Lab consumes encoded `Output.Content`, including output accompanied by an error. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
 
 Lab owns the gRPC transport and closes the logical Wire runtime before that transport. Setup failures also release the transport. Transport loss requires a new Lab invocation; the adapter does not redial or switch runtimes.
 
@@ -1033,7 +1037,7 @@ Handles fetching test files from various locations:
 
 Manages Ferret script execution:
 
-- **Built-in Runtime** - Uses the embedded Ferret engine
+- **Built-in Runtime** - Owns Ferret through `uapi.New`, preserving embedded version injection and execution policies
 - **Remote Runtime** - Communicates with remote Ferret services over HTTP
 - **Wire Runtime** - Uses the hosted Universal Ferret API over gRPC
 
@@ -1193,8 +1197,8 @@ lab/
 
 #### New Runtime
 
-1. Implement the `Runtime` interface in `runtime/`.
-2. Add runtime type detection in `runtime/runtime.go`.
+1. Implement the Universal API's `api.Runtime` in `pkg/runtime/`, including explicit unsupported-operation errors where the integration lacks a capability.
+2. Add runtime type detection in `pkg/runtime/runtime.go`.
 3. Add configuration handling.
 
 #### New Reporter

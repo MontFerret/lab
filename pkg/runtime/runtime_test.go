@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/api"
 )
 
 func TestRuntimeRejectsRemovedBinarySelection(t *testing.T) {
@@ -28,17 +28,17 @@ func TestBuiltinFlagsAreSharedFQLParameters(t *testing.T) {
 	}
 
 	t.Cleanup(func() { _ = rt.Close() })
-	source := ferret.NewSource("flags.fql", "RETURN @flags")
+	source := api.NewSource("flags.fql", "RETURN @flags")
 
-	out, err := rt.Run(t.Context(), source, nil)
-	if err != nil || string(out) != `["--browser-headless",true]` {
+	out, err := rt.Run(t.Context(), source, api.WithParams(nil))
+	if err != nil || string(out.Content) != `["--browser-headless",true]` {
 		t.Fatalf("shared flags: %s, %v", out, err)
 	}
 
 	perRun := map[string]any{"flags": "per-run"}
 
-	out, err = rt.Run(t.Context(), source, perRun)
-	if err != nil || string(out) != `"per-run"` {
+	out, err = rt.Run(t.Context(), source, api.WithParams(perRun))
+	if err != nil || string(out.Content) != `"per-run"` {
 		t.Fatalf("per-run flags: %s, %v", out, err)
 	}
 

@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/MontFerret/api"
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/internal/testutil/wirehost"
 	wireclient "github.com/MontFerret/wire/client"
 )
@@ -109,7 +109,7 @@ func TestWireVersionAndIndependentConstructionContext(t *testing.T) {
 	for _, value := range []api.Version{"v2.0.0-alpha.test", "", " opaque version \n"} {
 		t.Run(string(value), func(t *testing.T) {
 			var calls atomic.Int32
-			host := wirehost.New(t, &wirehost.Runtime{VersionFunc: func(context.Context) (api.Version, error) {
+			host := wirehost.New(t, &apiruntime.Runtime{VersionFunc: func(context.Context) (api.Version, error) {
 				calls.Add(1)
 
 				return value, nil
@@ -126,13 +126,13 @@ func TestWireVersionAndIndependentConstructionContext(t *testing.T) {
 			t.Cleanup(func() { _ = rt.Close() })
 			for range 2 {
 				got, err := rt.Version(t.Context())
-				if err != nil || got != string(value) {
+				if err != nil || got != value {
 					t.Fatalf("version = %q, %v", got, err)
 				}
 			}
 
-			out, err := rt.Run(t.Context(), ferret.NewSource("independent.fql", "RETURN true"), nil)
-			if err != nil || string(out) != "[true]" {
+			out, err := rt.Run(t.Context(), api.NewSource("independent.fql", "RETURN true"), api.WithParams(nil))
+			if err != nil || string(out.Content) != "[true]" {
 				t.Fatalf("construction context retained: %q, %v", out, err)
 			}
 
@@ -162,17 +162,17 @@ func TestWireVersionAndIndependentConstructionContext(t *testing.T) {
 func TestWireRunRoundTrip(t *testing.T) {
 	type invocation struct {
 		src    api.Source
-		params wirehost.Params
+		params apiruntime.Params
 	}
 	calls := make(chan invocation, 4)
 	output := []byte{0, 255, 'x', '\n'}
 	var hostedCloses atomic.Int32
-	host := wirehost.New(t, &wirehost.Runtime{VersionValue: "host", CloseFunc: func() error {
+	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", CloseFunc: func() error {
 		hostedCloses.Add(1)
 
 		return nil
 	}, RunFunc: func(_ context.Context, src api.Source, options ...api.SessionOption) (*api.Output, error) {
-		params := wirehost.Params{}
+		params := apiruntime.Params{}
 		for _, option := range options {
 			if err := option(params); err != nil {
 				return nil, err
@@ -191,10 +191,10 @@ func TestWireRunRoundTrip(t *testing.T) {
 	}
 
 	t.Cleanup(func() { _ = rt.Close() })
-	src := ferret.NewSource("fixtures/日本.fql", "\r\nRETURN @shared // exact text\n")
+	src := api.NewSource("fixtures/日本.fql", "\r\nRETURN @shared // exact text\n")
 	for range 2 {
-		out, err := rt.Run(t.Context(), src, perRun)
-		if err != nil || !bytes.Equal(out, output) {
+		out, err := rt.Run(t.Context(), src, api.WithParams(perRun))
+		if err != nil || !bytes.Equal(out.Content, output) {
 			t.Fatalf("run = %v, %v", out, err)
 		}
 
@@ -204,7 +204,7 @@ func TestWireRunRoundTrip(t *testing.T) {
 			t.Fatalf("nested YAML/binary parameters changed: %#v", call.params["nested"])
 		}
 
-		if call.src.Name != src.Name() || call.src.Content != src.Content() || call.params["shared"] != "value" || call.params["overlap"] != "run" || !reflect.DeepEqual(call.params["lab"], perRun["lab"]) || call.params["headers"] != "FQL" {
+		if call.src.Name != src.Name || call.src.Content != src.Content || call.params["shared"] != "value" || call.params["overlap"] != "run" || !reflect.DeepEqual(call.params["lab"], perRun["lab"]) || call.params["headers"] != "FQL" {
 			t.Fatalf("round trip changed invocation: %#v", call)
 		}
 	}
@@ -247,7 +247,7 @@ func TestWireRunRoundTrip(t *testing.T) {
 }
 
 func TestWirePreservesOutputWithError(t *testing.T) {
-	host := wirehost.New(t, &wirehost.Runtime{VersionValue: "host", RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
+	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
 		return &api.Output{Content: []byte("available")}, errors.New("host failure")
 	}})
 	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
@@ -256,14 +256,14 @@ func TestWirePreservesOutputWithError(t *testing.T) {
 	}
 
 	t.Cleanup(func() { _ = rt.Close() })
-	out, err := rt.Run(t.Context(), ferret.NewSource("failure.fql", "RETURN 1"), nil)
-	if err == nil || string(out) != "available" {
+	out, err := rt.Run(t.Context(), api.NewSource("failure.fql", "RETURN 1"), api.WithParams(nil))
+	if err == nil || string(out.Content) != "available" {
 		t.Fatalf("lost output or failure: %q, %v", out, err)
 	}
 }
 
 func TestWireHandshakeFailureClosesTransport(t *testing.T) {
-	host := wirehost.New(t, &wirehost.Runtime{VersionFunc: func(context.Context) (api.Version, error) {
+	host := wirehost.New(t, &apiruntime.Runtime{VersionFunc: func(context.Context) (api.Version, error) {
 		return "", errors.New("handshake failed")
 	}})
 	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
@@ -331,7 +331,7 @@ func TestWireConstructionCancellation(t *testing.T) {
 				return
 			}
 
-			host := wirehost.New(t, &wirehost.Runtime{VersionFunc: func(ctx context.Context) (api.Version, error) {
+			host := wirehost.New(t, &apiruntime.Runtime{VersionFunc: func(ctx context.Context) (api.Version, error) {
 				close(started)
 				<-ctx.Done()
 
@@ -367,7 +367,7 @@ func TestWireRunCancellation(t *testing.T) {
 		t.Run(map[bool]string{false: "cancel", true: "deadline"}[deadline], func(t *testing.T) {
 			started := make(chan struct{})
 			finished := make(chan struct{})
-			host := wirehost.New(t, &wirehost.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+			host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
 				close(started)
 				defer close(finished)
 				<-ctx.Done()
@@ -391,7 +391,7 @@ func TestWireRunCancellation(t *testing.T) {
 			defer cancel()
 			done := make(chan error, 1)
 			go func() {
-				_, err := rt.Run(ctx, ferret.NewSource("cancel.fql", "RETURN true"), nil)
+				_, err := rt.Run(ctx, api.NewSource("cancel.fql", "RETURN true"), api.WithParams(nil))
 				done <- err
 			}()
 			select {
@@ -427,7 +427,7 @@ func TestWireCloseRetainsBothFailuresAndOrder(t *testing.T) {
 	transportErr := errors.New("physical cleanup")
 	var mu sync.Mutex
 	var order []string
-	remote := &wirehost.Runtime{CloseFunc: func() error {
+	remote := &apiruntime.Runtime{CloseFunc: func() error {
 		mu.Lock()
 		defer mu.Unlock()
 		order = append(order, "logical")
@@ -457,16 +457,18 @@ func TestWireCloseRetainsBothFailuresAndOrder(t *testing.T) {
 	}
 }
 
-func TestWireOutputMapping(t *testing.T) {
+func TestAdapterOutputIdentity(t *testing.T) {
 	failure := errors.New("failure")
-	for _, output := range []*api.Output{nil, {Content: []byte{}}, {Content: []byte("bytes")}} {
+	for _, output := range []*api.Output{nil, {}, {Content: []byte{}}, {Content: []byte("bytes"), ContentType: "opaque/type"}} {
 		for _, resultErr := range []error{nil, failure} {
-			rt := &wireRuntime{remote: &wirehost.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
+			remote := &apiruntime.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
 				return output, resultErr
-			}}}
-			out, err := rt.Run(t.Context(), ferret.NewSource("name", "content"), nil)
-			if err != resultErr || (output == nil && out != nil) || (output != nil && (!bytes.Equal(out, output.Content) || (out == nil) != (output.Content == nil))) {
-				t.Fatalf("mapping output %#v, error %v: %v, %v", output, resultErr, out, err)
+			}}
+			for _, rt := range []api.Runtime{&wireRuntime{remote: remote}, &Builtin{Runtime: remote}} {
+				out, err := rt.Run(t.Context(), api.NewSource("name", "content"), api.WithParams(nil))
+				if err != resultErr || out != output {
+					t.Fatalf("%T changed output %#v, error %v: %v, %v", rt, output, resultErr, out, err)
+				}
 			}
 		}
 	}
@@ -479,12 +481,12 @@ func TestWireRejectsNonportableParameters(t *testing.T) {
 		{"object": map[any]any{1: "numeric key"}},
 		{"cycle": cyclic},
 	} {
-		rt := &wireRuntime{remote: &wirehost.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
-			t.Error("invalid parameters reached the hosted runtime")
+		rt := &wireRuntime{remote: &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (*api.Output, error) {
+			_, err := apiruntime.NewParams(opts...)
 
-			return nil, nil
+			return nil, err
 		}}}
-		out, err := rt.Run(t.Context(), ferret.NewSource("params.fql", "RETURN true"), params)
+		out, err := rt.Run(t.Context(), api.NewSource("params.fql", "RETURN true"), api.WithParams(params))
 		if out != nil || err == nil {
 			t.Fatalf("nonportable parameters accepted: %v, %v", out, err)
 		}

@@ -9,9 +9,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/MontFerret/ferret/v2"
-
-	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 )
 
@@ -56,7 +54,7 @@ func NewSuite(opts Options) (*Suite, error) {
 	}, nil
 }
 
-func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) error {
+func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) error {
 	ctx, cancel := context.WithTimeout(ctx, suite.timeout)
 	defer cancel()
 
@@ -66,7 +64,7 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 	}
 
 	if expectedError := suite.manifest.Expect.Error; expectedError != nil {
-		_, err := rt.Run(ctx, query, suite.manifest.Query.runtimeParams(params.Clone()))
+		_, err := rt.Run(ctx, query, api.WithParams(suite.manifest.Query.runtimeParams(params.Clone())))
 
 		return expectedError.evaluate(err)
 	}
@@ -78,7 +76,7 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 
 	queryParams := suite.manifest.Query.runtimeParams(params.Clone())
 
-	out, err := rt.Run(ctx, query, queryParams)
+	out, err := rt.Run(ctx, query, api.WithParams(queryParams))
 	if err != nil {
 		return fmt.Errorf("failed to execute query script: %w", err)
 	}
@@ -95,39 +93,39 @@ func (suite *Suite) Run(ctx context.Context, rt runtime.Runtime, params Params) 
 		},
 	})
 
-	_, err = rt.Run(ctx, assertion, suite.manifest.Assert.runtimeParams(params))
+	_, err = rt.Run(ctx, assertion, api.WithParams(suite.manifest.Assert.runtimeParams(params)))
 
 	return err
 }
 
-func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manifest ScriptManifest) (ferret.Source, error) {
+func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manifest ScriptManifest) (api.Source, error) {
 	if manifest.Text != "" {
-		return ferret.NewSource(fmt.Sprintf("%s -> %s", suite.file.Name, scriptType), manifest.Text), nil
+		return api.NewSource(fmt.Sprintf("%s -> %s", suite.file.Name, scriptType), manifest.Text), nil
 	}
 
 	u, err := url.Parse(manifest.Ref)
 	if err != nil {
-		return ferret.Source{}, fmt.Errorf("parse 'ref': %w", err)
+		return api.Source{}, fmt.Errorf("parse 'ref': %w", err)
 	}
 
 	onNext, onError := suite.file.Resolve(ctx, u)
 
 	select {
 	case e := <-onError:
-		return ferret.Source{}, fmt.Errorf("resolve 'ref': %w", e)
+		return api.Source{}, fmt.Errorf("resolve 'ref': %w", e)
 	case f := <-onNext:
-		return ferret.NewSource(f.Name, string(f.Content)), nil
+		return api.NewSource(f.Name, string(f.Content)), nil
 	}
 }
 
-func (suite *Suite) deserializeQueryOutput(values []byte) (any, error) {
-	if len(values) == 0 {
+func (suite *Suite) deserializeQueryOutput(output *api.Output) (any, error) {
+	if output == nil || len(output.Content) == 0 {
 		return nil, nil
 	}
 
 	var o any
 
-	if err := json.Unmarshal(values, &o); err != nil {
+	if err := json.Unmarshal(output.Content, &o); err != nil {
 		return nil, err
 	}
 

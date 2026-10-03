@@ -7,14 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
 	sources2 "github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 type (
 	Options struct {
-		Runtime       runtime.Runtime
+		Runtime       api.Runtime
 		PoolSize      uint64
 		TestTimeout   time.Duration
 		Attempts      uint64
@@ -23,7 +23,7 @@ type (
 	}
 
 	Runner struct {
-		runtime      runtime.Runtime
+		runtime      api.Runtime
 		poolSize     uint64
 		testTimeout  time.Duration
 		testAttempts uint64

@@ -6,11 +6,11 @@ Lab does not own FQL semantics. Adapters pass source identity, query content, an
 
 ## Common contract
 
-Every runtime implements three operations:
+Lab uses the Universal API's `api.Runtime` directly in construction, commands, runner options, and test cases. There is no Lab-owned runtime interface. Adapters implement `Version`, one-shot `Run`, `Compile`, `CompileDebug`, and `Close` with canonical sources, session options, and outputs.
 
-- report its Ferret version without executing a test
-- run a Ferret source with a parameter map and context
-- close resources owned by the adapter
+The runner and test cases only call `Run`. Units pass an `api.Source` and `api.WithParams` for their materialized parameters. Suites execute the query and assertion separately, decode `Output.Content` as JSON, and treat nil or empty output as an absent result. They do not interpret `ContentType`. Query errors retain their existing handling even when output is available.
+
+Callers using compilation directly own their plans and sessions and must close them before the runtime. Lab does not manage reusable plans or sessions.
 
 `New(ctx, opts)` uses the caller context to bound Wire transport establishment and handshake. It does not retain that context for execution.
 
@@ -27,7 +27,7 @@ Adapter-specific settings are validated before execution or external resource st
 
 ## Built-in runtime
 
-The built-in adapter embeds Ferret using its supported Go APIs. It compiles and runs the supplied source with the configured parameters and policies and returns Ferret's output bytes.
+The built-in adapter owns a Ferret UAPI runtime constructed with `uapi.New(api.Version(version), ...)`. It delegates all UAPI operations and preserves output pointers and errors independently, including native cleanup failures.
 
 The adapter:
 
@@ -35,7 +35,7 @@ The adapter:
 - applies Lab-configured filesystem and outbound HTTP policy through Ferret APIs
 - applies shared FQL parameters, including `flags`, before per-run overrides
 - registers the Lab build's embedded Ferret version for cheap version reporting
-- releases the embedded runtime when closed
+- releases the native runtime before its owned HTTP network, retaining the cleanup result for repeated and concurrent closes
 
 Language behavior, compiler options, VM semantics, and runtime values remain Ferret responsibilities. A requested behavior that needs a Ferret change should be implemented upstream rather than emulated in this adapter.
 
@@ -54,6 +54,10 @@ Requests are created with the caller's context. Errors retain request/response o
 
 Filesystem and outbound HTTP policies configure Ferret execution itself and therefore are not accepted by the remote adapter. Such policy must be enforced by the remote service under its own contract.
 
+HTTP session callbacks run once in order, merge parameters into a request-local map, and join their returned errors. `SetFSRoot`, `SetOutputContentType`, `Compile`, and `CompileDebug` return errors wrapping `errors.ErrUnsupported` without HTTP I/O. Already canceled contexts take precedence.
+
+Successful responses become `*api.Output` with exact bytes and the response's content type. Read failures retain any partial output, and body-close failures are joined with other errors. Version reporting preserves the opaque `api.Version` and response cleanup errors. Each response is closed within its operation; closing the adapter leaves the borrowed shared HTTP client usable.
+
 Remote contract changes should cover request method, resolved URL, headers, cookies, JSON encoding, response handling, errors, and cancellation in `pkg/runtime` tests.
 
 ## Wire runtime
@@ -62,19 +66,19 @@ Wire exposes the Universal Ferret API over gRPC. Lab selects it with `--runtime=
 
 `--runtime-connect-timeout` defaults to five seconds and must be positive. The caller context can impose an earlier cancellation or deadline. Lab closes the transport to unblock stalled stream creation as well as failed handshakes. Canceling the construction context after success does not cancel later executions.
 
-The adapter uses only UAPI's one-shot `Runtime.Run`: source name and exact content are passed unchanged, shared runtime parameters are applied first, and per-run parameters override matching keys. String-keyed nested YAML objects are converted to Wire's portable map shape; binary and numeric values retain their types. Inputs are not mutated. Shared `headers`, `cookies`, `path`, and `flags` runtime parameters are rejected; those names remain available as ordinary per-test FQL parameters.
+Lab execution uses UAPI's one-shot `Runtime.Run`: source name and exact content are passed unchanged, shared runtime parameters are applied first, and per-run parameters override matching keys. String-keyed nested YAML objects are converted to Wire's portable map shape; binary and numeric values retain their types. Inputs are not mutated. Shared `headers`, `cookies`, `path`, and `flags` runtime parameters are rejected; those names remain available as ordinary per-test FQL parameters.
 
-Lab returns `Output.Content` as encoded bytes without interpreting `ContentType`, retaining available output even when execution also returns an error. Version reporting returns the hosted `api.Runtime.Version(ctx)` exactly; Wire captures that value during Connect, so version reads do not require another RPC.
+The adapter returns the remote output pointer and error unchanged. Lab consumes `Output.Content` without interpreting `ContentType`, retaining available output even when execution also returns an error. Shared parameters precede caller session callbacks; a parameter-setter adapter preserves nested YAML conversion while forwarding filesystem and output settings. Non-nil callbacks run once in order and their errors are joined.
+
+`Compile` and `CompileDebug` forward directly to the hosted runtime. Shared Lab parameters are defaults for one-shot `Run`; compiled plans and their sessions retain the host's UAPI contract without Lab wrappers. Version reporting returns the hosted `api.Runtime.Version(ctx)` exactly; Wire captures that value during Connect, so version reads do not require another RPC.
 
 Lab owns the gRPC client transport it creates. Wire borrows it and owns the logical connection. After all runs settle, the adapter closes the logical runtime before the transport, retains both cleanup errors, and supports repeated/concurrent close calls. A lost physical connection is terminal for that adapter; it does not redial or select another runtime. The server owns its hosted runtime and configuration.
 
 Filesystem and outbound HTTP execution policies and reserved adapter configuration are rejected before connection. Configure Ferret execution policy at the remote host. HTTP/Worker support remains a separate adapter.
 
-## Function-backed runtime
+## Test support
 
-The function-backed adapter wraps a Go function in the common runtime interface. It is useful for composition and isolated tests. It has no owned resource to close and reports the embedded runtime version.
-
-It is not a separate FQL implementation; the supplied function owns whatever test behavior it provides.
+Transport-independent controlled runtimes and option-capture fixtures live in `internal/testutil/apiruntime`. They implement UAPI directly and reject unexpected compilation by default. `internal/testutil/wirehost` owns only the real loopback server and connection observations. Production adapters do not include a function-backed test shim.
 
 ## Policy boundaries
 

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/api"
 	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
 )
 
@@ -31,8 +31,8 @@ func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		ferret.NewSource("fs_root.fql", `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`),
-		nil,
+		api.NewSource("fs_root.fql", `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`),
+		api.WithParams(nil),
 	)
 	if err != nil {
 		t.Fatalf("expected configured root read to succeed, got %v", err)
@@ -51,11 +51,11 @@ func TestBuiltinFilesystemPolicyEnforcesReadOnly(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		ferret.NewSource("fs_read_only.fql", `
+		api.NewSource("fs_read_only.fql", `
 IO::FS::WRITE("output.txt", TO_BINARY("blocked"))
 RETURN true
 `),
-		nil,
+		api.WithParams(nil),
 	)
 	if err == nil || !strings.Contains(err.Error(), "filesystem is read-only") {
 		t.Fatalf("expected read-only error, got %v", err)
@@ -90,8 +90,8 @@ func TestBuiltinHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		ferret.NewSource("blocked_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
-		nil,
+		api.NewSource("blocked_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
+		api.WithParams(nil),
 	)
 	if err == nil || !strings.Contains(err.Error(), "localhost is not allowed") {
 		t.Fatalf("expected localhost policy error, got %v", err)
@@ -112,8 +112,8 @@ func TestBuiltinHTTPPolicyAllowsConfiguredLocalhost(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		ferret.NewSource("allowed_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
-		nil,
+		api.NewSource("allowed_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
+		api.WithParams(nil),
 	)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -149,8 +149,8 @@ func TestBuiltinHTTPPolicyEnforcesResponseLimit(t *testing.T) {
 
 	_, err = rt.Run(
 		context.Background(),
-		ferret.NewSource("response_limit.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
-		nil,
+		api.NewSource("response_limit.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
+		api.WithParams(nil),
 	)
 	if err == nil || !strings.Contains(err.Error(), "response body exceeds") {
 		t.Fatalf("expected response-size error, got %v", err)

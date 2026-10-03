@@ -10,9 +10,9 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/api"
 
-	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	sources2 "github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
 )
@@ -559,9 +559,9 @@ assert:
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					rt := runtime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
-						return []byte(""), nil
-					})
+					rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+						return &api.Output{Content: []byte("")}, nil
+					}}
 
 					for f := range onNext {
 						s, err := testing2.NewSuite(testing2.Options{

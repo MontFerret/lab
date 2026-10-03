@@ -22,7 +22,7 @@ CLI -> sources -> testing -> runner -> runtime adapter -> Ferret -> reporter
 Keep these boundaries intact:
 
 - Lab coordinates execution; Ferret owns FQL syntax, compilation, VM execution, and runtime value semantics.
-- The built-in runtime uses Ferret's embedding API. Remote HTTP and Wire runtimes remain explicit integration adapters.
+- The built-in runtime owns Ferret through `uapi.New`. Adapters, commands, runner options, and test cases use `api.Runtime` directly; Lab execution remains one-shot `Run`. Remote HTTP and Wire runtimes remain explicit integration adapters.
 - User parameters and Lab system parameters stay isolated until materialized for Ferret. Lab system values remain under `@lab`, including `@lab.static` and `@lab.mock`.
 - Owned resources must be released on normal return, error, timeout, and cancellation. Cleanup must remain safe after partial startup.
 - Sources preserve useful identity and error context. Reporters observe runner output and do not control execution semantics.
@@ -37,7 +37,7 @@ Detailed subsystem documentation lives under `docs/development/`. Before making 
 - [Architecture](docs/development/architecture.md): execution flows, dependency direction, package responsibilities, and stability boundaries
 - [CLI](docs/development/cli.md): command wiring, flags and environment values, validation, startup, and cleanup
 - [Test execution](docs/development/test-execution.md): sources, suites, parameters, runner orchestration, streams, and reporters
-- [Runtime](docs/development/runtime.md): built-in, HTTP, Wire, and function-backed adapter contracts and policies
+- [Runtime](docs/development/runtime.md): built-in, HTTP, and Wire UAPI adapter contracts and policies
 - [Local services](docs/development/local-services.md): shared lifecycle, static serving, OpenAPI mocks, routing, and template safety
 - [Release](docs/development/release.md): development commands, CI, versioning, packaging, releases, and dependency automation
 
@@ -103,7 +103,7 @@ Preferred:
 ```go
 type (
 	Options struct {
-		Runtime  runtime.Runtime
+		Runtime  api.Runtime
 		PoolSize uint64
 	}
 
@@ -122,7 +122,7 @@ Avoid independent declarations when the types belong to the same concern:
 
 ```go
 type Options struct {
-	Runtime  runtime.Runtime
+	Runtime  api.Runtime
 	PoolSize uint64
 }
 

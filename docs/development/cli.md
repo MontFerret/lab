@@ -43,7 +43,7 @@ The command starts the configured managers, prints their advertised endpoints, w
 
 ### `version`
 
-`lab version` reports both the Lab version and the selected Ferret runtime version. Runtime selection uses the same context-aware adapter construction path as `run`, but version reporting must not execute a test. The adapter is closed before the command returns.
+`lab version` reports both the Lab version and the selected Ferret runtime version. Runtime selection uses the same context-aware adapter construction path as `run`, but version reporting must not execute a test. The helper returns `api.Runtime`; the opaque `api.Version` is printed unchanged. The adapter is closed before the command returns.
 
 ## Flags and environment values
 
@@ -59,7 +59,7 @@ Positional `run` locations take precedence when present; otherwise `--files` sup
 
 Runtime parameters and query parameters use separate flags and maps. Wire uses `--runtime=wire`, `--runtime-endpoint=tcp://127.0.0.1:<port>`, and a positive `--runtime-connect-timeout` (default `5s`) on both `run` and `version`. Their environment bindings are `LAB_RUNTIME`, `LAB_RUNTIME_ENDPOINT`, and `LAB_RUNTIME_CONNECT_TIMEOUT`. Connection options are rejected for other adapters. The command context bounds setup; the per-test timeout continues to bound execution.
 
-For Wire, runtime parameters are shared FQL values, with per-run values taking precedence. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected before connecting. Local filesystem/HTTP execution policy must be configured at the hosted runtime instead.
+Commands remain runtime-agnostic: they construct `api.Runtime`, and test cases execute through one-shot `Run`. For Wire, runtime parameters are shared FQL values, with per-run `api.WithParams` values taking precedence. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected before connecting. Local filesystem/HTTP execution policy must be configured at the hosted runtime instead.
 
 `flags` has no special command-line meaning. Built-in runtime parameters are shared FQL values, including `flags`; per-run values override matching keys. Removed `bin:` selectors fail before execution.
 

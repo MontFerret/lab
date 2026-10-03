@@ -7,8 +7,8 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/MontFerret/ferret/v2"
-	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
 )
@@ -41,13 +41,18 @@ assert:
 		callCount   int
 	)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, params map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (*api.Output, error) {
+		params, err := apiruntime.NewParams(opts...)
+		if err != nil {
+			return nil, err
+		}
+
 		callCount++
 
 		switch callCount {
 		case 1:
 			queryPhase, _ = params["phase"].(string)
-			return []byte(`1`), nil
+			return &api.Output{Content: []byte(`1`)}, nil
 		case 2:
 			assertPhase, _ = params["phase"].(string)
 
@@ -57,12 +62,12 @@ assert:
 			queryParams, _ := query["params"].(map[string]any)
 			dataPhase, _ = queryParams["phase"].(string)
 
-			return []byte(`true`), nil
+			return &api.Output{Content: []byte(`true`)}, nil
 		default:
 			t.Fatalf("expected exactly two runtime calls, got %d", callCount)
 			return nil, nil
 		}
-	})
+	}}
 
 	if err := testCase.Run(context.Background(), rt, testing2.NewParams()); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -103,9 +108,9 @@ assert:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
 		return nil, runtimeErr
-	})
+	}}
 
 	err = testCase.Run(context.Background(), rt, testing2.NewParams())
 	if !errors.Is(err, runtimeErr) {
@@ -166,11 +171,11 @@ func TestSuiteExpectedError(t *stdtesting.T) {
 			}
 
 			calls := 0
-			rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+			rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
 				calls++
 
-				return []byte(`1`), test.runtimeErr
-			})
+				return &api.Output{Content: []byte(`1`)}, test.runtimeErr
+			}}
 
 			err = testCase.Run(context.Background(), rt, testing2.NewParams())
 			if test.wantErr == "" && err != nil {
@@ -205,11 +210,11 @@ expect:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
 		t.Fatal("runtime must not run when query resolution fails")
 
 		return nil, nil
-	})
+	}}
 
 	err = testCase.Run(context.Background(), rt, testing2.NewParams())
 	if err == nil || !strings.Contains(err.Error(), "resolve query script") {

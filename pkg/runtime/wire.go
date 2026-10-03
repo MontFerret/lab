@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/MontFerret/api"
-	"github.com/MontFerret/ferret/v2"
 	wireclient "github.com/MontFerret/wire/client"
 )
 
@@ -34,6 +33,8 @@ type (
 		err        error
 	}
 )
+
+var _ api.Runtime = (*wireRuntime)(nil)
 
 func newWire(ctx context.Context, opts Options) (*wireRuntime, error) {
 	if err := ctx.Err(); err != nil {
@@ -89,36 +90,39 @@ func newWire(ctx context.Context, opts Options) (*wireRuntime, error) {
 	return rt, nil
 }
 
-func (rt *wireRuntime) Version(ctx context.Context) (string, error) {
-	value, err := rt.remote.Version(ctx)
-
-	return string(value), err
+func (rt *wireRuntime) Version(ctx context.Context) (api.Version, error) {
+	return rt.remote.Version(ctx)
 }
 
-func (rt *wireRuntime) Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error) {
+func (rt *wireRuntime) Run(ctx context.Context, src api.Source, opts ...api.SessionOption) (*api.Output, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	shared, err := wireParameters(rt.params)
-	if err != nil {
-		return nil, err
+	setters := make([]api.SessionOption, len(opts)+1)
+	setters[0] = func(target api.SessionOptions) error {
+		return (&wireSessionOptions{SessionOptions: target}).SetParams(rt.params)
 	}
 
-	perRun, err := wireParameters(params)
-	if err != nil {
-		return nil, err
+	for index, option := range opts {
+		if option == nil {
+			continue
+		}
+
+		setters[index+1] = func(target api.SessionOptions) error {
+			return option(&wireSessionOptions{SessionOptions: target})
+		}
 	}
 
-	out, err := rt.remote.Run(ctx,
-		api.Source{Name: query.Name(), Content: query.Content()},
-		api.WithParams(shared), api.WithParams(perRun),
-	)
-	if out == nil {
-		return nil, err
-	}
+	return rt.remote.Run(ctx, src, setters...)
+}
 
-	return out.Content, err
+func (rt *wireRuntime) Compile(ctx context.Context, src api.Source, opts ...api.PlanOption) (api.Plan, error) {
+	return rt.remote.Compile(ctx, src, opts...)
+}
+
+func (rt *wireRuntime) CompileDebug(ctx context.Context, src api.Source, opts ...api.PlanOption) (api.Plan, error) {
+	return rt.remote.CompileDebug(ctx, src, opts...)
 }
 
 func (rt *wireRuntime) Close() error {
