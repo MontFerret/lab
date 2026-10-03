@@ -46,7 +46,7 @@ These stages are described in [Test execution](test-execution.md).
 
 ### Runtime adapters
 
-`pkg/runtime` is the only Lab package that executes FQL. It selects and configures the embedded Ferret runtime, the remote HTTP adapter, the external Ferret CLI adapter, or a function-backed adapter. It passes source content and parameters through those contracts without taking ownership of FQL semantics.
+`pkg/runtime` is the only Lab package that executes FQL. It selects and configures the embedded Ferret runtime, the remote HTTP adapter, the external Ferret CLI adapter, the Wire/UAPI adapter over gRPC, or a function-backed adapter. It passes source content and parameters through those contracts without taking ownership of FQL semantics.
 
 Adapter behavior is described in [Runtime](runtime.md).
 
@@ -92,7 +92,7 @@ The following are relatively stable unless a change explicitly targets them:
 - the execution flow through sources, testing, runner, runtime, and reporters
 - the `@lab` system parameter namespace
 - local static/mock entry and alias behavior
-- the built-in, remote HTTP, and external binary runtime split
+- the built-in, remote HTTP, external binary, and Wire runtime split
 
 The following are implementation-sensitive and should be rechecked in current code and tests before modification:
 

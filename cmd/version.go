@@ -12,16 +12,16 @@ func VersionCommand(self string) *cli.Command {
 		Name:      "version",
 		Usage:     "Show Lab version",
 		UsageText: "lab version [options]",
-		Flags: []cli.Flag{
+		Flags: append([]cli.Flag{
 			&cli.StringFlag{
 				Name:    "runtime",
 				Aliases: []string{"r"},
-				Usage:   "Ferret runtime (HTTP URL or bin:<Ferret CLI v2 path>)",
+				Usage:   "Ferret runtime (built-in, HTTP URL, bin:<Ferret CLI v2 path>, or wire with --runtime-endpoint)",
 				Sources: cli.EnvVars("LAB_RUNTIME"),
 			},
-		},
+		}, runtimeConnectionFlags(false)...),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			rt, err := newRuntime(cmd, nil)
+			rt, err := newRuntime(ctx, cmd, nil)
 
 			if err != nil {
 				return err

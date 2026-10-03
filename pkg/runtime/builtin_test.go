@@ -21,7 +21,7 @@ func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rt, err := New(Options{
+	rt, err := New(t.Context(), Options{
 		FSPolicy: &FileSystemPolicy{Root: root},
 	})
 	if err != nil {
@@ -41,7 +41,7 @@ func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
 
 func TestBuiltinFilesystemPolicyEnforcesReadOnly(t *testing.T) {
 	root := t.TempDir()
-	rt, err := New(Options{
+	rt, err := New(t.Context(), Options{
 		FSPolicy: &FileSystemPolicy{Root: root, ReadOnly: pointerTo(true)},
 	})
 	if err != nil {
@@ -68,7 +68,7 @@ RETURN true
 
 func TestBuiltinFilesystemPolicyRejectsMissingRoot(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "missing")
-	_, err := New(Options{
+	_, err := New(t.Context(), Options{
 		FSPolicy: &FileSystemPolicy{Root: root},
 	})
 	if err == nil || !strings.Contains(err.Error(), "filesystem policy") || !strings.Contains(err.Error(), root) {
@@ -169,7 +169,7 @@ func TestBuiltinCloseSucceedsWithConfiguredNetwork(t *testing.T) {
 }
 
 func TestNewRejectsHTTPPolicyForHTTPRuntime(t *testing.T) {
-	_, err := New(Options{
+	_, err := New(t.Context(), Options{
 		Type:       "http://example.test",
 		HTTPPolicy: &HTTPPolicy{AllowLocalhost: pointerTo(true)},
 	})
@@ -179,7 +179,7 @@ func TestNewRejectsHTTPPolicyForHTTPRuntime(t *testing.T) {
 }
 
 func TestNewRejectsFilesystemPolicyForHTTPRuntime(t *testing.T) {
-	_, err := New(Options{
+	_, err := New(t.Context(), Options{
 		Type:     "http://example.test",
 		FSPolicy: &FileSystemPolicy{ReadOnly: pointerTo(true)},
 	})
@@ -189,7 +189,7 @@ func TestNewRejectsFilesystemPolicyForHTTPRuntime(t *testing.T) {
 }
 
 func TestNewRejectsBinaryFlagsForBuiltinRuntime(t *testing.T) {
-	_, err := New(Options{
+	_, err := New(t.Context(), Options{
 		BinaryFlags: []string{"--log-output=none"},
 	})
 	if err == nil || err.Error() != "binary flags are only supported by binary runtimes" {

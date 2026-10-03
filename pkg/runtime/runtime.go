@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/MontFerret/ferret/v2"
 )
@@ -14,15 +15,19 @@ type (
 	Options struct {
 		Type   string
 		Params map[string]any
+		// Endpoint and ConnectTimeout configure Wire transport establishment.
+		Endpoint          string
+		EndpointSet       bool
+		ConnectTimeout    time.Duration
+		ConnectTimeoutSet bool
 		// FSPolicy configures filesystem access for built-in and binary runtimes.
 		FSPolicy *FileSystemPolicy
 		// HTTPPolicy configures outbound HTTP for built-in and binary runtimes.
 		HTTPPolicy *HTTPPolicy
 		// BinaryFlags contains additional arguments for the Ferret CLI run command.
+		// A nil slice means no binary configuration was supplied.
 		BinaryFlags []string
 	}
-
-	Func func(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error)
 
 	Runtime interface {
 		Version(ctx context.Context) (string, error)
@@ -32,13 +37,32 @@ type (
 		// Close releases resources owned by the runtime after all runs finish.
 		Close() error
 	}
-
-	FuncStruct struct {
-		fn Func
-	}
 )
 
-func New(opts Options) (Runtime, error) {
+// New selects and configures a runtime. The context bounds Wire construction;
+// callers supply independent execution contexts and close the runtime after runs settle.
+func New(ctx context.Context, opts Options) (Runtime, error) {
+	if isWireType(opts.Type) {
+		if opts.ConnectTimeout == 0 && !opts.ConnectTimeoutSet {
+			opts.ConnectTimeout = DefaultConnectTimeout
+		}
+
+		if err := validateWireOptions(opts); err != nil {
+			return nil, err
+		}
+
+		rt, err := newWire(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		return rt, nil
+	}
+
+	if opts.EndpointSet || opts.Endpoint != "" || opts.ConnectTimeoutSet || opts.ConnectTimeout != 0 {
+		return nil, errors.New("--runtime-endpoint and --runtime-connect-timeout require --runtime wire")
+	}
+
 	params := opts.Params
 
 	if params == nil {
@@ -110,20 +134,4 @@ func binaryPath(u *url.URL) string {
 	}
 
 	return u.Host + u.Path
-}
-
-func AsFunc(fn Func) Runtime {
-	return &FuncStruct{fn}
-}
-
-func (f FuncStruct) Version(_ context.Context) (string, error) {
-	return version, nil
-}
-
-func (f FuncStruct) Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error) {
-	return f.fn(ctx, query, params)
-}
-
-func (f FuncStruct) Close() error {
-	return nil
 }

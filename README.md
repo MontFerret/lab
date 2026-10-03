@@ -767,6 +767,29 @@ The HTTP runtime sends POST requests with:
 }
 ```
 
+#### Wire Runtime
+
+Wire exposes the Universal Ferret API over gRPC. Select it with the same syntax as Ferret CLI:
+
+```bash
+lab run --runtime=wire --runtime-endpoint=tcp://127.0.0.1:50051 tests/
+lab version --runtime=wire --runtime-endpoint=tcp://127.0.0.1:50051
+
+# Shared FQL parameters; per-test/query parameters override matching keys
+lab run --runtime=wire --runtime-endpoint=tcp://127.0.0.1:50051 \
+  --runtime-param='value:"shared"' --param='value:"per-run"' tests/
+```
+
+Start a Wire host separately. The endpoint must be exactly `tcp://127.0.0.1:<port>` with a port from 1 to 65535. Hostnames, other addresses, paths, credentials, queries, and fragments are not supported. Plaintext loopback transport is intended for trusted local development, including a host exposed through a local port mapping.
+
+`--runtime-connect-timeout` defaults to `5s` and must be positive. It bounds connection and handshake setup; `--timeout` continues to bound each test. The same connection flags work with `lab version`. Environment bindings are `LAB_RUNTIME_ENDPOINT` and `LAB_RUNTIME_CONNECT_TIMEOUT`.
+
+Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. It returns encoded output bytes, including output accompanied by an error. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
+
+Lab owns the gRPC transport and closes the logical Wire runtime before that transport. Setup failures also release the transport. Transport loss requires a new Lab invocation; the adapter does not redial or switch runtimes.
+
+The host configures Ferret and its execution policies. Wire therefore rejects Lab's `--policy-fs-*`, `--policy-http-*`, and binary flags. Shared runtime parameter names `headers`, `cookies`, `path`, and `flags` are reserved for other adapters and rejected for Wire; ordinary per-test FQL parameters may use those names. HTTP/Worker support remains separate.
+
 #### External Binary Runtime
 
 Use Ferret CLI v2-compatible installations. Lab invokes the binary as `ferret run`, passes the FQL source through stdin, and serializes test parameters as `--param=name=<JSON>` arguments.
@@ -861,7 +884,9 @@ These flags apply to `lab run`.
 | `--timeout` | `-t` | `LAB_TIMEOUT` | `30` | Test timeout in seconds |
 | `--cdp` | - | `LAB_CDP` | `http://127.0.0.1:9222` | Chrome DevTools Protocol address |
 | `--reporter` | - | `LAB_REPORTER` | `console` | Output reporter: `console`, `simple` |
-| `--runtime` | `-r` | `LAB_RUNTIME` | - | Built-in, HTTP, or Ferret CLI v2 binary runtime |
+| `--runtime` | `-r` | `LAB_RUNTIME` | - | Built-in, HTTP, Ferret CLI v2 binary, or Wire runtime |
+| `--runtime-endpoint` | - | `LAB_RUNTIME_ENDPOINT` | - | Wire endpoint: `tcp://127.0.0.1:<port>` |
+| `--runtime-connect-timeout` | - | `LAB_RUNTIME_CONNECT_TIMEOUT` | `5s` | Wire connection and handshake timeout |
 | `--runtime-param` | `--rp` | `LAB_RUNTIME_PARAM` | - | Runtime adapter parameters and binary raw flags |
 | `--concurrency` | `-c` | `LAB_CONCURRENCY` | `1` | Number of parallel test executions |
 | `--times` | - | `LAB_TIMES` | `1` | Number of times to run each test |
@@ -999,6 +1024,8 @@ lab run \
   tests/
 ```
 
+Wire runtime params are shared FQL values; per-run values override matching keys. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected.
+
 For HTTP runtimes, `path` overrides the run endpoint only. For binary runtimes, `flags` is special and is appended after the generated `run` subcommand. All other binary runtime params are passed as `--param=name=<JSON>`. Raw flags that conflict with managed policy options are rejected before execution.
 
 ## Architecture
@@ -1046,6 +1073,7 @@ Manages Ferret script execution:
 - **Built-in Runtime** - Uses the embedded Ferret engine
 - **Remote Runtime** - Communicates with remote Ferret services over HTTP
 - **Binary Runtime** - Executes external Ferret CLI binaries
+- **Wire Runtime** - Uses the hosted Universal Ferret API over gRPC
 
 #### Test Runner (`runner/`)
 
@@ -1100,7 +1128,7 @@ Test suite definition and validation:
 1. **Input Processing** - Parse command-line arguments and environment variables
 2. **Source Resolution** - Fetch test files from configured sources
 3. **Local Service Initialization** - Start static and mock servers, if configured
-4. **Runtime Setup** - Initialize Ferret runtime, either built-in, remote, or binary
+4. **Runtime Setup** - Initialize Ferret runtime, built-in, HTTP remote, binary, or Wire
 5. **Test Discovery** - Find and parse test files and suites
 6. **Parallel Execution** - Run tests according to concurrency settings
 7. **Result Collection** - Gather execution results and timing data

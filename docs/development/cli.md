@@ -43,7 +43,7 @@ The command starts the configured managers, prints their advertised endpoints, w
 
 ### `version`
 
-`lab version` reports both the Lab version and the selected Ferret runtime version. Runtime selection uses the same adapter construction path as `run`, but version reporting must not execute a test. The adapter is closed before the command returns.
+`lab version` reports both the Lab version and the selected Ferret runtime version. Runtime selection uses the same context-aware adapter construction path as `run`, but version reporting must not execute a test. The adapter is closed before the command returns.
 
 ## Flags and environment values
 
@@ -57,7 +57,11 @@ Each CLI option that supports environment configuration declares its `LAB_*` bin
 
 Positional `run` locations take precedence when present; otherwise `--files` supplies the locations. Missing locations produce command help and a failing exit status.
 
-Runtime parameters and query parameters use separate flags and maps. The binary runtime's `flags` runtime parameter is extracted as adapter configuration rather than forwarded as an FQL query parameter.
+Runtime parameters and query parameters use separate flags and maps. Wire uses `--runtime=wire`, `--runtime-endpoint=tcp://127.0.0.1:<port>`, and a positive `--runtime-connect-timeout` (default `5s`) on both `run` and `version`. Their environment bindings are `LAB_RUNTIME`, `LAB_RUNTIME_ENDPOINT`, and `LAB_RUNTIME_CONNECT_TIMEOUT`. Connection options are rejected for other adapters. The command context bounds setup; the per-test timeout continues to bound execution.
+
+For Wire, runtime parameters are shared FQL values, with per-run values taking precedence. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected before connecting. Local filesystem/HTTP execution policy and binary flags must be configured at the hosted runtime instead.
+
+The binary runtime's `flags` runtime parameter is extracted as adapter configuration rather than forwarded as an FQL query parameter.
 
 `--param-bind <target>=@<source>` adapts an existing parameter to an ordinary user parameter path. Binding declarations are validated before external setup where possible. Sources are resolved only after dynamic Lab values are available, and all sources use the same pre-binding snapshot so declaration order cannot create binding chains. Targets may be nested but cannot use the reserved `lab` namespace or overlap another binding or `--param` target.
 

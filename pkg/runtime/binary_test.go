@@ -278,7 +278,7 @@ func TestNewBinaryRejectsInvalidConfiguration(t *testing.T) {
 }
 
 func TestNewResolvesRelativeBinaryPath(t *testing.T) {
-	rt, err := New(Options{Type: "bin:./ferret"})
+	rt, err := New(t.Context(), Options{Type: "bin:./ferret"})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

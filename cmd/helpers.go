@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -113,7 +114,7 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 	}
 }
 
-func newRuntime(cmd *cli.Command, params map[string]any) (runtime.Runtime, error) {
+func newRuntime(ctx context.Context, cmd *cli.Command, params map[string]any) (runtime.Runtime, error) {
 	fsPolicy, err := fsPolicyFromCommand(cmd)
 	if err != nil {
 		return nil, err
@@ -129,12 +130,21 @@ func newRuntime(cmd *cli.Command, params map[string]any) (runtime.Runtime, error
 		return nil, err
 	}
 
-	rt, err := runtime.New(runtime.Options{
-		Type:        cmd.String("runtime"),
-		Params:      params,
-		FSPolicy:    fsPolicy,
-		HTTPPolicy:  httpPolicy,
-		BinaryFlags: binaryFlags,
+	connectTimeout := cmd.Duration("runtime-connect-timeout")
+	if !cmd.IsSet("runtime-connect-timeout") {
+		connectTimeout = 0
+	}
+
+	rt, err := runtime.New(ctx, runtime.Options{
+		Type:              cmd.String("runtime"),
+		Endpoint:          cmd.String("runtime-endpoint"),
+		EndpointSet:       cmd.IsSet("runtime-endpoint"),
+		ConnectTimeout:    connectTimeout,
+		ConnectTimeoutSet: cmd.IsSet("runtime-connect-timeout"),
+		Params:            params,
+		FSPolicy:          fsPolicy,
+		HTTPPolicy:        httpPolicy,
+		BinaryFlags:       binaryFlags,
 	})
 
 	if err != nil {

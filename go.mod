@@ -4,7 +4,9 @@ go 1.26.0
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/MontFerret/api v1.0.0-alpha.20
 	github.com/MontFerret/ferret/v2 v2.0.0-alpha.57
+	github.com/MontFerret/wire v1.0.0-alpha.2
 	github.com/go-git/go-billy/v5 v5.9.1
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/go-waitfor/waitfor v1.1.0
@@ -16,6 +18,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/urfave/cli/v3 v3.11.0
+	google.golang.org/grpc v1.84.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -24,7 +27,6 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/MontFerret/api v1.0.0-alpha.20 // indirect
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
@@ -65,5 +67,7 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )

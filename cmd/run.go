@@ -52,7 +52,7 @@ func RunFlags(hidden bool) []cli.Flag {
 		&cli.StringFlag{
 			Name:    "runtime",
 			Aliases: []string{"r"},
-			Usage:   "Ferret runtime (HTTP URL or bin:<Ferret CLI v2 path>)",
+			Usage:   "Ferret runtime (built-in, HTTP URL, bin:<Ferret CLI v2 path>, or wire with --runtime-endpoint)",
 			Sources: cli.EnvVars("LAB_RUNTIME"),
 			Hidden:  hidden,
 		},
@@ -154,6 +154,7 @@ func RunFlags(hidden bool) []cli.Flag {
 		},
 	}
 
+	flags = append(flags, runtimeConnectionFlags(hidden)...)
 	flags = append(flags, fsPolicyFlags(hidden)...)
 
 	return append(flags, httpPolicyFlags(hidden)...)
@@ -214,7 +215,7 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 		return cli.Exit(err, 1)
 	}
 
-	rt, err := newRuntime(cmd, runtimeParams)
+	rt, err := newRuntime(ctx, cmd, runtimeParams)
 
 	if err != nil {
 		return cli.Exit(err, 1)
