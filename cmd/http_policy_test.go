@@ -92,7 +92,7 @@ func runHTTPPolicyCommand(t *testing.T, args ...string) error {
 				return err
 			}
 
-			rt, err := runtime.New(runtime.Options{HTTPPolicy: policy})
+			rt, err := runtime.New(t.Context(), runtime.Options{HTTPPolicy: policy})
 			if err != nil {
 				return err
 			}

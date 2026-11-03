@@ -7,14 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/api"
 
-	"github.com/MontFerret/lab/v2/pkg/runtime"
-	sources2 "github.com/MontFerret/lab/v2/pkg/sources"
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
+	labsrc "github.com/MontFerret/lab/v2/pkg/sources"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 func TestFileSystem(t *testing.T) {
@@ -24,7 +25,7 @@ func TestFileSystem(t *testing.T) {
 				Convey("Should send an error", func() {
 					str := fmt.Sprintf("file://%stest.foo", os.TempDir())
 					u, _ := url.Parse(str)
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -56,7 +57,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -88,7 +89,7 @@ func TestFileSystem(t *testing.T) {
 					defer os.Remove(file.Name())
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", file.Name()))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -98,8 +99,8 @@ func TestFileSystem(t *testing.T) {
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					errs := make([]sources2.Error, 0, 1)
-					files := make([]sources2.File, 0, 1)
+					errs := make([]labsrc.Error, 0, 1)
+					files := make([]labsrc.File, 0, 1)
 					nextClosed := false
 					errorClosed := false
 
@@ -154,7 +155,7 @@ func TestFileSystem(t *testing.T) {
 
 					for i, f := range files {
 						u, _ := url.Parse(fmt.Sprintf("file://%s", f))
-						src, err := sources2.NewFileSystem(u)
+						src, err := labsrc.NewFileSystem(u)
 
 						So(err, ShouldBeNil)
 						So(src, ShouldNotBeNil)
@@ -214,7 +215,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s?filter=**/*.take.fql", dir))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -224,7 +225,7 @@ func TestFileSystem(t *testing.T) {
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					foundFiles := make([]sources2.File, 0, len(files))
+					foundFiles := make([]labsrc.File, 0, len(files))
 
 					var done bool
 
@@ -278,7 +279,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -333,7 +334,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -399,7 +400,7 @@ func TestFileSystem(t *testing.T) {
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", f1.Name()))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -470,7 +471,7 @@ func TestFileSystem(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", relToFile))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -549,7 +550,7 @@ assert:
 					}()
 
 					u, _ := url.Parse(fmt.Sprintf("file://%s", dirTestsRoot))
-					src, err := sources2.NewFileSystem(u)
+					src, err := labsrc.NewFileSystem(u)
 
 					So(err, ShouldBeNil)
 					So(src, ShouldNotBeNil)
@@ -559,19 +560,21 @@ assert:
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					rt := runtime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
-						return []byte(""), nil
-					})
+					rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
+						return &apiruntime.Output{Data: []byte{}}, nil
+					}}
 
 					for f := range onNext {
-						s, err := testing2.NewSuite(testing2.Options{
+						s, err := labtesting.NewSuite(labtesting.Options{
 							File:    f,
-							Timeout: 0,
+							Timeout: time.Second,
 						})
 
 						So(err, ShouldBeNil)
 
-						err = s.Run(context.Background(), rt, testing2.NewParams())
+						executor := labtesting.NewExecutor(rt, false)
+						err = s.Run(context.Background(), executor, labtesting.NewParams())
+						So(executor.Close(), ShouldBeNil)
 						So(err, ShouldBeNil)
 					}
 				})

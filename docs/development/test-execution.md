@@ -32,9 +32,17 @@ New source types implement the existing source contract and are registered in th
 
 `pkg/testing` converts a source file into an executable Lab test case. Direct FQL files execute as units. YAML suite files define a query followed by either an assertion or a structured `expect.error` runtime-error expectation. Query and assertion scripts may be inline FQL or referenced scripts.
 
-An empty `expect.error` object accepts any error returned by the runtime. Its optional `contains` field performs a substring match against the error message. Unknown fields inside `expect.error` fail during suite construction rather than degrading to an unqualified error expectation. Expected-error suites do not deserialize query output or resolve and run an assertion, and combining `assert` with `expect.error` is invalid.
+Cases accept the `Executor` contract and preserve each script's identity and content in `api.Source`. They pass materialized values through `api.WithParams`.
 
-The `.fail.fql` expected-failure convention remains supported for compatibility but is deprecated. Its execution semantics stay unchanged, and the test case exposes a deprecation warning that the runner carries once per file result for reporters to present.
+A case-scoped executor uses one-shot `Runtime.Run` by default. When `--times > 1` or `--attempts > 1`, it compiles scripts lazily and caches successful plans by exact source name and content. Every invocation opens a fresh session with current parameters. Failed compilations are not cached; referenced scripts are resolved on every attempt, and changed names or content select another plan. Compilation matching `errors.ErrUnsupported` switches that executor to one-shot execution, including for HTTP. Other compilation failures propagate. Compilation, execution, and output settlement share the test deadline.
+
+Units and assertions consume and discard chunks. Suites collect query output, check for terminal errors, then decode the detached bytes as JSON regardless of content type. Absent and empty content yield a nil result. A failed query skips the assertion even if it delivered valid JSON.
+
+An empty `expect.error` object accepts either an admission error from the runtime or a terminal error from consuming the query output. Its optional `contains` field performs a substring match against the error message. Unknown fields inside `expect.error` fail during suite construction rather than degrading to an unqualified error expectation. Expected-error suites do not deserialize query output or resolve and run an assertion, and combining `assert` with `expect.error` is invalid.
+
+The executor settles output before closing its session. Cleanup failures remain observable, cannot satisfy expected-error tests, and remain in the final case result even if a later retry succeeds. It releases cached plans in reverse acquisition order when the case ends, including after failure or cancellation, without closing the borrowed runtime. UAPI admission errors may already contain opaque upstream cleanup failures; Lab preserves their existing expected-error handling.
+
+The `.fail.fql` expected-failure convention remains supported for compatibility but is deprecated. It accepts execution failures, including compilation failures, while resource cleanup failures still fail the case. The test case exposes a deprecation warning that the runner carries once per file result for reporters to present.
 
 Lab owns the test-language lifecycle around FQL; Ferret owns the meaning of the FQL itself. Changes to syntax, compilation, runtime values, or VM behavior belong in Ferret rather than `pkg/testing`.
 
@@ -47,6 +55,10 @@ Suite, unit, assertion, parameter, and helper behavior is tested in `pkg/testing
 `pkg/testing.Params` keeps user values separate from Lab system values. At execution time, Lab materializes system values under the `lab` key, which exposes service endpoints such as `@lab.static.<alias>` and `@lab.mock.<alias>`.
 
 CLI parameter bindings are an explicit adaptation step over that materialized view. Every source path is resolved from one snapshot after Lab setup, then its existing value is assigned directly to a user parameter target without text conversion. Nested targets create user-owned object maps. Binding application is atomic: a missing source, reserved target, existing target, or non-object intermediate path leaves the parameter set unchanged.
+
+CLI user values are assembled first (`--param` replaces the environment list and later duplicate keys win). Bindings apply after local services publish endpoints. Each query and assertion then overlays its own manifest `params` onto the common user values independently; assertion values do not inherit query-only overrides. Assertions receive the query result and effective query parameters in `@lab.data.query`. System `lab` values win when materialized. Setup and cleanup remain resource lifecycle operations, not additional FQL stages.
+
+Runtime adapter options are outside this pipeline. They configure HTTP requests or Wire connection setup and never become FQL defaults. Ordinary query names such as `headers` and `path` remain available across adapters.
 
 Parameter isolation is a correctness boundary:
 
@@ -70,7 +82,7 @@ Parameter serialization for a particular runtime remains owned by `pkg/runtime`.
 - cancellation and worker shutdown
 - progress results and final summary calculation
 
-Runner settings normalize zero values to the established defaults. A source file receives a cloned parameter set before work is scheduled.
+Runner settings normalize zero values to the established defaults. A source file receives a cloned parameter set before work is scheduled, and every attempt gets another clone. One executor survives all repetitions and retries of that case. The runner closes it before publishing the final result; cleanup errors are retained while the normal retry schedule continues.
 
 Each scheduled file becomes one progress result containing its identity, attempts, successful run count, duration, and final error. Source errors also become progress results so reporters can present them consistently. The summary counts passed and failed results and records total wall-clock duration.
 

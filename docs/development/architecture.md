@@ -38,15 +38,17 @@ Command behavior and lifecycle are described in [CLI](cli.md).
 ### Test execution
 
 - `pkg/sources` discovers content from local files, directories, globs, Git repositories, HTTP URLs, and aggregates.
-- `pkg/testing` represents direct FQL tests and YAML query/assertion suites, manages user and Lab parameters, and executes test-level validation.
-- `pkg/runner` schedules source files, clones per-test parameters, applies concurrency, retries, repeated runs, intervals, timeouts, and cancellation, and produces progress and summary streams.
+- `pkg/testing` represents direct FQL tests and YAML query/assertion suites, manages user and Lab parameters, and executes test-level validation. Its case-scoped executor owns output settlement, fresh invocation sessions, and optional compiled-plan reuse.
+- `pkg/runner` schedules source files, clones per-test parameters, applies concurrency, retries, repeated runs, intervals, timeouts, and cancellation, and produces progress and summary streams. It owns one executor per scheduled case and closes it before publishing the final result.
 - `pkg/reporters` consumes runner streams and presents results without controlling execution.
 
 These stages are described in [Test execution](test-execution.md).
 
 ### Runtime adapters
 
-`pkg/runtime` is the only Lab package that executes FQL. It selects and configures the embedded Ferret runtime, the remote HTTP adapter, the external Ferret CLI adapter, or a function-backed adapter. It passes source content and parameters through those contracts without taking ownership of FQL semantics.
+`pkg/runtime` is the only Lab package that executes FQL. It selects and configures the embedded Ferret runtime, the remote HTTP adapter, or the Wire/UAPI adapter over gRPC. It returns `api.Runtime` directly.
+
+Runner options use that Universal API contract. Test cases use an executor that calls one-shot `Run` by default and lazily reuses successful compiled plans for repetitions or retries. Plans are keyed by exact source name and content and remain scoped to their case; sessions and outputs are never shared between invocations. Built-in and Wire support compilation; HTTP reports an unsupported capability, which the executor remembers and handles through one-shot fallback. Lab passes source content and parameters through these contracts without taking ownership of FQL semantics.
 
 Adapter behavior is described in [Runtime](runtime.md).
 
@@ -92,13 +94,13 @@ The following are relatively stable unless a change explicitly targets them:
 - the execution flow through sources, testing, runner, runtime, and reporters
 - the `@lab` system parameter namespace
 - local static/mock entry and alias behavior
-- the built-in, remote HTTP, and external binary runtime split
+- the built-in, remote HTTP, and Wire runtime split
 
 The following are implementation-sensitive and should be rechecked in current code and tests before modification:
 
 - concurrency, retries, repeated runs, result streams, timeouts, and cancellation
 - parameter cloning and materialization
-- remote HTTP requests and binary process arguments
+- remote HTTP requests and Wire transport ownership
 - source fetching, identity, temporary resources, and cleanup
 - local-server startup, shutdown, dynamic ports, and advertised endpoints
 - mock route specificity, request context, and template rendering

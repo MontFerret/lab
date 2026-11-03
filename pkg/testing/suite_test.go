@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"strings"
-	stdtesting "testing"
+	"testing"
 	"time"
 
-	"github.com/MontFerret/ferret/v2"
-	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
-func TestSuiteRunUsesAssertParams(t *stdtesting.T) {
-	testCase, err := testing2.New(testing2.Options{
+func TestSuiteRunUsesAssertParams(t *testing.T) {
+	testCase, err := labtesting.New(labtesting.Options{
 		File: sources.File{
 			Name: "suite.yaml",
 			Content: []byte(`
@@ -41,13 +41,18 @@ assert:
 		callCount   int
 	)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, params map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (api.Output, error) {
+		params, err := apiruntime.NewParams(opts...)
+		if err != nil {
+			return nil, err
+		}
+
 		callCount++
 
 		switch callCount {
 		case 1:
 			queryPhase, _ = params["phase"].(string)
-			return []byte(`1`), nil
+			return &apiruntime.Output{Data: []byte(`1`)}, nil
 		case 2:
 			assertPhase, _ = params["phase"].(string)
 
@@ -57,14 +62,14 @@ assert:
 			queryParams, _ := query["params"].(map[string]any)
 			dataPhase, _ = queryParams["phase"].(string)
 
-			return []byte(`true`), nil
+			return &apiruntime.Output{Data: []byte(`true`)}, nil
 		default:
 			t.Fatalf("expected exactly two runtime calls, got %d", callCount)
 			return nil, nil
 		}
-	})
+	}}
 
-	if err := testCase.Run(context.Background(), rt, testing2.NewParams()); err != nil {
+	if err := testCase.Run(context.Background(), newOneShotExecutor(t, rt), labtesting.NewParams()); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
@@ -85,9 +90,9 @@ assert:
 	}
 }
 
-func TestSuiteRunPreservesRuntimeErrorChain(t *stdtesting.T) {
+func TestSuiteRunPreservesRuntimeErrorChain(t *testing.T) {
 	runtimeErr := errors.New("runtime failed")
-	testCase, err := testing2.New(testing2.Options{
+	testCase, err := labtesting.New(labtesting.Options{
 		File: sources.File{
 			Name: "suite.yaml",
 			Content: []byte(`
@@ -103,11 +108,11 @@ assert:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 		return nil, runtimeErr
-	})
+	}}
 
-	err = testCase.Run(context.Background(), rt, testing2.NewParams())
+	err = testCase.Run(context.Background(), newOneShotExecutor(t, rt), labtesting.NewParams())
 	if !errors.Is(err, runtimeErr) {
 		t.Fatalf("expected runtime error in chain, got %v", err)
 	}
@@ -117,7 +122,7 @@ assert:
 	}
 }
 
-func TestSuiteExpectedError(t *stdtesting.T) {
+func TestSuiteExpectedError(t *testing.T) {
 	tests := []struct {
 		name       string
 		expect     string
@@ -153,8 +158,8 @@ func TestSuiteExpectedError(t *stdtesting.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *stdtesting.T) {
-			testCase, err := testing2.New(testing2.Options{
+		t.Run(test.name, func(t *testing.T) {
+			testCase, err := labtesting.New(labtesting.Options{
 				File: sources.File{
 					Name:    "suite.yaml",
 					Content: []byte("query:\n  text: RETURN 1\nexpect:\n  " + test.expect + "\n"),
@@ -166,13 +171,13 @@ func TestSuiteExpectedError(t *stdtesting.T) {
 			}
 
 			calls := 0
-			rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+			rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 				calls++
 
-				return []byte(`1`), test.runtimeErr
-			})
+				return &apiruntime.Output{Data: []byte(`1`), Err: test.runtimeErr}, nil
+			}}
 
-			err = testCase.Run(context.Background(), rt, testing2.NewParams())
+			err = testCase.Run(context.Background(), newOneShotExecutor(t, rt), labtesting.NewParams())
 			if test.wantErr == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -188,8 +193,8 @@ func TestSuiteExpectedError(t *stdtesting.T) {
 	}
 }
 
-func TestSuiteExpectedErrorDoesNotAcceptQueryResolutionFailure(t *stdtesting.T) {
-	testCase, err := testing2.New(testing2.Options{
+func TestSuiteExpectedErrorDoesNotAcceptQueryResolutionFailure(t *testing.T) {
+	testCase, err := labtesting.New(labtesting.Options{
 		File: sources.File{
 			Name: "suite.yaml",
 			Content: []byte(`
@@ -205,19 +210,19 @@ expect:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 		t.Fatal("runtime must not run when query resolution fails")
 
 		return nil, nil
-	})
+	}}
 
-	err = testCase.Run(context.Background(), rt, testing2.NewParams())
+	err = testCase.Run(context.Background(), newOneShotExecutor(t, rt), labtesting.NewParams())
 	if err == nil || !strings.Contains(err.Error(), "resolve query script") {
 		t.Fatalf("expected a query resolution error, got %v", err)
 	}
 }
 
-func TestSuiteExpectedErrorValidation(t *stdtesting.T) {
+func TestSuiteExpectedErrorValidation(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
@@ -301,8 +306,8 @@ expect:
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *stdtesting.T) {
-			testCase, err := testing2.NewSuite(testing2.Options{
+		t.Run(test.name, func(t *testing.T) {
+			testCase, err := labtesting.NewSuite(labtesting.Options{
 				File: sources.File{
 					Name:    "suite.yaml",
 					Content: []byte(test.content),
@@ -320,8 +325,8 @@ expect:
 	}
 }
 
-func TestSuiteExpectedErrorValidationIsScoped(t *stdtesting.T) {
-	testCase, err := testing2.NewSuite(testing2.Options{
+func TestSuiteExpectedErrorValidationIsScoped(t *testing.T) {
+	testCase, err := labtesting.NewSuite(labtesting.Options{
 		File: sources.File{
 			Name: "suite.yaml",
 			Content: []byte(`

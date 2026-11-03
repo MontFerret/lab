@@ -1,29 +1,36 @@
 package runtime
 
 import (
-	"context"
 	"fmt"
 	"os"
+	"sync"
 
+	"github.com/MontFerret/api"
 	"github.com/MontFerret/ferret/v2"
 	ferretnet "github.com/MontFerret/ferret/v2/pkg/net"
 	ferrethttp "github.com/MontFerret/ferret/v2/pkg/net/http"
+	"github.com/MontFerret/ferret/v2/uapi"
 )
 
 var version = "unknown"
 
 type Builtin struct {
-	engine  *ferret.Engine
+	api.Runtime
 	network ferretnet.Network
+	once    sync.Once
+	err     error
 }
 
-func NewBuiltin(params map[string]any, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
-	return newBuiltin(params, nil, policyOptions...)
+var _ api.Runtime = (*Builtin)(nil)
+
+// NewBuiltin owns a native UAPI runtime and any network configured by its policies.
+func NewBuiltin(policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
+	return newBuiltin(nil, policyOptions...)
 }
 
-func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
+func newBuiltin(fsPolicy *FileSystemPolicy, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
 	if fsPolicy == nil && len(policyOptions) == 0 {
-		return newDefaultBuiltin(params)
+		return newDefaultBuiltin()
 	}
 
 	root := ""
@@ -41,7 +48,6 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 
 	engineOptions := []ferret.Option{
 		ferret.WithFSRoot(root),
-		ferret.WithParams(params),
 	}
 
 	if fsPolicy != nil && fsPolicy.ReadOnly != nil && *fsPolicy.ReadOnly {
@@ -49,7 +55,7 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 	}
 
 	if len(policyOptions) == 0 {
-		engine, err := ferret.New(engineOptions...)
+		engine, err := uapi.New(api.Version(version), engineOptions...)
 		if err != nil {
 			if fsPolicy != nil {
 				return nil, fmt.Errorf("filesystem policy: %w", err)
@@ -58,7 +64,7 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 			return nil, err
 		}
 
-		return &Builtin{engine: engine}, nil
+		return &Builtin{Runtime: engine}, nil
 	}
 
 	client, err := ferrethttp.New(policyOptions...)
@@ -76,7 +82,7 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 	}
 
 	engineOptions = append(engineOptions, ferret.WithNetwork(network))
-	engine, err := ferret.New(engineOptions...)
+	engine, err := uapi.New(api.Version(version), engineOptions...)
 
 	if err != nil {
 		ferretnet.CloseIdleNetworkConnections(network)
@@ -88,49 +94,37 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 	}
 
 	return &Builtin{
-		engine:  engine,
+		Runtime: engine,
 		network: network,
 	}, nil
 }
 
-func newDefaultBuiltin(params map[string]any) (*Builtin, error) {
+func newDefaultBuiltin() (*Builtin, error) {
 	root, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
-	engine, err := ferret.New(
+	engine, err := uapi.New(api.Version(version),
 		ferret.WithFSRoot(root),
-		ferret.WithParams(params),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Builtin{engine: engine}, nil
+	return &Builtin{Runtime: engine}, nil
 }
 
-func (r *Builtin) Version(_ context.Context) (string, error) {
-	return version, nil
-}
-
-func (r *Builtin) Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error) {
-	out, err := r.engine.Run(ctx, query, ferret.WithSessionParams(params))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return out.Content, nil
-}
-
-// Close shuts down the embedded engine and its configured HTTP network.
+// Close releases the native runtime before its owned network, retaining cleanup
+// results for repeated and concurrent calls. Callers settle work first.
 func (r *Builtin) Close() error {
-	err := r.engine.Close()
+	r.once.Do(func() {
+		r.err = r.Runtime.Close()
 
-	if r.network != nil {
-		ferretnet.CloseIdleNetworkConnections(r.network)
-	}
+		if r.network != nil {
+			ferretnet.CloseIdleNetworkConnections(r.network)
+		}
+	})
 
-	return err
+	return r.err
 }

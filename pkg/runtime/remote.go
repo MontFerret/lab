@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/api"
 )
 
 type (
@@ -30,137 +30,120 @@ type (
 		Params map[string]any `json:"params"`
 	}
 
-	HTTPParams struct {
-		Headers http.Header
-		Path    string
-		Cookies []http.Cookie
-	}
-
 	Remote struct {
-		url    *url.URL
-		client *http.Client
-		params HTTPParams
+		url     *url.URL
+		client  *http.Client
+		options httpOptions
 	}
 )
 
-func NewRemote(u string, params map[string]any) (*Remote, error) {
-	p := HTTPParams{
-		Headers: http.Header{
-			"Content-Type":    []string{"application/json"},
-			"Accept":          []string{"*/*"},
-			"Accept-Charset":  []string{"utf-8"},
-			"Accept-Encoding": []string{"gzip", "deflate"},
-			"Cache-Control":   []string{"no-cache"},
-		},
-		Cookies: make([]http.Cookie, 0, 5),
-	}
+var _ api.Runtime = (*Remote)(nil)
 
-	if params != nil {
-		headers, exists := params["headers"]
-
-		if exists {
-			headers, ok := headers.(map[string]any)
-
-			if !ok {
-				return nil, errors.New("invalid type of headers (expected map)")
-			}
-
-			for k, v := range headers {
-				str, ok := v.(string)
-
-				if !ok {
-					return nil, fmt.Errorf("invalid value type of a header: %s (expected string)", k)
-				}
-
-				p.Headers.Add(k, str)
-			}
-		}
-
-		urlPath, exists := params["path"]
-
-		if exists {
-			urlPath, ok := urlPath.(string)
-
-			if !ok {
-				return nil, errors.New("invalid type of path (expected string)")
-			}
-
-			p.Path = urlPath
-		}
-
-		cookies, exists := params["cookies"]
-
-		if exists {
-			cookies, ok := cookies.(map[string]any)
-
-			if !ok {
-				return nil, errors.New("invalid type of cookies (expected map)")
-			}
-
-			for k, v := range cookies {
-				str, ok := v.(string)
-
-				if !ok {
-					return nil, fmt.Errorf("invalid value type of a header: %s (expected string)", k)
-				}
-
-				p.Cookies = append(p.Cookies, http.Cookie{
-					Name:   k,
-					Value:  str,
-					Domain: u,
-					Path:   p.Path,
-				})
-			}
-		}
-	}
-
-	parsedURL, err := url.Parse(u)
-
+// NewRemote borrows the default HTTP client and owns each response body.
+func NewRemote(target string, options map[string]any) (*Remote, error) {
+	config, err := (Options{Target: target, AdapterOptions: options}).resolve()
 	if err != nil {
 		return nil, err
 	}
 
-	client := http.DefaultClient
+	if config.kind != "http" && config.kind != "https" {
+		return nil, errors.New("HTTP runtime requires an HTTP/HTTPS target")
+	}
 
-	return &Remote{url: parsedURL, client: client, params: p}, nil
+	return newRemote(config.url, config.http), nil
 }
 
-func (rt *Remote) Version(ctx context.Context) (string, error) {
-	data, err := rt.makeRequest(ctx, "GET", rt.versionEndpoint(), nil)
+func newRemote(target *url.URL, options httpOptions) *Remote {
+	return &Remote{url: target, client: http.DefaultClient, options: options}
+}
 
+// Version reports the hosted Ferret version unchanged.
+func (rt *Remote) Version(ctx context.Context) (version api.Version, err error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+
+	resp, err := rt.makeRequest(ctx, http.MethodGet, rt.versionEndpoint(), nil)
 	if err != nil {
 		return "", err
 	}
 
-	info := remoteInfo{}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close response data: %w", closeErr))
+		}
+	}()
 
-	if err := json.Unmarshal(data, &info); err != nil {
-		return "", fmt.Errorf("deserialize response data: %w", err)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("read response data: %w", err)
+
+		if len(data) == 0 {
+			return "", err
+		}
 	}
 
-	return info.Version.Ferret, nil
+	info := remoteInfo{}
+	if decodeErr := json.Unmarshal(data, &info); decodeErr != nil {
+		return "", errors.Join(err, fmt.Errorf("deserialize response data: %w", decodeErr))
+	}
+
+	return api.Version(info.Version.Ferret), err
 }
 
-func (rt *Remote) Run(ctx context.Context, query ferret.Source, params map[string]any) ([]byte, error) {
-	body, err := json.Marshal(remoteQuery{
-		Text:   query.Content(),
-		Params: params,
-	})
+// Run transfers a successful response body to the caller-owned output.
+func (rt *Remote) Run(ctx context.Context, src api.Source, setters ...api.SessionOption) (api.Output, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
+	opts, err := newRemoteSessionOptions(setters)
+	if err != nil {
+		return nil, fmt.Errorf("configure HTTP runtime execution: %w", err)
+	}
+
+	body, err := json.Marshal(remoteQuery{Text: src.Content, Params: opts.params})
 	if err != nil {
 		return nil, fmt.Errorf("serialize query: %w", err)
 	}
 
-	return rt.makeRequest(ctx, "POST", rt.runEndpoint(), body)
+	requestCtx, cancel := context.WithCancel(ctx)
+	resp, err := rt.makeRequest(requestCtx, http.MethodPost, rt.runEndpoint(), body)
+	if err != nil {
+		cancel()
+
+		return nil, err
+	}
+
+	return newHTTPOutput(ctx, resp, cancel), nil
 }
 
+// Compile rejects reusable compilation without HTTP I/O.
+func (rt *Remote) Compile(ctx context.Context, _ api.Source, _ ...api.PlanOption) (api.Plan, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("HTTP runtime does not support compilation: %w", errors.ErrUnsupported)
+}
+
+// CompileDebug rejects debug compilation without HTTP I/O.
+func (rt *Remote) CompileDebug(ctx context.Context, _ api.Source, _ ...api.PlanOption) (api.Plan, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("HTTP runtime does not support debug compilation: %w", errors.ErrUnsupported)
+}
+
+// Close is repeatable and leaves the borrowed HTTP client usable.
 func (rt *Remote) Close() error {
 	return nil
 }
 
 func (rt *Remote) runEndpoint() string {
-	if rt.params.Path != "" {
-		return rt.params.Path
+	if rt.options.Path != "" {
+		return rt.options.Path
 	}
 
 	return rt.basePath()
@@ -203,39 +186,35 @@ func (rt *Remote) createRequest(ctx context.Context, method, endpoint string, bo
 		return nil, err
 	}
 
-	req.Header = rt.params.Headers
+	req.Header = rt.options.Headers.Clone()
 
-	for _, c := range rt.params.Cookies {
+	for _, c := range rt.options.Cookies {
 		req.AddCookie(&c)
 	}
 
 	return req, nil
 }
 
-func (rt *Remote) makeRequest(ctx context.Context, method, endpoint string, body []byte) ([]byte, error) {
+func (rt *Remote) makeRequest(ctx context.Context, method, endpoint string, body []byte) (*http.Response, error) {
 	req, err := rt.createRequest(ctx, method, endpoint, body)
-
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	resp, err := rt.client.Do(req)
-
 	if err != nil {
 		return nil, fmt.Errorf("make HTTP request to remote runtime: %w", err)
 	}
 
-	defer resp.Body.Close()
-
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, errors.New(resp.Status)
+		err := errors.New(resp.Status)
+
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close response data: %w", closeErr))
+		}
+
+		return nil, err
 	}
 
-	data, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return nil, fmt.Errorf("read response data: %w", err)
-	}
-
-	return data, nil
+	return resp, nil
 }

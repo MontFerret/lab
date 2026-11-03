@@ -15,11 +15,11 @@ import (
 	"github.com/gobwas/glob"
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/MontFerret/ferret/v2"
+	"github.com/MontFerret/api"
 
-	"github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 type MockFile struct {
@@ -443,18 +443,20 @@ assert:
 				case e := <-onError:
 					So(e, ShouldBeNil)
 				case f := <-onNext:
-					rt := runtime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
-						return []byte(""), nil
-					})
+					rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
+						return &apiruntime.Output{Data: []byte{}}, nil
+					}}
 
-					s, err := testing2.NewSuite(testing2.Options{
+					s, err := labtesting.NewSuite(labtesting.Options{
 						File:    f,
-						Timeout: 0,
+						Timeout: time.Second,
 					})
 
 					So(err, ShouldBeNil)
 
-					err = s.Run(context.Background(), rt, testing2.NewParams())
+					executor := labtesting.NewExecutor(rt, false)
+					err = s.Run(context.Background(), executor, labtesting.NewParams())
+					So(executor.Close(), ShouldBeNil)
 					So(err, ShouldBeNil)
 				}
 			})

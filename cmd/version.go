@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/MontFerret/lab/v2/pkg/runtime"
 )
 
 func VersionCommand(self string) *cli.Command {
@@ -12,17 +14,14 @@ func VersionCommand(self string) *cli.Command {
 		Name:      "version",
 		Usage:     "Show Lab version",
 		UsageText: "lab version [options]",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "runtime",
-				Aliases: []string{"r"},
-				Usage:   "Ferret runtime (HTTP URL or bin:<Ferret CLI v2 path>)",
-				Sources: cli.EnvVars("LAB_RUNTIME"),
-			},
-		},
+		Flags:     runtimeFlags(false),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			rt, err := newRuntime(cmd, nil)
+			options, err := runtimeOptionsFromCommand(cmd)
+			if err != nil {
+				return err
+			}
 
+			rt, err := runtime.New(ctx, options)
 			if err != nil {
 				return err
 			}

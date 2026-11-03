@@ -1,0 +1,50 @@
+package runtime
+
+import (
+	"context"
+	"testing"
+
+	"github.com/MontFerret/api"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
+	"github.com/MontFerret/lab/v2/internal/testutil/wirehost"
+)
+
+func BenchmarkWire(b *testing.B) {
+	host := wirehost.New(b, &apiruntime.Runtime{VersionValue: "benchmark-host", RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
+		return &apiruntime.Output{Data: []byte("[true]")}, nil
+	}})
+	opts := Options{Target: "wire+" + host.Endpoint}
+	b.Run("ConstructionCleanup", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			rt, err := New(b.Context(), opts)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			if err := rt.Close(); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("RepeatedRun", func(b *testing.B) {
+		rt, err := New(b.Context(), opts)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		defer func() {
+			if err := rt.Close(); err != nil {
+				b.Fatal(err)
+			}
+		}()
+		src := api.NewSource("benchmark.fql", "RETURN @shared")
+		params := map[string]any{"perRun": "value", "shared": "value"}
+		b.ReportAllocs()
+		for b.Loop() {
+			if _, err := runAndCollect(b.Context(), rt, src, api.WithParams(params)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}

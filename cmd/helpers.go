@@ -13,7 +13,6 @@ import (
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/localserver"
 	"github.com/MontFerret/lab/v2/pkg/mockserver"
-	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/staticserver"
 )
 
@@ -110,74 +109,6 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 	return staticserver.Settings{
 		BindHost:      cmd.String("serve-bind"),
 		AdvertiseHost: cmd.String("serve-host"),
-	}
-}
-
-func newRuntime(cmd *cli.Command, params map[string]any) (runtime.Runtime, error) {
-	fsPolicy, err := fsPolicyFromCommand(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	httpPolicy, err := httpPolicyFromCommand(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	binaryFlags, err := extractBinaryFlags(params)
-	if err != nil {
-		return nil, err
-	}
-
-	rt, err := runtime.New(runtime.Options{
-		Type:        cmd.String("runtime"),
-		Params:      params,
-		FSPolicy:    fsPolicy,
-		HTTPPolicy:  httpPolicy,
-		BinaryFlags: binaryFlags,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return rt, nil
-}
-
-func extractBinaryFlags(params map[string]any) ([]string, error) {
-	value, exists := params["flags"]
-	if !exists {
-		return nil, nil
-	}
-
-	flags, err := toStringSlice(value)
-	if err != nil {
-		return nil, fmt.Errorf("invalid type of flags (expected array of strings): %w", err)
-	}
-
-	delete(params, "flags")
-
-	return flags, nil
-}
-
-func toStringSlice(value any) ([]string, error) {
-	switch values := value.(type) {
-	case []string:
-		return append([]string(nil), values...), nil
-	case []any:
-		result := make([]string, 0, len(values))
-		for _, value := range values {
-			str, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("expected string value")
-			}
-
-			result = append(result, str)
-		}
-
-		return result, nil
-	default:
-		return nil, fmt.Errorf("expected array")
 	}
 }
 

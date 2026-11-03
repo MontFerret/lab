@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MontFerret/ferret/v2"
-	labruntime "github.com/MontFerret/lab/v2/pkg/runtime"
+	"github.com/MontFerret/api"
+	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 type singleFileSource struct {
@@ -43,13 +43,17 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 	var calls atomic.Int32
 	firstCall := make(chan struct{}, 1)
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
-		if calls.Add(1) == 1 {
-			firstCall <- struct{}{}
-		}
+	rt := &apiruntime.Runtime{CompileFunc: func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error) {
+		return nil, errors.ErrUnsupported
+	}, RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
+		calls.Add(1)
 
-		return []byte(`1`), nil
-	})
+		return &apiruntime.Output{ConsumeFunc: func(context.Context, api.Consumer) error {
+			firstCall <- struct{}{}
+
+			return nil
+		}}, nil
+	}}
 
 	r, err := New(Options{
 		Runtime:       rt,
@@ -61,7 +65,7 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	stream := r.Run(NewContext(ctx, testing2.NewParams()), singleFileSource{
+	stream := r.Run(NewContext(ctx, labtesting.NewParams()), singleFileSource{
 		file: sources.File{
 			Name:    "test.fql",
 			Content: []byte("RETURN 1"),
@@ -119,11 +123,13 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 	var calls atomic.Int32
 
-	rt := labruntime.AsFunc(func(_ context.Context, _ ferret.Source, _ map[string]any) ([]byte, error) {
+	rt := &apiruntime.Runtime{CompileFunc: func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error) {
+		return nil, errors.ErrUnsupported
+	}, RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 		calls.Add(1)
 
 		return nil, errors.New("expected runtime failure")
-	})
+	}}
 
 	r, err := New(Options{
 		Runtime: rt,
@@ -133,7 +139,7 @@ func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	stream := r.Run(NewContext(context.Background(), testing2.NewParams()), singleFileSource{
+	stream := r.Run(NewContext(context.Background(), labtesting.NewParams()), singleFileSource{
 		file: sources.File{
 			Name:    "test.fail.fql",
 			Content: []byte("RETURN 1"),
@@ -162,5 +168,38 @@ func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 
 	if got := calls.Load(); got != 2 {
 		t.Fatalf("expected exactly two runtime invocations, got %d", got)
+	}
+}
+
+func TestRunnerRetriesAfterAssertionOutputFails(t *testing.T) {
+	calls, compiles, sessions, closes := 0, 0, 0, 0
+	rt := &apiruntime.Runtime{CompileFunc: func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error) {
+		compiles++
+
+		return &apiruntime.Plan{NewSessionFunc: func(context.Context, ...api.SessionOption) (api.Session, error) {
+			sessions++
+
+			return &apiruntime.Session{RunFunc: func(context.Context) (api.Output, error) {
+				calls++
+				if calls == 2 {
+					return &apiruntime.Output{Data: []byte("true"), Err: errors.New("late assertion failure")}, nil
+				}
+
+				return &apiruntime.Output{Data: []byte("true")}, nil
+			}}, nil
+		}, CloseFunc: func() error { closes++; return nil }}, nil
+	}}
+	r, err := New(Options{Runtime: rt, Attempts: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stream := r.Run(NewContext(t.Context(), labtesting.NewParams()), singleFileSource{file: sources.File{
+		Name: "retry.yaml", Content: []byte("query:\n  text: RETURN 1\nassert:\n  text: RETURN true"),
+	}})
+	result := <-stream.Progress
+	summary := <-stream.Summary
+	if result.Error != nil || result.Attempts != 2 || result.Times != 1 || calls != 4 || compiles != 2 || sessions != 4 || closes != 2 || summary.Passed != 1 || summary.Failed != 0 {
+		t.Fatalf("result=%+v summary=%+v calls=%d compiles=%d sessions=%d plan closes=%d", result, summary, calls, compiles, sessions, closes)
 	}
 }

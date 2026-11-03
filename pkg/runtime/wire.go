@@ -1,0 +1,138 @@
+package runtime
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/MontFerret/api"
+	wireclient "github.com/MontFerret/wire/client"
+)
+
+type (
+	wireRuntime struct {
+		remote    api.Runtime
+		transport *wireTransport
+		once      sync.Once
+		err       error
+	}
+
+	// wireTransport shares one retained close between construction cancellation and cleanup.
+	wireTransport struct {
+		connection io.Closer
+		once       sync.Once
+		err        error
+	}
+)
+
+var _ api.Runtime = (*wireRuntime)(nil)
+
+func newWire(ctx context.Context, endpoint string, connectTimeout time.Duration) (*wireRuntime, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	address, err := wireAddress(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+	var dialed atomic.Bool
+
+	connection, err := grpc.NewClient("passthrough:///"+address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithNoProxy(),
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			if !dialed.CompareAndSwap(false, true) {
+				return nil, errors.New("wire transport connection was lost; start a new command")
+			}
+
+			return new(net.Dialer).DialContext(ctx, "tcp4", address)
+		}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("connect Wire runtime %s: %w", endpoint, err)
+	}
+
+	physical := &wireTransport{connection: connection}
+	// Wire detaches its Connect stream from the setup context. Closing the
+	// transport also bounds stream creation when the HTTP/2 handshake stalls.
+	closed := make(chan struct{})
+	stop := context.AfterFunc(connectCtx, func() {
+		_ = physical.Close()
+		close(closed)
+	})
+	remote, err := wireclient.From(connectCtx, connection)
+	if !stop() {
+		<-closed
+	}
+
+	if ctxErr := connectCtx.Err(); ctxErr != nil {
+		err = errors.Join(err, ctxErr)
+	}
+
+	rt := &wireRuntime{remote: remote, transport: physical}
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("connect Wire runtime %s: %w", endpoint, err), rt.Close())
+	}
+
+	return rt, nil
+}
+
+func (rt *wireRuntime) Version(ctx context.Context) (api.Version, error) {
+	return rt.remote.Version(ctx)
+}
+
+func (rt *wireRuntime) Run(ctx context.Context, src api.Source, opts ...api.SessionOption) (api.Output, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	return rt.remote.Run(ctx, src, wireSessionSetters(opts)...)
+}
+
+func (rt *wireRuntime) Compile(ctx context.Context, src api.Source, opts ...api.PlanOption) (api.Plan, error) {
+	plan, err := rt.remote.Compile(ctx, src, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &wirePlan{Plan: plan}, nil
+}
+
+func (rt *wireRuntime) CompileDebug(ctx context.Context, src api.Source, opts ...api.PlanOption) (api.Plan, error) {
+	plan, err := rt.remote.CompileDebug(ctx, src, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &wirePlan{Plan: plan}, nil
+}
+
+func (rt *wireRuntime) Close() error {
+	rt.once.Do(func() {
+		if rt.remote != nil {
+			rt.err = rt.remote.Close()
+		}
+
+		rt.err = errors.Join(rt.err, rt.transport.Close())
+	})
+
+	return rt.err
+}
+
+func (t *wireTransport) Close() error {
+	t.once.Do(func() { t.err = t.connection.Close() })
+
+	return t.err
+}
