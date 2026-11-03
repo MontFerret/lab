@@ -76,6 +76,18 @@ assert:
 	}
 }
 
+func TestWireCommandReportsTerminalFailure(t *testing.T) {
+	host := wirehost.New(t, &apiruntime.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
+		return &apiruntime.Output{Data: []byte("valid prefix"), Err: errors.New("late failure")}, nil
+	}})
+	stdout, _, err := runCLI(t, "run", "--reporter=simple", "--runtime=wire", "--runtime-endpoint="+host.Endpoint, writeScript(t))
+	if err == nil || !strings.Contains(stdout, "FAIL file=") || !strings.Contains(stdout, "DONE passed=0 failed=1") {
+		t.Fatalf("terminal output failure: %q, %v", stdout, err)
+	}
+
+	assertWireCommandCleanup(t, host)
+}
+
 func TestWireCommandConfigurationAndHelp(t *testing.T) {
 	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "configured"})
 	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
@@ -184,7 +196,7 @@ func TestWireRunCommandCancellationAndFailureCleanup(t *testing.T) {
 		t.Run(map[bool]string{false: "failure", true: "cancellation"}[cancellation], func(t *testing.T) {
 			started := make(chan struct{})
 			finished := make(chan struct{})
-			host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+			host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 				close(started)
 				defer close(finished)
 				if cancellation {

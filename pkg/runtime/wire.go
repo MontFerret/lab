@@ -73,7 +73,7 @@ func newWire(ctx context.Context, opts Options) (*wireRuntime, error) {
 		_ = physical.Close()
 		close(closed)
 	})
-	remote, err := wireclient.New(connectCtx, connection)
+	remote, err := wireclient.From(connectCtx, connection)
 	if !stop() {
 		<-closed
 	}
@@ -94,7 +94,7 @@ func (rt *wireRuntime) Version(ctx context.Context) (api.Version, error) {
 	return rt.remote.Version(ctx)
 }
 
-func (rt *wireRuntime) Run(ctx context.Context, src api.Source, opts ...api.SessionOption) (*api.Output, error) {
+func (rt *wireRuntime) Run(ctx context.Context, src api.Source, opts ...api.SessionOption) (api.Output, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

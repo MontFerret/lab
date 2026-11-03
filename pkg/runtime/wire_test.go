@@ -113,8 +113,8 @@ func TestWireVersionAndIndependentConstructionContext(t *testing.T) {
 				calls.Add(1)
 
 				return value, nil
-			}, RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
-				return &api.Output{Content: []byte("[true]")}, nil
+			}, RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
+				return &apiruntime.Output{Data: []byte("[true]")}, nil
 			}})
 			ctx, cancel := context.WithCancel(t.Context())
 			rt, err := New(ctx, Options{Type: " W i R e ", Endpoint: host.Endpoint})
@@ -131,9 +131,9 @@ func TestWireVersionAndIndependentConstructionContext(t *testing.T) {
 				}
 			}
 
-			out, err := rt.Run(t.Context(), api.NewSource("independent.fql", "RETURN true"), api.WithParams(nil))
-			if err != nil || string(out.Content) != "[true]" {
-				t.Fatalf("construction context retained: %q, %v", out, err)
+			out, err := runAndCollect(t.Context(), rt, api.NewSource("independent.fql", "RETURN true"), api.WithParams(nil))
+			if err != nil || out == nil || string(out.Data) != "[true]" {
+				t.Fatalf("construction context retained: %#v, %v", out, err)
 			}
 
 			for _, expired := range []bool{false, true} {
@@ -171,7 +171,7 @@ func TestWireRunRoundTrip(t *testing.T) {
 		hostedCloses.Add(1)
 
 		return nil
-	}, RunFunc: func(_ context.Context, src api.Source, options ...api.SessionOption) (*api.Output, error) {
+	}, RunFunc: func(_ context.Context, src api.Source, options ...api.SessionOption) (api.Output, error) {
 		params := apiruntime.Params{}
 		for _, option := range options {
 			if err := option(params); err != nil {
@@ -181,7 +181,7 @@ func TestWireRunRoundTrip(t *testing.T) {
 
 		calls <- invocation{src, params}
 
-		return &api.Output{Content: output, ContentType: "application/octet-stream"}, nil
+		return &apiruntime.Output{Data: output, ContentType: "application/octet-stream"}, nil
 	}})
 	shared := map[string]any{"shared": "value", "overlap": "shared", "nested": map[any]any{"items": []any{map[any]any{"binary": []byte{0, 255}}}}}
 	perRun := map[string]any{"overlap": "run", "headers": "FQL", "lab": map[string]any{"static": map[string]any{"app": "http://fixtures"}}}
@@ -193,8 +193,8 @@ func TestWireRunRoundTrip(t *testing.T) {
 	t.Cleanup(func() { _ = rt.Close() })
 	src := api.NewSource("fixtures/日本.fql", "\r\nRETURN @shared // exact text\n")
 	for range 2 {
-		out, err := rt.Run(t.Context(), src, api.WithParams(perRun))
-		if err != nil || !bytes.Equal(out.Content, output) {
+		out, err := runAndCollect(t.Context(), rt, src, api.WithParams(perRun))
+		if err != nil || out == nil || !bytes.Equal(out.Data, output) {
 			t.Fatalf("run = %v, %v", out, err)
 		}
 
@@ -246,9 +246,11 @@ func TestWireRunRoundTrip(t *testing.T) {
 	}
 }
 
-func TestWirePreservesOutputWithError(t *testing.T) {
-	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
-		return &api.Output{Content: []byte("available")}, errors.New("host failure")
+func TestWirePreservesLargeOutputWithTerminalError(t *testing.T) {
+	// Exceeds the default 4 MiB gRPC message limit.
+	prefix := bytes.Repeat([]byte("available"), 600_000)
+	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
+		return &apiruntime.Output{Data: prefix, Err: errors.New("host failure")}, nil
 	}})
 	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
 	if err != nil {
@@ -256,9 +258,9 @@ func TestWirePreservesOutputWithError(t *testing.T) {
 	}
 
 	t.Cleanup(func() { _ = rt.Close() })
-	out, err := rt.Run(t.Context(), api.NewSource("failure.fql", "RETURN 1"), api.WithParams(nil))
-	if err == nil || string(out.Content) != "available" {
-		t.Fatalf("lost output or failure: %q, %v", out, err)
+	out, err := runAndCollect(t.Context(), rt, api.NewSource("failure.fql", "RETURN 1"), api.WithParams(nil))
+	if err == nil || out == nil || !bytes.Equal(out.Data, prefix) {
+		t.Fatalf("lost streamed prefix or terminal failure: %v", err)
 	}
 }
 
@@ -367,7 +369,7 @@ func TestWireRunCancellation(t *testing.T) {
 		t.Run(map[bool]string{false: "cancel", true: "deadline"}[deadline], func(t *testing.T) {
 			started := make(chan struct{})
 			finished := make(chan struct{})
-			host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+			host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 				close(started)
 				defer close(finished)
 				<-ctx.Done()
@@ -459,16 +461,24 @@ func TestWireCloseRetainsBothFailuresAndOrder(t *testing.T) {
 
 func TestAdapterOutputIdentity(t *testing.T) {
 	failure := errors.New("failure")
-	for _, output := range []*api.Output{nil, {}, {Content: []byte{}}, {Content: []byte("bytes"), ContentType: "opaque/type"}} {
-		for _, resultErr := range []error{nil, failure} {
-			remote := &apiruntime.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error) {
-				return output, resultErr
-			}}
-			for _, rt := range []api.Runtime{&wireRuntime{remote: remote}, &Builtin{Runtime: remote}} {
-				out, err := rt.Run(t.Context(), api.NewSource("name", "content"), api.WithParams(nil))
-				if err != resultErr || out != output {
-					t.Fatalf("%T changed output %#v, error %v: %v, %v", rt, output, resultErr, out, err)
-				}
+	for _, tc := range []struct {
+		output api.Output
+		err    error
+	}{
+		{nil, failure},
+		{&apiruntime.Output{Data: []byte("bytes"), ContentType: "opaque/type"}, nil},
+	} {
+		remote := &apiruntime.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
+			return tc.output, tc.err
+		}}
+		for _, rt := range []api.Runtime{&wireRuntime{remote: remote}, &Builtin{Runtime: remote}} {
+			out, err := rt.Run(t.Context(), api.NewSource("name", "content"), api.WithParams(nil))
+			if err != tc.err || out != tc.output {
+				t.Fatalf("%T changed output or admission error: %v, %v", rt, out, err)
+			}
+
+			if out != nil {
+				_ = out.Close()
 			}
 		}
 	}
@@ -481,7 +491,7 @@ func TestWireRejectsNonportableParameters(t *testing.T) {
 		{"object": map[any]any{1: "numeric key"}},
 		{"cycle": cyclic},
 	} {
-		rt := &wireRuntime{remote: &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (*api.Output, error) {
+		rt := &wireRuntime{remote: &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (api.Output, error) {
 			_, err := apiruntime.NewParams(opts...)
 
 			return nil, err

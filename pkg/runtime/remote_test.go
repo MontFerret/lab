@@ -54,15 +54,15 @@ func TestHTTPOptionsAndProtocol(t *testing.T) {
 			t.Fatalf("execution request: %s %s %#v", req.Method, req.URL, query)
 		}
 
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(data)), Header: http.Header{"Content-Type": {"custom/opaque"}}}, nil
+		return &http.Response{StatusCode: 200, ContentLength: int64(len(data)), Body: io.NopCloser(strings.NewReader(data)), Header: http.Header{"Content-Type": {"custom/opaque"}}}, nil
 	}}}
 	var order []int
 	for range 2 {
-		out, err := rt.Run(t.Context(), api.Source{Name: "日本.fql", Content: "\r\nRETURN @overlap\n"},
+		out, err := runAndCollect(t.Context(), rt, api.Source{Name: "日本.fql", Content: "\r\nRETURN @overlap\n"},
 			api.WithParams(shared), nil,
 			func(opts api.SessionOptions) error { order = append(order, 1); return opts.SetParam("single", "value") },
 			func(opts api.SessionOptions) error { order = append(order, 2); return opts.SetParams(later) })
-		if err != nil || out == nil || string(out.Content) != " opaque \n" || out.ContentType != "custom/opaque" {
+		if err != nil || out == nil || string(out.Data) != " opaque \n" || out.Metadata.ContentType != "custom/opaque" {
 			t.Fatalf("output: %#v, %v", out, err)
 		}
 	}
@@ -186,15 +186,26 @@ func TestHTTPResponseOutputAndCleanup(t *testing.T) {
 
 			body := &responseBody{reader: strings.NewReader(tc.content), readErr: tc.readErr, closeErr: tc.closeErr}
 			rt.client = &http.Client{Transport: responseTransport{fn: func(*http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: tc.status, Status: "500 failure", Body: body, Header: http.Header{"Content-Type": {"opaque/type"}}}, nil
+				return &http.Response{StatusCode: tc.status, ContentLength: -1, Status: "500 failure", Body: body, Header: http.Header{"Content-Type": {"opaque/type"}}}, nil
 			}}}
-			out, err := rt.Run(t.Context(), api.Source{})
+			handle, err := rt.Run(t.Context(), api.Source{})
+			var out *api.Content
+			if tc.status < 300 {
+				if err != nil || handle == nil || body.closes != 0 {
+					t.Fatalf("Run did not transfer the response: %v, %v, closes=%d", handle, err, body.closes)
+				}
+
+				out, err = handle.Collect(t.Context())
+			} else if handle != nil {
+				t.Fatalf("status failure returned an output: %v", handle)
+			}
+
 			if (out != nil) != tc.wantOutput || body.closes != 1 || (tc.readErr != nil && !errors.Is(err, tc.readErr)) ||
 				(tc.closeErr != nil && !errors.Is(err, tc.closeErr)) || (tc.status == 500 && (err == nil || !strings.Contains(err.Error(), "500 failure"))) {
 				t.Fatalf("response output/errors/cleanup: %#v %v closes=%d", out, err, body.closes)
 			}
 
-			if out != nil && (string(out.Content) != tc.content || out.ContentType != "opaque/type") {
+			if out != nil && (string(out.Data) != tc.content || out.Metadata.ContentType != "opaque/type") {
 				t.Fatalf("changed output: %#v", out)
 			}
 		})
@@ -233,7 +244,7 @@ func TestHTTPParametersNilEmptyAndRequestIsolation(t *testing.T) {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil
 	}}}
 	for _, params := range []map[string]any{{"previous": true}, nil, {}} {
-		_, err := rt.Run(t.Context(), api.Source{}, api.WithParams(params))
+		_, err := runAndCollect(t.Context(), rt, api.Source{}, api.WithParams(params))
 		if err != nil || (query.Params == nil) != (params == nil) || len(query.Params) != len(params) {
 			t.Fatalf("request parameters: %#v %v", query.Params, err)
 		}

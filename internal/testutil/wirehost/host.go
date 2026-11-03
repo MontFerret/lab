@@ -29,7 +29,8 @@ type (
 
 	listener struct {
 		net.Listener
-		host *Host
+		host  *Host
+		ready func()
 	}
 
 	connection struct {
@@ -51,7 +52,7 @@ func New(t testing.TB, runtime api.Runtime) *Host {
 	})
 
 	var err error
-	h.server, err = server.NewServer(runtime)
+	h.server, err = server.New(runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,9 +62,17 @@ func New(t testing.TB, runtime api.Runtime) *Host {
 		t.Fatal(err)
 	}
 
-	h.listener = &listener{Listener: ln, host: h}
+	ready := make(chan struct{})
+	h.listener = &listener{Listener: ln, host: h, ready: sync.OnceFunc(func() { close(ready) })}
 	h.Endpoint = "tcp://" + ln.Addr().String()
 	go func() { h.served <- h.server.Serve(context.Background(), h.listener) }()
+
+	// Shutdown before Serve has registered the listener is a rejected start.
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Wire host did not start accepting connections")
+	}
 
 	return h
 }
@@ -129,6 +138,8 @@ func (h *Host) Close() error {
 }
 
 func (l *listener) Accept() (net.Conn, error) {
+	l.ready()
+
 	conn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err

@@ -8,7 +8,7 @@ Lab does not own FQL semantics. Adapters pass source identity, query content, an
 
 Lab uses the Universal API's `api.Runtime` directly in construction, commands, runner options, and test cases. There is no Lab-owned runtime interface. Adapters implement `Version`, one-shot `Run`, `Compile`, `CompileDebug`, and `Close` with canonical sources, session options, and outputs.
 
-The runner and test cases only call `Run`. Units pass an `api.Source` and `api.WithParams` for their materialized parameters. Suites execute the query and assertion separately, decode `Output.Content` as JSON, and treat nil or empty output as an absent result. They do not interpret `ContentType`. Query errors retain their existing handling even when output is available.
+Test cases call one-shot `Run` with the source and materialized parameters. An admission error returns no handle. Once admitted, the caller owns the `api.Output` and keeps the invocation context alive through consumption. Units, assertions, and expected-error queries discard chunks using `Consume`. Suite queries use `Collect`, check its terminal error, and decode completed `Content.Data` as JSON regardless of content type. Absent and empty content both map to a nil suite result. `Close` abandons unread output and releases a handle when cancellation prevents consumption from starting.
 
 Callers using compilation directly own their plans and sessions and must close them before the runtime. Lab does not manage reusable plans or sessions.
 
@@ -27,7 +27,7 @@ Adapter-specific settings are validated before execution or external resource st
 
 ## Built-in runtime
 
-The built-in adapter owns a Ferret UAPI runtime constructed with `uapi.New(api.Version(version), ...)`. It delegates all UAPI operations and preserves output pointers and errors independently, including native cleanup failures.
+The built-in adapter owns a Ferret UAPI runtime constructed with `uapi.New(api.Version(version), ...)`. It delegates all UAPI operations and transfers native output handles directly to callers, including responsibility for observing terminal and cleanup errors.
 
 The adapter:
 
@@ -56,7 +56,7 @@ Filesystem and outbound HTTP policies configure Ferret execution itself and ther
 
 HTTP session callbacks run once in order, merge parameters into a request-local map, and join their returned errors. `SetFSRoot`, `SetOutputContentType`, `Compile`, and `CompileDebug` return errors wrapping `errors.ErrUnsupported` without HTTP I/O. Already canceled contexts take precedence.
 
-Successful responses become `*api.Output` with exact bytes and the response's content type. Read failures retain any partial output, and body-close failures are joined with other errors. Version reporting preserves the opaque `api.Version` and response cleanup errors. Each response is closed within its operation; closing the adapter leaves the borrowed shared HTTP client usable.
+A successful run transfers its response body to an `api.Output` as soon as the headers arrive. Metadata carries the content type and the length when supplied. Consumption streams the bytes and closes the body. Collection returns detached bytes, including a prefix received before a failure. Cancellation and explicit close interrupt blocked reads. Status failures close the body before returning. Version reporting reads and closes its response eagerly, preserving the opaque `api.Version` and cleanup errors. The adapter borrows its HTTP client.
 
 Remote contract changes should cover request method, resolved URL, headers, cookies, JSON encoding, response handling, errors, and cancellation in `pkg/runtime` tests.
 
@@ -68,7 +68,7 @@ Wire exposes the Universal Ferret API over gRPC. Lab selects it with `--runtime=
 
 Lab execution uses UAPI's one-shot `Runtime.Run`: source name and exact content are passed unchanged, shared runtime parameters are applied first, and per-run parameters override matching keys. String-keyed nested YAML objects are converted to Wire's portable map shape; binary and numeric values retain their types. Inputs are not mutated. Shared `headers`, `cookies`, `path`, and `flags` runtime parameters are rejected; those names remain available as ordinary per-test FQL parameters.
 
-The adapter returns the remote output pointer and error unchanged. Lab consumes `Output.Content` without interpreting `ContentType`, retaining available output even when execution also returns an error. Shared parameters precede caller session callbacks; a parameter-setter adapter preserves nested YAML conversion while forwarding filesystem and output settings. Non-nil callbacks run once in order and their errors are joined.
+The host must support chunked output framing as provided by Wire `v1.0.0-alpha.3`. Wire checks framing compatibility during Connect. The adapter forwards the remote one-shot output handle to the caller. Consumption observes terminal execution, delivery, and cleanup errors. Shared parameters precede caller session callbacks; a parameter-setter adapter preserves nested YAML conversion while forwarding filesystem and output settings. Non-nil callbacks run once in order and their errors are joined.
 
 `Compile` and `CompileDebug` forward directly to the hosted runtime. Shared Lab parameters are defaults for one-shot `Run`; compiled plans and their sessions retain the host's UAPI contract without Lab wrappers. Version reporting returns the hosted `api.Runtime.Version(ctx)` exactly; Wire captures that value during Connect, so version reads do not require another RPC.
 

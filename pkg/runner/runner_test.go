@@ -43,12 +43,14 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 	var calls atomic.Int32
 	firstCall := make(chan struct{}, 1)
 
-	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
-		if calls.Add(1) == 1 {
-			firstCall <- struct{}{}
-		}
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
+		calls.Add(1)
 
-		return &api.Output{Content: []byte(`1`)}, nil
+		return &apiruntime.Output{ConsumeFunc: func(context.Context, api.Consumer) error {
+			firstCall <- struct{}{}
+
+			return nil
+		}}, nil
 	}}
 
 	r, err := New(Options{
@@ -119,7 +121,7 @@ func TestRunnerStopsDuringTimesIntervalWhenContextCanceled(t *testing.T) {
 func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 	var calls atomic.Int32
 
-	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 		calls.Add(1)
 
 		return nil, errors.New("expected runtime failure")
@@ -162,5 +164,30 @@ func TestRunnerReportsLegacyExpectedFailureDeprecationOnce(t *testing.T) {
 
 	if got := calls.Load(); got != 2 {
 		t.Fatalf("expected exactly two runtime invocations, got %d", got)
+	}
+}
+
+func TestRunnerRetriesAfterAssertionOutputFails(t *testing.T) {
+	calls := 0
+	rt := &apiruntime.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
+		calls++
+		if calls == 2 {
+			return &apiruntime.Output{Data: []byte("true"), Err: errors.New("late assertion failure")}, nil
+		}
+
+		return &apiruntime.Output{Data: []byte("true")}, nil
+	}}
+	r, err := New(Options{Runtime: rt, Attempts: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stream := r.Run(NewContext(t.Context(), testing2.NewParams()), singleFileSource{file: sources.File{
+		Name: "retry.yaml", Content: []byte("query:\n  text: RETURN 1\nassert:\n  text: RETURN true"),
+	}})
+	result := <-stream.Progress
+	summary := <-stream.Summary
+	if result.Error != nil || result.Attempts != 2 || result.Times != 1 || calls != 4 || summary.Passed != 1 || summary.Failed != 0 {
+		t.Fatalf("retry result=%+v, summary=%+v, runtime calls=%d", result, summary, calls)
 	}
 }

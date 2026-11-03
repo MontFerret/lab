@@ -12,7 +12,7 @@ import (
 type Runtime struct {
 	VersionValue     api.Version
 	VersionFunc      func(context.Context) (api.Version, error)
-	RunFunc          func(context.Context, api.Source, ...api.SessionOption) (*api.Output, error)
+	RunFunc          func(context.Context, api.Source, ...api.SessionOption) (api.Output, error)
 	CloseFunc        func() error
 	CompileFunc      func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error)
 	CompileDebugFunc func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error)
@@ -28,7 +28,7 @@ func (r *Runtime) Version(ctx context.Context) (api.Version, error) {
 }
 
 // Run delegates only to the controlled one-shot implementation.
-func (r *Runtime) Run(ctx context.Context, src api.Source, opts ...api.SessionOption) (*api.Output, error) {
+func (r *Runtime) Run(ctx context.Context, src api.Source, opts ...api.SessionOption) (api.Output, error) {
 	if r.RunFunc == nil {
 		return nil, errors.New("unexpected Run")
 	}

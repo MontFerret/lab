@@ -64,7 +64,7 @@ func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) erro
 	}
 
 	if expectedError := suite.manifest.Expect.Error; expectedError != nil {
-		_, err := rt.Run(ctx, query, api.WithParams(suite.manifest.Query.runtimeParams(params.Clone())))
+		err := runForEffect(ctx, rt, query, suite.manifest.Query.runtimeParams(params.Clone()))
 
 		return expectedError.evaluate(err)
 	}
@@ -81,7 +81,12 @@ func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) erro
 		return fmt.Errorf("failed to execute query script: %w", err)
 	}
 
-	outVal, err := suite.deserializeQueryOutput(out)
+	content, err := out.Collect(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to execute query script: %w", settleFailedOutput(out, err))
+	}
+
+	outVal, err := suite.deserializeQueryOutput(content)
 	if err != nil {
 		return fmt.Errorf("deserialize query output: %w", err)
 	}
@@ -93,9 +98,7 @@ func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) erro
 		},
 	})
 
-	_, err = rt.Run(ctx, assertion, api.WithParams(suite.manifest.Assert.runtimeParams(params)))
-
-	return err
+	return runForEffect(ctx, rt, assertion, suite.manifest.Assert.runtimeParams(params))
 }
 
 func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manifest ScriptManifest) (api.Source, error) {
@@ -118,14 +121,14 @@ func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manife
 	}
 }
 
-func (suite *Suite) deserializeQueryOutput(output *api.Output) (any, error) {
-	if output == nil || len(output.Content) == 0 {
+func (suite *Suite) deserializeQueryOutput(content *api.Content) (any, error) {
+	if content == nil || len(content.Data) == 0 {
 		return nil, nil
 	}
 
 	var o any
 
-	if err := json.Unmarshal(output.Content, &o); err != nil {
+	if err := json.Unmarshal(content.Data, &o); err != nil {
 		return nil, err
 	}
 

@@ -29,8 +29,8 @@ func TestBuiltinFilesystemPolicyUsesConfiguredRoot(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = rt.Close() })
 
-	_, err = rt.Run(
-		context.Background(),
+	_, err = runAndCollect(
+		context.Background(), rt,
 		api.NewSource("fs_root.fql", `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`),
 		api.WithParams(nil),
 	)
@@ -49,8 +49,8 @@ func TestBuiltinFilesystemPolicyEnforcesReadOnly(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = rt.Close() })
 
-	_, err = rt.Run(
-		context.Background(),
+	_, err = runAndCollect(
+		context.Background(), rt,
 		api.NewSource("fs_read_only.fql", `
 IO::FS::WRITE("output.txt", TO_BINARY("blocked"))
 RETURN true
@@ -88,8 +88,8 @@ func TestBuiltinHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = rt.Close() })
 
-	_, err = rt.Run(
-		context.Background(),
+	_, err = runAndCollect(
+		context.Background(), rt,
 		api.NewSource("blocked_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
 		api.WithParams(nil),
 	)
@@ -110,8 +110,8 @@ func TestBuiltinHTTPPolicyAllowsConfiguredLocalhost(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = rt.Close() })
 
-	_, err = rt.Run(
-		context.Background(),
+	_, err = runAndCollect(
+		context.Background(), rt,
 		api.NewSource("allowed_localhost.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
 		api.WithParams(nil),
 	)
@@ -147,8 +147,8 @@ func TestBuiltinHTTPPolicyEnforcesResponseLimit(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = rt.Close() })
 
-	_, err = rt.Run(
-		context.Background(),
+	_, err = runAndCollect(
+		context.Background(), rt,
 		api.NewSource("response_limit.fql", fmt.Sprintf("RETURN IO::NET::HTTP::GET(%q)", srv.URL)),
 		api.WithParams(nil),
 	)

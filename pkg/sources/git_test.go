@@ -443,13 +443,13 @@ assert:
 				case e := <-onError:
 					So(e, ShouldBeNil)
 				case f := <-onNext:
-					rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
-						return &api.Output{Content: []byte("")}, nil
+					rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
+						return &apiruntime.Output{Data: []byte{}}, nil
 					}}
 
 					s, err := testing2.NewSuite(testing2.Options{
 						File:    f,
-						Timeout: 0,
+						Timeout: time.Second,
 					})
 
 					So(err, ShouldBeNil)

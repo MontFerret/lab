@@ -27,7 +27,7 @@ func TestUnitUsesCanonicalOneShotSourceAndIsolatedParameters(t *testing.T) {
 	original := params.ToMap()
 	calls := 0
 	rt := &apiruntime.Runtime{
-		RunFunc: func(ctx context.Context, src api.Source, opts ...api.SessionOption) (*api.Output, error) {
+		RunFunc: func(ctx context.Context, src api.Source, opts ...api.SessionOption) (api.Output, error) {
 			calls++
 			captured, err := apiruntime.NewParams(opts...)
 			if err != nil {
@@ -45,7 +45,7 @@ func TestUnitUsesCanonicalOneShotSourceAndIsolatedParameters(t *testing.T) {
 			captured["value"] = "changed"
 			captured["lab"].(map[string]any)["static"].(map[string]any)["app"] = "changed"
 
-			return nil, nil
+			return &apiruntime.Output{}, nil
 		},
 		CompileFunc: func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error) {
 			t.Fatal("Lab must use one-shot Run")
@@ -67,15 +67,15 @@ func TestSuiteCanonicalOutputContract(t *testing.T) {
 	failure := errors.New("query failure")
 	for _, tc := range []struct {
 		name       string
-		output     *api.Output
+		output     api.Output
 		err        error
 		wantResult any
 		wantCalls  int
 	}{
-		{"absent", nil, nil, nil, 2},
-		{"empty", &api.Output{}, nil, nil, 2},
-		{"opaque type JSON", &api.Output{Content: []byte("42"), ContentType: "custom/opaque"}, nil, float64(42), 2},
-		{"output with error", &api.Output{Content: []byte("invalid JSON"), ContentType: "application/json"}, failure, nil, 1},
+		{"absent", &apiruntime.Output{}, nil, nil, 2},
+		{"empty", &apiruntime.Output{Data: []byte{}}, nil, nil, 2},
+		{"opaque type JSON", &apiruntime.Output{Data: []byte("42"), ContentType: "custom/opaque"}, nil, float64(42), 2},
+		{"valid prefix and terminal failure", &apiruntime.Output{Data: []byte("42"), Err: failure}, failure, nil, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			suite, err := labtesting.NewSuite(labtesting.Options{
@@ -90,7 +90,7 @@ func TestSuiteCanonicalOutputContract(t *testing.T) {
 			params.SetUserValue("value", "user")
 			calls := 0
 			rt := &apiruntime.Runtime{
-				RunFunc: func(_ context.Context, src api.Source, opts ...api.SessionOption) (*api.Output, error) {
+				RunFunc: func(_ context.Context, src api.Source, opts ...api.SessionOption) (api.Output, error) {
 					calls++
 					captured, err := apiruntime.NewParams(opts...)
 					if err != nil {
@@ -102,7 +102,7 @@ func TestSuiteCanonicalOutputContract(t *testing.T) {
 							t.Fatalf("query identity/parameters: %#v %#v", src, captured)
 						}
 
-						return tc.output, tc.err
+						return tc.output, nil
 					}
 
 					if src != (api.Source{Name: "日本/suite.yaml -> assert", Content: "RETURN @lab.data.query.result"}) || captured["value"] != "assert" {
@@ -115,7 +115,7 @@ func TestSuiteCanonicalOutputContract(t *testing.T) {
 						t.Fatalf("query result/parameter context: %#v", query)
 					}
 
-					return nil, nil
+					return &apiruntime.Output{}, nil
 				},
 				CompileFunc: func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error) {
 					t.Fatal("suite must use Run")
@@ -149,11 +149,39 @@ func TestTestCasesPreserveCancellation(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
-			rt := &apiruntime.Runtime{RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+			rt := &apiruntime.Runtime{RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 				return nil, ctx.Err()
 			}}
 			if err := testCase.Run(ctx, rt, labtesting.NewParams()); !errors.Is(err, context.Canceled) {
 				t.Fatalf("lost cancellation: %v", err)
+			}
+		})
+	}
+}
+
+func TestCasesCloseOutputWhenConsumptionIsRejected(t *testing.T) {
+	for _, file := range []sources.File{
+		{Name: "unit.fql", Content: []byte("RETURN 1")},
+		{Name: "suite.yaml", Content: []byte("query:\n  text: RETURN 1\nassert:\n  text: RETURN true")},
+	} {
+		t.Run(file.Name, func(t *testing.T) {
+			testCase, err := labtesting.New(labtesting.Options{File: file, Timeout: time.Second})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			closeErr := errors.New("output cleanup")
+			var closed int
+			rt := &apiruntime.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
+				cancel()
+
+				return &apiruntime.Output{CloseFunc: func() error { closed++; return closeErr }}, nil
+			}}
+			err = testCase.Run(ctx, rt, labtesting.NewParams())
+			if !errors.Is(err, context.Canceled) || !errors.Is(err, closeErr) || closed != 1 {
+				t.Fatalf("canceled before consumption: err=%v, closes=%d", err, closed)
 			}
 		})
 	}

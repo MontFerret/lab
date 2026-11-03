@@ -129,26 +129,41 @@ func NewRemote(u string, params map[string]any) (*Remote, error) {
 }
 
 // Version reports the hosted Ferret version unchanged.
-func (rt *Remote) Version(ctx context.Context) (api.Version, error) {
+func (rt *Remote) Version(ctx context.Context) (version api.Version, err error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
 
-	out, err := rt.makeRequest(ctx, "GET", rt.versionEndpoint(), nil)
-	if out == nil {
+	resp, err := rt.makeRequest(ctx, http.MethodGet, rt.versionEndpoint(), nil)
+	if err != nil {
 		return "", err
 	}
 
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close response data: %w", closeErr))
+		}
+	}()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("read response data: %w", err)
+
+		if len(data) == 0 {
+			return "", err
+		}
+	}
+
 	info := remoteInfo{}
-	if decodeErr := json.Unmarshal(out.Content, &info); decodeErr != nil {
+	if decodeErr := json.Unmarshal(data, &info); decodeErr != nil {
 		return "", errors.Join(err, fmt.Errorf("deserialize response data: %w", decodeErr))
 	}
 
 	return api.Version(info.Version.Ferret), err
 }
 
-// Run preserves encoded response bytes and any available output on read or close failure.
-func (rt *Remote) Run(ctx context.Context, src api.Source, setters ...api.SessionOption) (*api.Output, error) {
+// Run transfers a successful response body to the caller-owned output.
+func (rt *Remote) Run(ctx context.Context, src api.Source, setters ...api.SessionOption) (api.Output, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -163,7 +178,15 @@ func (rt *Remote) Run(ctx context.Context, src api.Source, setters ...api.Sessio
 		return nil, fmt.Errorf("serialize query: %w", err)
 	}
 
-	return rt.makeRequest(ctx, "POST", rt.runEndpoint(), body)
+	requestCtx, cancel := context.WithCancel(ctx)
+	resp, err := rt.makeRequest(requestCtx, http.MethodPost, rt.runEndpoint(), body)
+	if err != nil {
+		cancel()
+
+		return nil, err
+	}
+
+	return newHTTPOutput(ctx, resp, cancel), nil
 }
 
 // Compile rejects reusable compilation without HTTP I/O.
@@ -243,37 +266,26 @@ func (rt *Remote) createRequest(ctx context.Context, method, endpoint string, bo
 	return req, nil
 }
 
-func (rt *Remote) makeRequest(ctx context.Context, method, endpoint string, body []byte) (output *api.Output, err error) {
+func (rt *Remote) makeRequest(ctx context.Context, method, endpoint string, body []byte) (*http.Response, error) {
 	req, err := rt.createRequest(ctx, method, endpoint, body)
-
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	resp, err := rt.client.Do(req)
-
 	if err != nil {
 		return nil, fmt.Errorf("make HTTP request to remote runtime: %w", err)
 	}
 
-	defer func() {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		err := errors.New(resp.Status)
+
 		if closeErr := resp.Body.Close(); closeErr != nil {
 			err = errors.Join(err, fmt.Errorf("close response data: %w", closeErr))
 		}
-	}()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, errors.New(resp.Status)
+		return nil, err
 	}
 
-	data, readErr := io.ReadAll(resp.Body)
-	if readErr == nil || len(data) > 0 {
-		output = &api.Output{Content: data, ContentType: resp.Header.Get("Content-Type")}
-	}
-
-	if readErr != nil {
-		return output, fmt.Errorf("read response data: %w", readErr)
-	}
-
-	return output, nil
+	return resp, nil
 }

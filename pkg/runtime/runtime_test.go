@@ -30,16 +30,16 @@ func TestBuiltinFlagsAreSharedFQLParameters(t *testing.T) {
 	t.Cleanup(func() { _ = rt.Close() })
 	source := api.NewSource("flags.fql", "RETURN @flags")
 
-	out, err := rt.Run(t.Context(), source, api.WithParams(nil))
-	if err != nil || string(out.Content) != `["--browser-headless",true]` {
-		t.Fatalf("shared flags: %s, %v", out, err)
+	out, err := runAndCollect(t.Context(), rt, source, api.WithParams(nil))
+	if err != nil || out == nil || string(out.Data) != `["--browser-headless",true]` {
+		t.Fatalf("shared flags: %#v, %v", out, err)
 	}
 
 	perRun := map[string]any{"flags": "per-run"}
 
-	out, err = rt.Run(t.Context(), source, api.WithParams(perRun))
-	if err != nil || string(out.Content) != `"per-run"` {
-		t.Fatalf("per-run flags: %s, %v", out, err)
+	out, err = runAndCollect(t.Context(), rt, source, api.WithParams(perRun))
+	if err != nil || out == nil || string(out.Data) != `"per-run"` {
+		t.Fatalf("per-run flags: %#v, %v", out, err)
 	}
 
 	if !reflect.DeepEqual(shared, map[string]any{"flags": []any{"--browser-headless", true}}) || !reflect.DeepEqual(perRun, map[string]any{"flags": "per-run"}) {

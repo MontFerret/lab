@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"io"
 	"net/http"
 )
@@ -33,6 +34,10 @@ func (b *responseBody) Read(p []byte) (int, error) {
 
 func (b *responseBody) Close() error {
 	b.closes++
+
+	if closer, ok := b.reader.(io.Closer); ok {
+		return errors.Join(b.closeErr, closer.Close())
+	}
 
 	return b.closeErr
 }

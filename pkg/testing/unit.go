@@ -25,7 +25,7 @@ func (unit *Unit) Run(ctx context.Context, rt api.Runtime, params Params) error 
 	ctx, cancel := context.WithTimeout(ctx, unit.timeout)
 	defer cancel()
 
-	_, err := rt.Run(ctx, api.NewSource(unit.file.Name, string(unit.file.Content)), api.WithParams(params.ToMap()))
+	err := runForEffect(ctx, rt, api.NewSource(unit.file.Name, string(unit.file.Content)), params.ToMap())
 
 	if unit.mustFail() {
 		if err != nil {

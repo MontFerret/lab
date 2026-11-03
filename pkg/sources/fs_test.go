@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 
@@ -559,14 +560,14 @@ assert:
 					So(onNext, ShouldNotBeNil)
 					So(onError, ShouldNotBeNil)
 
-					rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
-						return &api.Output{Content: []byte("")}, nil
+					rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
+						return &apiruntime.Output{Data: []byte{}}, nil
 					}}
 
 					for f := range onNext {
 						s, err := testing2.NewSuite(testing2.Options{
 							File:    f,
-							Timeout: 0,
+							Timeout: time.Second,
 						})
 
 						So(err, ShouldBeNil)

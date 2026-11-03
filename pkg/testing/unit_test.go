@@ -48,8 +48,8 @@ func TestUnitExpectedFailureCompatibility(t *stdtesting.T) {
 				t.Fatalf("expected no construction error, got %v", err)
 			}
 
-			rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
-				return &api.Output{Content: []byte(`1`)}, test.runtimeErr
+			rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
+				return &apiruntime.Output{Data: []byte(`1`), Err: test.runtimeErr}, nil
 			}}
 
 			err = testCase.Run(context.Background(), rt, testing2.NewParams())

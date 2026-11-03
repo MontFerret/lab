@@ -41,7 +41,7 @@ assert:
 		callCount   int
 	)
 
-	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (*api.Output, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (api.Output, error) {
 		params, err := apiruntime.NewParams(opts...)
 		if err != nil {
 			return nil, err
@@ -52,7 +52,7 @@ assert:
 		switch callCount {
 		case 1:
 			queryPhase, _ = params["phase"].(string)
-			return &api.Output{Content: []byte(`1`)}, nil
+			return &apiruntime.Output{Data: []byte(`1`)}, nil
 		case 2:
 			assertPhase, _ = params["phase"].(string)
 
@@ -62,7 +62,7 @@ assert:
 			queryParams, _ := query["params"].(map[string]any)
 			dataPhase, _ = queryParams["phase"].(string)
 
-			return &api.Output{Content: []byte(`true`)}, nil
+			return &apiruntime.Output{Data: []byte(`true`)}, nil
 		default:
 			t.Fatalf("expected exactly two runtime calls, got %d", callCount)
 			return nil, nil
@@ -108,7 +108,7 @@ assert:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 		return nil, runtimeErr
 	}}
 
@@ -171,10 +171,10 @@ func TestSuiteExpectedError(t *stdtesting.T) {
 			}
 
 			calls := 0
-			rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+			rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 				calls++
 
-				return &api.Output{Content: []byte(`1`)}, test.runtimeErr
+				return &apiruntime.Output{Data: []byte(`1`), Err: test.runtimeErr}, nil
 			}}
 
 			err = testCase.Run(context.Background(), rt, testing2.NewParams())
@@ -210,7 +210,7 @@ expect:
 		t.Fatalf("expected no construction error, got %v", err)
 	}
 
-	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (*api.Output, error) {
+	rt := &apiruntime.Runtime{RunFunc: func(_ context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 		t.Fatal("runtime must not run when query resolution fails")
 
 		return nil, nil

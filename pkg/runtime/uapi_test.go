@@ -110,8 +110,13 @@ func TestRuntimeCallerOwnedCompilation(t *testing.T) {
 				}
 
 				t.Cleanup(func() { _ = session.Close() })
-				out, err := session.Run(t.Context())
-				if err != nil || out == nil || string(out.Content) != "\"caller\"" {
+				handle, err := session.Run(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				out, err := handle.Collect(t.Context())
+				if err != nil || out == nil || string(out.Data) != "\"caller\"" {
 					t.Fatalf("session output: %#v %v", out, err)
 				}
 
@@ -137,8 +142,13 @@ func TestRuntimeCallerOwnedCompilation(t *testing.T) {
 				}
 
 				t.Cleanup(func() { _ = session.Close() })
-				out, err := session.Run(t.Context())
-				if err != nil || out == nil || string(out.Content) != "\"session\"" {
+				handle, err := session.Run(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				out, err := handle.Collect(t.Context())
+				if err != nil || out == nil || string(out.Data) != "\"session\"" {
 					t.Fatalf("caller-owned session defaults: %#v %v", out, err)
 				}
 
@@ -179,22 +189,22 @@ func TestRuntimeOptionCallbacksAndParameterPreservation(t *testing.T) {
 
 			t.Cleanup(func() { _ = rt.Close() })
 			var order []int
-			out, err := rt.Run(t.Context(), api.Source{Name: "params.fql", Content: "RETURN [@shared, @value, @object.nested]"},
+			out, err := runAndCollect(t.Context(), rt, api.Source{Name: "params.fql", Content: "RETURN [@shared, @value, @object.nested]"},
 				func(o api.SessionOptions) error { order = append(order, 1); return o.SetParams(perRun) }, nil,
 				func(o api.SessionOptions) error { order = append(order, 2); return o.SetParam("value", "last") })
-			if err != nil || out == nil || string(out.Content) != "[\"default\",\"last\",\"value\"]" ||
+			if err != nil || out == nil || string(out.Data) != "[\"default\",\"last\",\"value\"]" ||
 				!reflect.DeepEqual(order, []int{1, 2}) || !reflect.DeepEqual(original, perRun) || shared["value"] != "early" {
 				t.Fatalf("options/parameters: %#v %v %v %#v", out, err, order, perRun)
 			}
 
 			first, last := errors.New("first"), errors.New("last")
 			order = nil
-			out, err = rt.Run(t.Context(), api.Source{Name: "failure.fql", Content: "RETURN 1"},
+			rejected, err := rt.Run(t.Context(), api.Source{Name: "failure.fql", Content: "RETURN 1"},
 				func(api.SessionOptions) error { order = append(order, 1); return first },
 				nil,
 				func(api.SessionOptions) error { order = append(order, 2); return last })
-			if out != nil || !errors.Is(err, first) || !errors.Is(err, last) || !reflect.DeepEqual(order, []int{1, 2}) {
-				t.Fatalf("callback errors: %#v %v %v", out, err, order)
+			if rejected != nil || !errors.Is(err, first) || !errors.Is(err, last) || !reflect.DeepEqual(order, []int{1, 2}) {
+				t.Fatalf("callback errors: %#v %v %v", rejected, err, order)
 			}
 		})
 	}
@@ -202,7 +212,7 @@ func TestRuntimeOptionCallbacksAndParameterPreservation(t *testing.T) {
 
 func TestWireForwardsSessionSettersAndConvertsYAML(t *testing.T) {
 	var captured apiruntime.Options
-	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (*api.Output, error) {
+	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(_ context.Context, _ api.Source, opts ...api.SessionOption) (api.Output, error) {
 		captured = apiruntime.Options{Params: apiruntime.Params{}}
 		var failures []error
 		for _, option := range opts {
@@ -211,7 +221,11 @@ func TestWireForwardsSessionSettersAndConvertsYAML(t *testing.T) {
 			}
 		}
 
-		return &api.Output{}, errors.Join(failures...)
+		if err := errors.Join(failures...); err != nil {
+			return nil, err
+		}
+
+		return &apiruntime.Output{Data: []byte{}}, nil
 	}})
 	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
 	if err != nil {
@@ -220,7 +234,7 @@ func TestWireForwardsSessionSettersAndConvertsYAML(t *testing.T) {
 
 	t.Cleanup(func() { _ = rt.Close() })
 	input := map[any]any{"nested": map[any]any{"value": "original"}}
-	out, err := rt.Run(t.Context(), api.Source{}, api.WithParam("yaml", input), api.WithFSRoot("/caller"), api.WithOutputContentType("custom/type"))
+	out, err := runAndCollect(t.Context(), rt, api.Source{}, api.WithParam("yaml", input), api.WithFSRoot("/caller"), api.WithOutputContentType("custom/type"))
 	if err != nil || out == nil || captured.FSRoot != "/caller" || captured.ContentType != "custom/type" ||
 		!reflect.DeepEqual(captured.Params["yaml"], map[string]any{"nested": map[string]any{"value": "original"}}) ||
 		!reflect.DeepEqual(input, map[any]any{"nested": map[any]any{"value": "original"}}) {
@@ -273,7 +287,7 @@ func TestBuiltinClosesOwnedIdleHTTPConnection(t *testing.T) {
 	}
 
 	t.Cleanup(func() { _ = rt.Close() })
-	_, err = rt.Run(t.Context(), api.Source{Name: "network.fql", Content: "RETURN IO::NET::HTTP::GET(\"" + server.URL + "\")"})
+	_, err = runAndCollect(t.Context(), rt, api.Source{Name: "network.fql", Content: "RETURN IO::NET::HTTP::GET(\"" + server.URL + "\")"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +337,7 @@ func TestBuiltinSourceIdentityInDiagnostics(t *testing.T) {
 
 	t.Cleanup(func() { _ = rt.Close() })
 	src := api.Source{Name: "日本/identity.fql", Content: "RETURN missingFunction()"}
-	_, err = rt.Run(t.Context(), src)
+	_, err = runAndCollect(t.Context(), rt, src)
 	var issues diagnostics.Diagnostics
 	if !errors.As(err, &issues) || len(issues) != 1 || issues[0].Source != src {
 		t.Fatalf("lost diagnostic source identity: %#v %v", issues, err)
@@ -342,9 +356,9 @@ func TestBuiltinPortableSessionSettings(t *testing.T) {
 	}
 
 	t.Cleanup(func() { _ = rt.Close() })
-	out, err := rt.Run(t.Context(), api.Source{Name: "root.fql", Content: `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`},
+	out, err := runAndCollect(t.Context(), rt, api.Source{Name: "root.fql", Content: `RETURN TO_STRING(IO::FS::READ("fixture.txt"))`},
 		api.WithFSRoot(root), api.WithOutputContentType("application/json"))
-	if err != nil || out == nil || string(out.Content) != `"caller root"` || out.ContentType != "application/json" {
+	if err != nil || out == nil || string(out.Data) != `"caller root"` || out.Metadata.ContentType != "application/json" {
 		t.Fatalf("portable session settings: %#v %v", out, err)
 	}
 }

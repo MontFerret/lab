@@ -769,7 +769,7 @@ The HTTP runtime sends POST requests with:
 }
 ```
 
-HTTP responses retain encoded bytes and their content type in `api.Output`, including partial output alongside read or body-close errors. Suites continue to decode JSON bytes without interpreting the content type. The HTTP protocol supports execution and version reporting; UAPI compilation, filesystem-root, and output-codec options are rejected without sending requests.
+A successful HTTP run returns a one-shot output that streams the response body. Collection preserves the response content type and any bytes received before a read or cleanup error. Suites decode completed query output as JSON. The HTTP protocol supports execution and version reporting; UAPI compilation, filesystem-root, and output-codec options are rejected without sending requests.
 
 #### Wire Runtime
 
@@ -788,7 +788,7 @@ Start a Wire host separately. The endpoint must be exactly `tcp://127.0.0.1:<por
 
 `--runtime-connect-timeout` defaults to `5s` and must be positive. It bounds connection and handshake setup; `--timeout` continues to bound each test. The same connection flags work with `lab version`. Environment bindings are `LAB_RUNTIME_ENDPOINT` and `LAB_RUNTIME_CONNECT_TIMEOUT`.
 
-Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. The adapter preserves the output pointer and error independently; Lab consumes encoded `Output.Content`, including output accompanied by an error. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
+Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. The host must support chunked output framing (Wire `v1.0.0-alpha.3`). Lab consumes each output before marking an attempt complete, so a terminal failure after the first chunk still fails the attempt. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
 
 Lab owns the gRPC transport and closes the logical Wire runtime before that transport. Setup failures also release the transport. Transport loss requires a new Lab invocation; the adapter does not redial or switch runtimes.
 
