@@ -11,7 +11,7 @@ import (
 func TestRuntimeRejectsRemovedBinarySelection(t *testing.T) {
 	for _, selector := range []string{"bin:", "bin:./ferret", "bin:/missing/ferret", "bin://ferret", "bin:///usr/local/bin/ferret"} {
 		t.Run(selector, func(t *testing.T) {
-			rt, err := New(t.Context(), Options{Type: selector})
+			rt, err := New(t.Context(), Options{Target: selector})
 			if rt != nil || err == nil || !strings.Contains(err.Error(), "binary runtimes are no longer supported") {
 				t.Fatalf("removed runtime %q returned %T, %v", selector, rt, err)
 			}
@@ -19,10 +19,10 @@ func TestRuntimeRejectsRemovedBinarySelection(t *testing.T) {
 	}
 }
 
-func TestBuiltinFlagsAreSharedFQLParameters(t *testing.T) {
+func TestBuiltinFlagsAreFQLParameters(t *testing.T) {
 	shared := map[string]any{"flags": []any{"--browser-headless", true}}
 
-	rt, err := New(t.Context(), Options{Params: shared})
+	rt, err := New(t.Context(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,14 +30,14 @@ func TestBuiltinFlagsAreSharedFQLParameters(t *testing.T) {
 	t.Cleanup(func() { _ = rt.Close() })
 	source := api.NewSource("flags.fql", "RETURN @flags")
 
-	out, err := runAndCollect(t.Context(), rt, source, api.WithParams(nil))
+	out, err := runAndCollect(t.Context(), rt, source, api.WithParams(shared))
 	if err != nil || out == nil || string(out.Data) != `["--browser-headless",true]` {
 		t.Fatalf("shared flags: %#v, %v", out, err)
 	}
 
 	perRun := map[string]any{"flags": "per-run"}
 
-	out, err = runAndCollect(t.Context(), rt, source, api.WithParams(perRun))
+	out, err = runAndCollect(t.Context(), rt, source, api.WithParams(shared), api.WithParams(perRun))
 	if err != nil || out == nil || string(out.Data) != `"per-run"` {
 		t.Fatalf("per-run flags: %#v, %v", out, err)
 	}

@@ -57,7 +57,7 @@ func TestHTTPCommandOneShotFQLAndYAML(t *testing.T) {
 func TestWireVersionCommandPreservesOpaqueValues(t *testing.T) {
 	for _, value := range []api.Version{"", " opaque \n"} {
 		host := wirehost.New(t, &apiruntime.Runtime{VersionValue: value})
-		stdout, stderr, err := runCLI(t, "version", "--runtime=wire", "--runtime-endpoint="+host.Endpoint)
+		stdout, stderr, err := runCLI(t, "version", "--runtime=wire+"+host.Endpoint)
 		if err != nil || stderr != "" || !strings.Contains(stdout, "  Runtime: "+string(value)+"\n") {
 			t.Fatalf("opaque version: %q %q %v", stdout, stderr, err)
 		}

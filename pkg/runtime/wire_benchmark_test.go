@@ -13,7 +13,7 @@ func BenchmarkWire(b *testing.B) {
 	host := wirehost.New(b, &apiruntime.Runtime{VersionValue: "benchmark-host", RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
 		return &apiruntime.Output{Data: []byte("[true]")}, nil
 	}})
-	opts := Options{Type: "wire", Endpoint: host.Endpoint, Params: map[string]any{"shared": "value"}}
+	opts := Options{Target: "wire+" + host.Endpoint}
 	b.Run("ConstructionCleanup", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
@@ -39,7 +39,7 @@ func BenchmarkWire(b *testing.B) {
 			}
 		}()
 		src := api.NewSource("benchmark.fql", "RETURN @shared")
-		params := map[string]any{"perRun": "value"}
+		params := map[string]any{"perRun": "value", "shared": "value"}
 		b.ReportAllocs()
 		for b.Loop() {
 			if _, err := runAndCollect(b.Context(), rt, src, api.WithParams(params)); err != nil {

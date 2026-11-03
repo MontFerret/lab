@@ -1186,7 +1186,7 @@ func TestRunCommandUsesRuntimePathOverride(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	stdout, stderr, err := runCLI(t, "run", "--runtime", srv.URL, "--runtime-param=path:\"/v1/execute\"", script)
+	stdout, stderr, err := runCLI(t, "run", "--runtime", srv.URL, "--runtime-option=path:\"/v1/execute\"", script)
 	if err != nil {
 		t.Fatalf("expected no error, got %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}

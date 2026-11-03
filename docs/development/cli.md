@@ -23,8 +23,8 @@ The root command shows application help. Script execution requires the `run` sub
 
 1. Resolve test locations from positional arguments or `--files`.
 2. Parse user query parameters and parameter bindings while keeping system parameters separate.
-3. Wait for requested dependencies when `--wait` is configured.
-4. Parse runtime adapter parameters and select a runtime.
+3. Parse the runtime target and adapter options and validate them without I/O.
+4. Wait for requested dependencies when `--wait` is configured, then construct the runtime.
 5. Construct runner settings for concurrency, attempts, timeout, repetitions, and intervals.
 6. Construct the aggregate source for the requested locations.
 7. Parse and start optional static and mock services.
@@ -57,11 +57,13 @@ Each CLI option that supports environment configuration declares its `LAB_*` bin
 
 Positional `run` locations take precedence when present; otherwise `--files` supplies the locations. Missing locations produce command help and a failing exit status.
 
-Runtime parameters and query parameters use separate flags and maps. Wire uses `--runtime=wire`, `--runtime-endpoint=tcp://127.0.0.1:<port>`, and a positive `--runtime-connect-timeout` (default `5s`) on both `run` and `version`. Their environment bindings are `LAB_RUNTIME`, `LAB_RUNTIME_ENDPOINT`, and `LAB_RUNTIME_CONNECT_TIMEOUT`. Connection options are rejected for other adapters. The command context bounds setup; the per-test timeout continues to bound execution.
+Both `run` and `version` use shared runtime flag declarations and `runtimeOptionsFromCommand`. `--runtime` (`-r`, `LAB_RUNTIME`) is the complete target: omitted/empty or `builtin`, an HTTP/HTTPS URL, or `wire+tcp://127.0.0.1:<port>`. Unknown targets and schemes are errors. Wire retains its loopback-only endpoint restrictions and normalizes the public scheme into the internal TCP endpoint.
 
-Commands remain runtime-agnostic: they construct `api.Runtime`, and test cases execute through one-shot `Run`. For Wire, runtime parameters are shared FQL values, with per-run `api.WithParams` values taking precedence. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected before connecting. Local filesystem/HTTP execution policy must be configured at the hosted runtime instead.
+`--runtime-option` (`LAB_RUNTIME_OPTION`) contains adapter settings only. HTTP accepts `headers` and `cookies` objects of strings and a string `path`; Wire accepts a positive duration string `connect-timeout`, default `"5s"`. Built-in rejects adapter options. The name/value decoder is shared with query parameters, but a flag-local collector preserves JSON punctuation. Commas outside JSON separate entries. CLI occurrences replace the environment list; later duplicate keys replace whole earlier values. Diagnostics must not echo raw option values.
 
-`flags` has no special command-line meaning. Built-in runtime parameters are shared FQL values, including `flags`; per-run values override matching keys. Removed `bin:` selectors fail before execution.
+`runtime.Options.Validate` performs the same pure resolution as runtime construction. Run validates before dependency waiting, connects afterward, and preserves the existing per-test execution timeout. Version uses the same target and option handling without executing FQL. HTTP `path` affects execution only, never version URL derivation.
+
+Commands construct `api.Runtime`; test cases supply FQL inputs only through existing parameter facilities and execute one-shot `Run`. Runtime options never supply shared FQL defaults. Names such as `headers`, `path`, and `flags` remain ordinary query inputs when supplied through `--param`. See the README migration table for the intentionally removed interface and defaults layer.
 
 `--param-bind <target>=@<source>` adapts an existing parameter to an ordinary user parameter path. Binding declarations are validated before external setup where possible. Sources are resolved only after dynamic Lab values are available, and all sources use the same pre-binding snapshot so declaration order cannot create binding chains. Targets may be nested but cannot use the reserved `lab` namespace or overlap another binding or `--param` target.
 

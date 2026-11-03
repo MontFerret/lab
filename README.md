@@ -749,12 +749,13 @@ lab run --runtime=https://ferret.example.com/api tests/
 # With custom headers and path
 lab run \
   --runtime=https://ferret.example.com \
-  --runtime-param=headers:'{"Authorization": "Bearer token123"}' \
-  --runtime-param=path:"/v1/execute" \
+  --runtime-option='headers:{"Authorization":"Bearer token123"}' \
+  --runtime-option='path:"/v1/execute"' \
+  --param='value:"shared"' \
   tests/
 ```
 
-When the runtime URL already includes a path, Lab sends `run` requests to that exact path. The optional `runtime-param=path` value overrides the run endpoint only. `lab version --runtime=...` uses the runtime URL path and requests its sibling `/info` endpoint.
+When the runtime URL already includes a path, Lab sends `run` requests to that exact path. The optional `runtime-option=path` value overrides the run endpoint only. `lab version --runtime=...` uses the runtime URL path and appends `/info` (`/api/info` for a runtime URL ending in `/api`).
 
 Lab rejects `--policy-fs-*` and `--policy-http-*` options for HTTP runtimes because their request protocol has no policy contract. The built-in runtime supports these options.
 
@@ -773,26 +774,35 @@ A successful HTTP run returns a one-shot output that streams the response body. 
 
 #### Wire Runtime
 
-Wire exposes the Universal Ferret API over gRPC. Select it with the same syntax as Ferret CLI:
+Wire exposes the Universal Ferret API over gRPC. The runtime target includes the complete connection endpoint:
 
 ```bash
-lab run --runtime=wire --runtime-endpoint=tcp://127.0.0.1:50051 tests/
-lab version --runtime=wire --runtime-endpoint=tcp://127.0.0.1:50051
+lab run --runtime=wire+tcp://127.0.0.1:50051 tests/
 
-# Shared FQL parameters; per-test/query parameters override matching keys
-lab run --runtime=wire --runtime-endpoint=tcp://127.0.0.1:50051 \
-  --runtime-param='value:"shared"' --param='value:"per-run"' tests/
+lab run \
+  --runtime=wire+tcp://127.0.0.1:50051 \
+  --runtime-option='connect-timeout:"10s"' \
+  --param='value:"shared"' \
+  tests/
+
+lab version \
+  --runtime=wire+tcp://127.0.0.1:50051 \
+  --runtime-option='connect-timeout:"10s"'
+
+LAB_RUNTIME=wire+tcp://127.0.0.1:50051 \
+LAB_RUNTIME_OPTION='connect-timeout:"10s"' \
+lab run tests/
 ```
 
-Start a Wire host separately. The endpoint must be exactly `tcp://127.0.0.1:<port>` with a port from 1 to 65535. Hostnames, other addresses, paths, credentials, queries, and fragments are not supported. Plaintext loopback transport is intended for trusted local development, including a host exposed through a local port mapping.
+Start a Wire host separately. The target must be `wire+tcp://127.0.0.1:<port>` with a port from 1 to 65535. Hostnames, IPv6, other addresses, paths, credentials, queries, and fragments are not supported. Plaintext loopback transport is intended for trusted local development, including a host exposed through a local port mapping. The URI scheme adds no encryption or authentication.
 
-`--runtime-connect-timeout` defaults to `5s` and must be positive. It bounds connection and handshake setup; `--timeout` continues to bound each test. The same connection flags work with `lab version`. Environment bindings are `LAB_RUNTIME_ENDPOINT` and `LAB_RUNTIME_CONNECT_TIMEOUT`.
+The `connect-timeout` runtime option defaults to `"5s"` and must be a positive duration string. It bounds connection and handshake setup; `--timeout` continues to bound each test. Both `run` and `version` accept the same runtime target and options.
 
 Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. The host must support chunked output framing (Wire `v1.0.0-alpha.3`). Lab consumes each output before marking an attempt complete, so a terminal failure after the first chunk still fails the attempt. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
 
 Lab owns the gRPC transport and closes the logical Wire runtime before that transport. Setup failures also release the transport. Transport loss requires a new Lab invocation; the adapter does not redial or switch runtimes.
 
-The host configures Ferret and its execution policies. Wire therefore rejects Lab's `--policy-fs-*` and `--policy-http-*` options. Shared runtime parameter names `headers`, `cookies`, `path`, and `flags` are reserved and rejected for Wire; ordinary per-test FQL parameters may use those names. HTTP/Worker support remains separate.
+The host configures Ferret and its execution policies. Wire therefore rejects Lab's `--policy-fs-*` and `--policy-http-*` options. Only `connect-timeout` is a Wire adapter option. FQL inputs, including `headers`, `cookies`, `path`, and `flags`, use `--param`, bindings, or YAML query/assertion parameters. HTTP/Worker support remains separate.
 
 #### Runtime Comparison Testing
 
@@ -857,10 +867,8 @@ These flags apply to `lab run`.
 | `--timeout` | `-t` | `LAB_TIMEOUT` | `30` | Test timeout in seconds |
 | `--cdp` | - | `LAB_CDP` | `http://127.0.0.1:9222` | Chrome DevTools Protocol address |
 | `--reporter` | - | `LAB_REPORTER` | `console` | Output reporter: `console`, `simple` |
-| `--runtime` | `-r` | `LAB_RUNTIME` | - | Built-in, HTTP, or Wire runtime |
-| `--runtime-endpoint` | - | `LAB_RUNTIME_ENDPOINT` | - | Wire endpoint: `tcp://127.0.0.1:<port>` |
-| `--runtime-connect-timeout` | - | `LAB_RUNTIME_CONNECT_TIMEOUT` | `5s` | Wire connection and handshake timeout |
-| `--runtime-param` | `--rp` | `LAB_RUNTIME_PARAM` | - | Runtime adapter parameters or shared FQL values |
+| `--runtime` | `-r` | `LAB_RUNTIME` | Built-in | Complete runtime target: `builtin`, HTTP/HTTPS URL, or `wire+tcp://127.0.0.1:<port>` |
+| `--runtime-option` | - | `LAB_RUNTIME_OPTION` | - | Repeatable adapter configuration: `name:<JSON value>` |
 | `--concurrency` | `-c` | `LAB_CONCURRENCY` | `1` | Number of parallel test executions |
 | `--times` | - | `LAB_TIMES` | `1` | Number of times to run each test |
 | `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
@@ -919,7 +927,7 @@ export LAB_CDP=http://chrome-headless:9222
 
 # Runtime configuration
 export LAB_RUNTIME=https://ferret-api.example.com
-export LAB_RUNTIME_PARAM='headers:{"API-Key":"secret123"}'
+export LAB_RUNTIME_OPTION='headers:{"API-Key":"secret123"}'
 
 # Run tests
 lab run tests/
@@ -978,7 +986,7 @@ lab run \
   tests/performance/
 ```
 
-### ⚙️ Runtime Parameters
+### ⚙️ Runtime Options
 
 Configure remote Ferret runtime behavior:
 
@@ -986,14 +994,54 @@ Configure remote Ferret runtime behavior:
 # HTTP runtime with custom headers
 lab run \
   --runtime=https://ferret.api.com \
-  --runtime-param='headers:{"Authorization":"Bearer token"}' \
-  --runtime-param='path:"/v2/execute"' \
+  --runtime-option='headers:{"Authorization":"Bearer token"}' \
+  --runtime-option='path:"/v2/execute"' \
   tests/
 ```
 
-Wire runtime params are shared FQL values; per-run values override matching keys. Shared `headers`, `cookies`, `path`, and `flags` keys are rejected.
+Runtime options configure adapters only. Unsupported names, wrong-adapter options, invalid types, and invalid values fail before external setup. An omitted or empty runtime target, or `builtin`, selects the built-in runtime. Unknown targets and schemes fail; a bare `wire` or `tcp://` target does not select Wire.
 
-Built-in runtime params are shared FQL values, including `flags`; per-run values override matching keys. For HTTP runtimes, `path` overrides the run endpoint only. Lab does not execute external CLI binaries; `bin:` selectors are rejected.
+| Adapter | Option | JSON value |
+| --- | --- | --- |
+| Built-in | None | Adapter options are rejected. |
+| HTTP/HTTPS | `headers` | Object of strings, added to request headers. |
+| HTTP/HTTPS | `cookies` | Object of strings, sent as request cookies. |
+| HTTP/HTTPS | `path` | String URL reference overriding execution only; empty retains the runtime URL path. |
+| Wire TCP | `connect-timeout` | Positive duration string; default `"5s"`, connection and handshake only. |
+
+Values use the existing `name:<JSON value>` syntax. Quote the entire shell argument to preserve JSON strings, spaces, colons, and punctuation. Repeat the flag for multiple options, or separate entries with commas outside JSON objects, arrays, and strings. `LAB_RUNTIME_OPTION` accepts the same comma-separated entries. Any explicit `--runtime-option` replaces the environment option list. Later duplicate keys replace the whole previous value, including objects; they do not merge.
+
+FQL inputs use the existing parameter pipeline across all adapters:
+
+```bash
+lab run tests/
+lab run --param='value:"shared"' tests/
+lab version
+
+lab version \
+  --runtime=https://ferret.example.com/api \
+  --runtime-option='headers:{"Authorization":"Bearer token123"}'
+```
+
+`--param` values use last-key-wins handling, and CLI flags replace values from `LAB_PARAM`. Bindings resolve after local service setup from one parameter snapshot; duplicate, overlapping, or reserved targets fail. YAML query and assertion parameters override the common user values independently. Assertion `@lab.data.query` retains the query result and effective query parameters. `@lab` remains reserved for Lab system values. Ordinary FQL parameters named `headers` or `path` do not configure HTTP, and adapter options are never injected as FQL inputs.
+
+#### Runtime configuration migration
+
+This intentionally replaces the earlier v2 runtime interface. Removed flags fail argument validation, and obsolete environment variables no longer configure Lab.
+
+| Previous usage | Replacement |
+| --- | --- |
+| `--runtime=wire --runtime-endpoint=tcp://host:port` | `--runtime=wire+tcp://host:port` (existing loopback restriction applies) |
+| `--runtime-connect-timeout=10s` | `--runtime-option='connect-timeout:"10s"'` |
+| `--runtime-param='headers:{...}'` | `--runtime-option='headers:{...}'` |
+| `--runtime-param='path:"/v1/execute"'` | `--runtime-option='path:"/v1/execute"'` |
+| FQL input through `--runtime-param` | Existing `--param`, bindings, or suite/query parameter facilities |
+| `LAB_RUNTIME_PARAM` containing adapter settings | `LAB_RUNTIME_OPTION` |
+| `LAB_RUNTIME_ENDPOINT` | Include the endpoint in `LAB_RUNTIME=wire+tcp://127.0.0.1:<port>` |
+| `LAB_RUNTIME_CONNECT_TIMEOUT=10s` | `LAB_RUNTIME_OPTION='connect-timeout:"10s"'` |
+| `--rp` | Removed; use `--runtime-option` for adapter configuration |
+
+The separate runtime FQL defaults layer has been removed. A configuration combining runtime defaults and per-run values may need to be expressed using existing CLI, binding, or query/assertion parameter facilities; there is no guaranteed lossless one-for-one migration of that layer. No new defaults layer is introduced. External CLI binary execution remains unsupported.
 
 ## Architecture
 

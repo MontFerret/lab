@@ -10,14 +10,14 @@ import (
 )
 
 func BenchmarkBuiltinRun(b *testing.B) {
-	rt, err := NewBuiltin(map[string]any{"shared": "value"})
+	rt, err := NewBuiltin()
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.Cleanup(func() { _ = rt.Close() })
 	src := api.NewSource("benchmark.fql", "RETURN [@shared, @value]")
-	params := map[string]any{"value": 42}
+	params := map[string]any{"value": 42, "shared": "value"}
 	b.ReportAllocs()
 
 	for b.Loop() {

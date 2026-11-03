@@ -80,8 +80,35 @@ func TestHTTPOptionsAndProtocol(t *testing.T) {
 		t.Fatalf("version/borrowed client: %q, %v, %d requests", value, err, requests)
 	}
 
-	if rt.params.Headers.Get("Cookie") != "" {
+	if rt.options.Headers.Get("Cookie") != "" {
 		t.Fatal("requests mutated shared headers")
+	}
+}
+
+func TestHTTPAdapterOptionsNeverBecomeParameters(t *testing.T) {
+	rt, err := NewRemote("http://worker.test/api", map[string]any{
+		"headers": map[string]any{"X-Adapter": "configured"},
+		"cookies": map[string]any{"session": "fixture"},
+		"path":    "/execute",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rt.client = &http.Client{Transport: responseTransport{fn: func(req *http.Request) (*http.Response, error) {
+		var query remoteQuery
+		if err := json.NewDecoder(req.Body).Decode(&query); err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(query.Params, map[string]any{"value": float64(42)}) {
+			t.Fatalf("adapter options injected into FQL: %#v", query.Params)
+		}
+
+		return &http.Response{StatusCode: 200, ContentLength: 2, Body: io.NopCloser(strings.NewReader("42")), Header: http.Header{}}, nil
+	}}}
+	if _, err := runAndCollect(t.Context(), rt, api.NewSource("parameters.fql", "RETURN @value"), api.WithParam("value", 42)); err != nil {
+		t.Fatal(err)
 	}
 }
 

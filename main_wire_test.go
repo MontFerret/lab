@@ -20,7 +20,7 @@ import (
 
 func TestWireVersionCommand(t *testing.T) {
 	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "v2.0.0-alpha.test"})
-	stdout, stderr, err := runCLI(t, "version", "--runtime=wire", "--runtime-endpoint="+host.Endpoint)
+	stdout, stderr, err := runCLI(t, "version", "--runtime=wire+"+host.Endpoint)
 	if err != nil || stderr != "" || !strings.Contains(stdout, "  Self: test-version\n  Runtime: v2.0.0-alpha.test\n") {
 		t.Fatalf("Wire version: %q, %q, %v", stdout, stderr, err)
 	}
@@ -65,8 +65,8 @@ assert:
 				}
 			}
 
-			stdout, stderr, err := runCLI(t, "run", "--runtime=wire", "--runtime-endpoint="+host.Endpoint,
-				`--runtime-param=value:"shared"`, `--param=value:"per-run"`, script)
+			stdout, stderr, err := runCLI(t, "run", "--runtime=wire+"+host.Endpoint,
+				`--param=value:"per-run"`, script)
 			if err != nil || stderr != "" || !strings.Contains(stdout, "Passed") || !strings.Contains(stdout, "Done") {
 				t.Fatalf("Wire execution: %q, %q, %v", stdout, stderr, err)
 			}
@@ -80,76 +80,12 @@ func TestWireCommandReportsTerminalFailure(t *testing.T) {
 	host := wirehost.New(t, &apiruntime.Runtime{RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
 		return &apiruntime.Output{Data: []byte("valid prefix"), Err: errors.New("late failure")}, nil
 	}})
-	stdout, _, err := runCLI(t, "run", "--reporter=simple", "--runtime=wire", "--runtime-endpoint="+host.Endpoint, writeScript(t))
+	stdout, _, err := runCLI(t, "run", "--reporter=simple", "--runtime=wire+"+host.Endpoint, writeScript(t))
 	if err == nil || !strings.Contains(stdout, "FAIL file=") || !strings.Contains(stdout, "DONE passed=0 failed=1") {
 		t.Fatalf("terminal output failure: %q, %v", stdout, err)
 	}
 
 	assertWireCommandCleanup(t, host)
-}
-
-func TestWireCommandConfigurationAndHelp(t *testing.T) {
-	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "configured"})
-	stdout, stderr, err := runCLIWithEnv(t, map[string]string{
-		"LAB_RUNTIME": "wire", "LAB_RUNTIME_ENDPOINT": "tcp://127.0.0.1:1", "LAB_RUNTIME_CONNECT_TIMEOUT": "0s",
-	}, "version", "--runtime-endpoint="+host.Endpoint, "--runtime-connect-timeout=1s")
-	if err != nil || stderr != "" || !strings.Contains(stdout, "Runtime: configured") {
-		t.Fatalf("flag precedence: %q, %q, %v", stdout, stderr, err)
-	}
-
-	stdout, stderr, err = runCLIWithEnv(t, map[string]string{
-		"LAB_RUNTIME": "wire", "LAB_RUNTIME_ENDPOINT": host.Endpoint, "LAB_RUNTIME_CONNECT_TIMEOUT": "1s",
-	}, "version")
-	if err != nil || stderr != "" || !strings.Contains(stdout, "Runtime: configured") {
-		t.Fatalf("environment configuration: %q, %q, %v", stdout, stderr, err)
-	}
-
-	assertWireCommandCleanup(t, host)
-	for _, command := range []string{"run", "version"} {
-		stdout, _, err := runCLI(t, command, "--help")
-		if err != nil || !strings.Contains(stdout, "--runtime-endpoint") || !strings.Contains(stdout, "--runtime-connect-timeout") || !strings.Contains(stdout, "wire with --runtime-endpoint") || !strings.Contains(stdout, "LAB_RUNTIME_ENDPOINT") || !strings.Contains(stdout, "LAB_RUNTIME_CONNECT_TIMEOUT") {
-			t.Fatalf("Wire help %s: %q, %v", command, stdout, err)
-		}
-	}
-}
-
-func TestWireCommandsRejectConfigurationBeforeConnecting(t *testing.T) {
-	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "unused"})
-	script := writeScript(t)
-	for _, extra := range [][]string{
-		{"--runtime-connect-timeout=0s"},
-		{"--runtime-endpoint=tcp://localhost:1"},
-		{"--policy-fs-read-only=false"},
-		{"--policy-http-no-timeout=false"},
-		{`--runtime-param=headers:{}`},
-		{`--runtime-param=cookies:{}`},
-		{`--runtime-param=path:"/execute"`},
-		{`--runtime-param=flags:[]`},
-	} {
-		args := append([]string{"run", "--runtime=wire", "--runtime-endpoint=" + host.Endpoint}, extra...)
-		args = append(args, script)
-		_, _, err := runCLI(t, args...)
-		if err == nil {
-			t.Fatalf("unsupported Wire configuration accepted: %v", extra)
-		}
-	}
-
-	for _, args := range [][]string{
-		{"version", "--runtime=wire"},
-		{"version", "--runtime=wire", "--runtime-endpoint=" + host.Endpoint, "--runtime-connect-timeout=0s"},
-		{"version", "--runtime-endpoint=" + host.Endpoint},
-		{"run", "--runtime-endpoint=" + host.Endpoint, script},
-		{"version", "--runtime-connect-timeout=5s"},
-	} {
-		_, _, err := runCLI(t, args...)
-		if err == nil {
-			t.Fatalf("invalid runtime configuration accepted: %v", args)
-		}
-	}
-
-	if host.Connections() != 0 {
-		t.Fatalf("invalid configuration connected %d times", host.Connections())
-	}
 }
 
 func TestWireCommandsHonorConstructionCancellation(t *testing.T) {
@@ -162,7 +98,7 @@ func TestWireCommandsHonorConstructionCancellation(t *testing.T) {
 
 				return "", ctx.Err()
 			}})
-			args := []string{command, "--runtime=wire", "--runtime-endpoint=" + host.Endpoint}
+			args := []string{command, "--runtime=wire+" + host.Endpoint}
 			if command == "run" {
 				args = append(args, writeScript(t))
 			}
@@ -207,7 +143,7 @@ func TestWireRunCommandCancellationAndFailureCleanup(t *testing.T) {
 
 				return nil, errors.New("host execution failure")
 			}})
-			_, _, done, cancel := startCLI(t, "run", "--runtime=wire", "--runtime-endpoint="+host.Endpoint, writeScript(t))
+			_, _, done, cancel := startCLI(t, "run", "--runtime=wire+"+host.Endpoint, writeScript(t))
 			defer cancel()
 			select {
 			case <-started:
@@ -250,7 +186,7 @@ func TestWireVersionCommandDeadline(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	app := newApp("test-version", &stdout, &stderr)
 	app.ExitErrHandler = func(context.Context, *cli.Command, error) {}
-	err := app.Run(ctx, []string{"lab", "version", "--runtime=wire", "--runtime-endpoint=" + host.Endpoint})
+	err := app.Run(ctx, []string{"lab", "version", "--runtime=wire+" + host.Endpoint})
 	if !errors.Is(err, context.DeadlineExceeded) || stdout.Len() != 0 {
 		t.Fatalf("command deadline: %q, %v", stdout.String(), err)
 	}

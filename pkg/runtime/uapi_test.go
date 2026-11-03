@@ -24,7 +24,7 @@ func TestBuiltinVersionAndCancellation(t *testing.T) {
 	old := version
 	version = " opaque \n"
 	t.Cleanup(func() { version = old })
-	rt, err := NewBuiltin(nil)
+	rt, err := NewBuiltin()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,16 +67,16 @@ func TestBuiltinVersionAndCancellation(t *testing.T) {
 func TestRuntimeCallerOwnedCompilation(t *testing.T) {
 	for _, mode := range []string{"builtin", "wire"} {
 		t.Run(mode, func(t *testing.T) {
-			opts := Options{Params: map[string]any{"shared": "default"}}
+			opts := Options{}
 			if mode == "wire" {
-				hosted, err := NewBuiltin(nil)
+				hosted, err := NewBuiltin()
 				if err != nil {
 					t.Fatal(err)
 				}
 
 				t.Cleanup(func() { _ = hosted.Close() })
 				host := wirehost.New(t, hosted)
-				opts.Type, opts.Endpoint = "wire", host.Endpoint
+				opts.Target = "wire+" + host.Endpoint
 			}
 
 			rt, err := New(t.Context(), opts)
@@ -170,16 +170,16 @@ func TestRuntimeOptionCallbacksAndParameterPreservation(t *testing.T) {
 			shared := map[string]any{"shared": "default", "value": "early"}
 			perRun := map[string]any{"value": "late", "object": map[string]any{"nested": "value"}}
 			original := maps.Clone(perRun)
-			opts := Options{Params: shared}
+			opts := Options{}
 			if mode == "wire" {
-				hosted, err := NewBuiltin(nil)
+				hosted, err := NewBuiltin()
 				if err != nil {
 					t.Fatal(err)
 				}
 
 				t.Cleanup(func() { _ = hosted.Close() })
 				host := wirehost.New(t, hosted)
-				opts.Type, opts.Endpoint = "wire", host.Endpoint
+				opts.Target = "wire+" + host.Endpoint
 			}
 
 			rt, err := New(t.Context(), opts)
@@ -190,6 +190,7 @@ func TestRuntimeOptionCallbacksAndParameterPreservation(t *testing.T) {
 			t.Cleanup(func() { _ = rt.Close() })
 			var order []int
 			out, err := runAndCollect(t.Context(), rt, api.Source{Name: "params.fql", Content: "RETURN [@shared, @value, @object.nested]"},
+				api.WithParams(shared),
 				func(o api.SessionOptions) error { order = append(order, 1); return o.SetParams(perRun) }, nil,
 				func(o api.SessionOptions) error { order = append(order, 2); return o.SetParam("value", "last") })
 			if err != nil || out == nil || string(out.Data) != "[\"default\",\"last\",\"value\"]" ||
@@ -227,7 +228,7 @@ func TestWireForwardsSessionSettersAndConvertsYAML(t *testing.T) {
 
 		return &apiruntime.Output{Data: []byte{}}, nil
 	}})
-	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
+	rt, err := New(t.Context(), Options{Target: "wire+" + host.Endpoint})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +321,7 @@ func TestRuntimeConstructionFailureReturnsNilInterface(t *testing.T) {
 		{FSPolicy: &FileSystemPolicy{Root: t.TempDir() + "/missing"}},
 		{HTTPPolicy: &HTTPPolicy{AllowedHosts: []string{"bad host"}}},
 		{FSPolicy: &FileSystemPolicy{Root: t.TempDir() + "/missing"}, HTTPPolicy: &HTTPPolicy{AllowLocalhost: pointerTo(true)}},
-		{Type: "http://worker.test", Params: map[string]any{"headers": "invalid"}},
+		{Target: "http://worker.test", AdapterOptions: map[string]any{"headers": "invalid"}},
 	} {
 		rt, err := New(t.Context(), opts)
 		if rt != nil || err == nil {
@@ -330,7 +331,7 @@ func TestRuntimeConstructionFailureReturnsNilInterface(t *testing.T) {
 }
 
 func TestBuiltinSourceIdentityInDiagnostics(t *testing.T) {
-	rt, err := NewBuiltin(nil)
+	rt, err := NewBuiltin()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +351,7 @@ func TestBuiltinPortableSessionSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rt, err := NewBuiltin(nil)
+	rt, err := NewBuiltin()
 	if err != nil {
 		t.Fatal(err)
 	}

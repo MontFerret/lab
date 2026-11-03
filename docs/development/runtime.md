@@ -18,12 +18,12 @@ All adapters honor context cancellation where their integration permits it. Call
 
 Runtime selection is centralized in `pkg/runtime`:
 
-- HTTP and HTTPS URLs select the remote adapter.
-- `bin:` URLs are rejected because external CLI binary execution is no longer supported.
-- Explicit `wire` mode selects the Wire adapter with `--runtime-endpoint tcp://127.0.0.1:<port>`, using Ferret CLI's type normalization and endpoint grammar.
-- After checking explicit Wire mode, an empty value or an unrelated unknown URL scheme selects the built-in adapter. Invalid URL syntax fails during selection.
+- Omitted/empty targets and the existing `builtin` identifier select the built-in adapter.
+- HTTP and HTTPS URLs select the remote adapter and preserve explicit URL paths.
+- `wire+tcp://127.0.0.1:<port>` selects Wire, translated into the validated internal `tcp://` endpoint.
+- Malformed targets, unknown schemes/selectors, bare Wire/TCP selectors, and `bin:` targets are errors.
 
-Adapter-specific settings are validated before execution or external resource startup. Options that do not apply to the selected adapter are rejected rather than silently ignored where the contract defines them as unsupported.
+`Options` contains `Target`, `AdapterOptions`, and the existing execution policies. `Options.Validate()` resolves configuration without I/O; `New` uses the same resolver before construction. Adapter option names, decoded types, and values are validated before external startup. Unsupported keys fail with option and adapter context without echoing sensitive values. The built-in runtime accepts no adapter options; HTTP accepts `headers`, `cookies`, and `path`; Wire accepts only `connect-timeout`. FQL parameters arrive exclusively through session options.
 
 ## Built-in runtime
 
@@ -33,7 +33,7 @@ The adapter:
 
 - preserves source name and FQL content
 - applies Lab-configured filesystem and outbound HTTP policy through Ferret APIs
-- applies shared FQL parameters, including `flags`, before per-run overrides
+- receives FQL parameters through invocation/session options without a Lab runtime defaults layer
 - registers the Lab build's embedded Ferret version for cheap version reporting
 - releases the native runtime before its owned HTTP network, retaining the cleanup result for repeated and concurrent closes
 
@@ -47,7 +47,7 @@ The remote adapter uses an explicit HTTP contract:
 - version reporting sends `GET` to the service's information endpoint
 - execution sends `POST` with JSON containing the FQL text and parameter map
 - a configured runtime `path` overrides the run endpoint only
-- runtime parameters may configure headers, cookies, and the run path
+- adapter options configure headers and cookies (objects of strings), and the run path (a string URL reference)
 - only successful HTTP status codes are accepted
 
 Requests are created with the caller's context. Errors retain request/response operation context without dumping sensitive headers, cookies, credentials, or response data by default.
@@ -62,19 +62,19 @@ Remote contract changes should cover request method, resolved URL, headers, cook
 
 ## Wire runtime
 
-Wire exposes the Universal Ferret API over gRPC. Lab selects it with `--runtime=wire` and `--runtime-endpoint=tcp://127.0.0.1:<port>`, matching Ferret CLI. Only IPv4 loopback TCP ports from 1 to 65535 are accepted; hostnames, other addresses, URL paths, credentials, queries, and fragments are rejected. This plaintext transport is intended for trusted local development, including hosts exposed through a local port mapping.
+Wire exposes the Universal Ferret API over gRPC. Lab selects it with `--runtime=wire+tcp://127.0.0.1:<port>`. Only IPv4 loopback TCP ports from 1 to 65535 are accepted; hostnames, other addresses, URL paths, credentials, queries, and fragments are rejected. This plaintext transport is intended for trusted local development, including hosts exposed through a local port mapping. The public URI scheme adds no encryption or authentication.
 
-`--runtime-connect-timeout` defaults to five seconds and must be positive. The caller context can impose an earlier cancellation or deadline. Lab closes the transport to unblock stalled stream creation as well as failed handshakes. Canceling the construction context after success does not cancel later executions.
+The `connect-timeout` adapter option is a positive duration string and defaults to `"5s"`. It bounds connection and handshake only; the existing test timeout remains separate. The caller context can impose an earlier cancellation or deadline. Lab closes the transport to unblock stalled stream creation as well as failed handshakes. Canceling the construction context after success does not cancel later executions.
 
-Lab execution uses UAPI's one-shot `Runtime.Run`: source name and exact content are passed unchanged, shared runtime parameters are applied first, and per-run parameters override matching keys. String-keyed nested YAML objects are converted to Wire's portable map shape; binary and numeric values retain their types. Inputs are not mutated. Shared `headers`, `cookies`, `path`, and `flags` runtime parameters are rejected; those names remain available as ordinary per-test FQL parameters.
+Lab execution uses UAPI's one-shot `Runtime.Run`: source name, exact content, and invocation parameters are passed unchanged. String-keyed nested YAML objects are converted to Wire's portable map shape; binary and numeric values retain their types. Inputs are not mutated. `headers`, `cookies`, `path`, and `flags` remain ordinary per-test FQL parameter names; adapter options are never injected into them.
 
-The host must support chunked output framing as provided by Wire `v1.0.0-alpha.3`. Wire checks framing compatibility during Connect. The adapter forwards the remote one-shot output handle to the caller. Consumption observes terminal execution, delivery, and cleanup errors. Shared parameters precede caller session callbacks; a parameter-setter adapter preserves nested YAML conversion while forwarding filesystem and output settings. Non-nil callbacks run once in order and their errors are joined.
+The host must support chunked output framing as provided by Wire `v1.0.0-alpha.3`. Wire checks framing compatibility during Connect. The adapter forwards the remote one-shot output handle to the caller. Consumption observes terminal execution, delivery, and cleanup errors. A parameter-setter adapter preserves nested YAML conversion while forwarding filesystem and output settings. Non-nil callbacks run once in order and their errors are joined.
 
-`Compile` and `CompileDebug` forward directly to the hosted runtime. Shared Lab parameters are defaults for one-shot `Run`; compiled plans and their sessions retain the host's UAPI contract without Lab wrappers. Version reporting returns the hosted `api.Runtime.Version(ctx)` exactly; Wire captures that value during Connect, so version reads do not require another RPC.
+`Compile` and `CompileDebug` forward directly to the hosted runtime. Compiled plans and their sessions retain the host's UAPI contract without Lab wrappers. Version reporting returns the hosted `api.Runtime.Version(ctx)` exactly; Wire captures that value during Connect, so version reads do not require another RPC.
 
 Lab owns the gRPC client transport it creates. Wire borrows it and owns the logical connection. After all runs settle, the adapter closes the logical runtime before the transport, retains both cleanup errors, and supports repeated/concurrent close calls. A lost physical connection is terminal for that adapter; it does not redial or select another runtime. The server owns its hosted runtime and configuration.
 
-Filesystem and outbound HTTP execution policies and reserved adapter configuration are rejected before connection. Configure Ferret execution policy at the remote host. HTTP/Worker support remains a separate adapter.
+Filesystem and outbound HTTP execution policies and unsupported adapter options are rejected before connection. Configure Ferret execution policy at the remote host. HTTP/Worker support remains a separate adapter.
 
 ## Test support
 

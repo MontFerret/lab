@@ -10,7 +10,7 @@ import (
 )
 
 func BenchmarkSuiteRun(b *testing.B) {
-	rt, err := runtime.NewBuiltin(nil)
+	rt, err := runtime.NewBuiltin()
 	if err != nil {
 		b.Fatal(err)
 	}

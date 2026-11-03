@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,12 +10,9 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/MontFerret/api"
-
 	ferretrt "github.com/MontFerret/ferret/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/localserver"
 	"github.com/MontFerret/lab/v2/pkg/mockserver"
-	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/staticserver"
 )
 
@@ -114,40 +110,6 @@ func staticServerSettingsFromCommand(cmd *cli.Command) staticserver.Settings {
 		BindHost:      cmd.String("serve-bind"),
 		AdvertiseHost: cmd.String("serve-host"),
 	}
-}
-
-func newRuntime(ctx context.Context, cmd *cli.Command, params map[string]any) (api.Runtime, error) {
-	fsPolicy, err := fsPolicyFromCommand(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	httpPolicy, err := httpPolicyFromCommand(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	connectTimeout := cmd.Duration("runtime-connect-timeout")
-	if !cmd.IsSet("runtime-connect-timeout") {
-		connectTimeout = 0
-	}
-
-	rt, err := runtime.New(ctx, runtime.Options{
-		Type:              cmd.String("runtime"),
-		Endpoint:          cmd.String("runtime-endpoint"),
-		EndpointSet:       cmd.IsSet("runtime-endpoint"),
-		ConnectTimeout:    connectTimeout,
-		ConnectTimeoutSet: cmd.IsSet("runtime-connect-timeout"),
-		Params:            params,
-		FSPolicy:          fsPolicy,
-		HTTPPolicy:        httpPolicy,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return rt, nil
 }
 
 func locationsFromCommand(cmd *cli.Command) ([]string, bool) {

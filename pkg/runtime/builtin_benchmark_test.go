@@ -6,7 +6,7 @@ func BenchmarkBuiltinLifecycle(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		rt, err := NewBuiltin(nil)
+		rt, err := NewBuiltin()
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -82,7 +82,7 @@ func TestBuiltinHTTPPolicyBlocksLocalhostByDefault(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	rt, err := NewBuiltin(nil)
+	rt, err := NewBuiltin()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -104,7 +104,7 @@ func TestBuiltinHTTPPolicyAllowsConfiguredLocalhost(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	rt, err := NewBuiltin(nil, ferrethttp.WithAllowLocalhost(true))
+	rt, err := NewBuiltin(ferrethttp.WithAllowLocalhost(true))
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -121,7 +121,7 @@ func TestBuiltinHTTPPolicyAllowsConfiguredLocalhost(t *testing.T) {
 }
 
 func TestBuiltinHTTPPolicyRejectsInvalidConfiguration(t *testing.T) {
-	_, err := NewBuiltin(nil, ferrethttp.WithAllowedHosts("bad host"))
+	_, err := NewBuiltin(ferrethttp.WithAllowedHosts("bad host"))
 	if !errors.Is(err, ferrethttp.ErrInvalidPolicyConfiguration) {
 		t.Fatalf("expected allowed-host policy error, got %v", err)
 	}
@@ -138,7 +138,6 @@ func TestBuiltinHTTPPolicyEnforcesResponseLimit(t *testing.T) {
 	defer srv.Close()
 
 	rt, err := NewBuiltin(
-		nil,
 		ferrethttp.WithAllowLocalhost(true),
 		ferrethttp.WithMaxResponseSize(1),
 	)
@@ -158,7 +157,7 @@ func TestBuiltinHTTPPolicyEnforcesResponseLimit(t *testing.T) {
 }
 
 func TestBuiltinCloseSucceedsWithConfiguredNetwork(t *testing.T) {
-	rt, err := NewBuiltin(nil, ferrethttp.WithAllowLocalhost(true))
+	rt, err := NewBuiltin(ferrethttp.WithAllowLocalhost(true))
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -170,7 +169,7 @@ func TestBuiltinCloseSucceedsWithConfiguredNetwork(t *testing.T) {
 
 func TestNewRejectsHTTPPolicyForHTTPRuntime(t *testing.T) {
 	_, err := New(t.Context(), Options{
-		Type:       "http://example.test",
+		Target:     "http://example.test",
 		HTTPPolicy: &HTTPPolicy{AllowLocalhost: pointerTo(true)},
 	})
 	if err == nil || err.Error() != "HTTP policy options are not supported by HTTP runtimes" {
@@ -180,7 +179,7 @@ func TestNewRejectsHTTPPolicyForHTTPRuntime(t *testing.T) {
 
 func TestNewRejectsFilesystemPolicyForHTTPRuntime(t *testing.T) {
 	_, err := New(t.Context(), Options{
-		Type:     "http://example.test",
+		Target:   "http://example.test",
 		FSPolicy: &FileSystemPolicy{ReadOnly: pointerTo(true)},
 	})
 	if err == nil || err.Error() != "filesystem policy options are not supported by HTTP runtimes" {

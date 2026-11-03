@@ -30,102 +30,31 @@ type (
 		Params map[string]any `json:"params"`
 	}
 
-	HTTPParams struct {
-		Headers http.Header
-		Path    string
-		Cookies []http.Cookie
-	}
-
 	Remote struct {
-		url    *url.URL
-		client *http.Client
-		params HTTPParams
+		url     *url.URL
+		client  *http.Client
+		options httpOptions
 	}
 )
 
 var _ api.Runtime = (*Remote)(nil)
 
 // NewRemote borrows the default HTTP client and owns each response body.
-func NewRemote(u string, params map[string]any) (*Remote, error) {
-	p := HTTPParams{
-		Headers: http.Header{
-			"Content-Type":    []string{"application/json"},
-			"Accept":          []string{"*/*"},
-			"Accept-Charset":  []string{"utf-8"},
-			"Accept-Encoding": []string{"gzip", "deflate"},
-			"Cache-Control":   []string{"no-cache"},
-		},
-		Cookies: make([]http.Cookie, 0, 5),
-	}
-
-	if params != nil {
-		headers, exists := params["headers"]
-
-		if exists {
-			headers, ok := headers.(map[string]any)
-
-			if !ok {
-				return nil, errors.New("invalid type of headers (expected map)")
-			}
-
-			for k, v := range headers {
-				str, ok := v.(string)
-
-				if !ok {
-					return nil, fmt.Errorf("invalid value type of a header: %s (expected string)", k)
-				}
-
-				p.Headers.Add(k, str)
-			}
-		}
-
-		urlPath, exists := params["path"]
-
-		if exists {
-			urlPath, ok := urlPath.(string)
-
-			if !ok {
-				return nil, errors.New("invalid type of path (expected string)")
-			}
-
-			p.Path = urlPath
-		}
-
-		cookies, exists := params["cookies"]
-
-		if exists {
-			cookies, ok := cookies.(map[string]any)
-
-			if !ok {
-				return nil, errors.New("invalid type of cookies (expected map)")
-			}
-
-			for k, v := range cookies {
-				str, ok := v.(string)
-
-				if !ok {
-					return nil, fmt.Errorf("invalid value type of a header: %s (expected string)", k)
-				}
-
-				p.Cookies = append(p.Cookies, http.Cookie{
-					Name:   k,
-					Value:  str,
-					Domain: u,
-					Path:   p.Path,
-				})
-			}
-		}
-	}
-
-	parsedURL, err := url.Parse(u)
-
+func NewRemote(target string, options map[string]any) (*Remote, error) {
+	config, err := (Options{Target: target, AdapterOptions: options}).resolve()
 	if err != nil {
 		return nil, err
 	}
 
-	client := http.DefaultClient
+	if config.kind != "http" && config.kind != "https" {
+		return nil, errors.New("HTTP runtime requires an HTTP/HTTPS target")
+	}
 
-	return &Remote{url: parsedURL, client: client, params: p}, nil
+	return newRemote(config.url, config.http), nil
+}
+
+func newRemote(target *url.URL, options httpOptions) *Remote {
+	return &Remote{url: target, client: http.DefaultClient, options: options}
 }
 
 // Version reports the hosted Ferret version unchanged.
@@ -213,8 +142,8 @@ func (rt *Remote) Close() error {
 }
 
 func (rt *Remote) runEndpoint() string {
-	if rt.params.Path != "" {
-		return rt.params.Path
+	if rt.options.Path != "" {
+		return rt.options.Path
 	}
 
 	return rt.basePath()
@@ -257,9 +186,9 @@ func (rt *Remote) createRequest(ctx context.Context, method, endpoint string, bo
 		return nil, err
 	}
 
-	req.Header = rt.params.Headers.Clone()
+	req.Header = rt.options.Headers.Clone()
 
-	for _, c := range rt.params.Cookies {
+	for _, c := range rt.options.Cookies {
 		req.AddCookie(&c)
 	}
 

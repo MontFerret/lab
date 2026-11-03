@@ -24,13 +24,13 @@ type Builtin struct {
 var _ api.Runtime = (*Builtin)(nil)
 
 // NewBuiltin owns a native UAPI runtime and any network configured by its policies.
-func NewBuiltin(params map[string]any, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
-	return newBuiltin(params, nil, policyOptions...)
+func NewBuiltin(policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
+	return newBuiltin(nil, policyOptions...)
 }
 
-func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
+func newBuiltin(fsPolicy *FileSystemPolicy, policyOptions ...ferrethttp.PolicyOption) (*Builtin, error) {
 	if fsPolicy == nil && len(policyOptions) == 0 {
-		return newDefaultBuiltin(params)
+		return newDefaultBuiltin()
 	}
 
 	root := ""
@@ -48,7 +48,6 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 
 	engineOptions := []ferret.Option{
 		ferret.WithFSRoot(root),
-		ferret.WithParams(params),
 	}
 
 	if fsPolicy != nil && fsPolicy.ReadOnly != nil && *fsPolicy.ReadOnly {
@@ -100,7 +99,7 @@ func newBuiltin(params map[string]any, fsPolicy *FileSystemPolicy, policyOptions
 	}, nil
 }
 
-func newDefaultBuiltin(params map[string]any) (*Builtin, error) {
+func newDefaultBuiltin() (*Builtin, error) {
 	root, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -108,7 +107,6 @@ func newDefaultBuiltin(params map[string]any) (*Builtin, error) {
 
 	engine, err := uapi.New(api.Version(version),
 		ferret.WithFSRoot(root),
-		ferret.WithParams(params),
 	)
 	if err != nil {
 		return nil, err

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,7 +20,6 @@ import (
 type (
 	wireRuntime struct {
 		remote    api.Runtime
-		params    map[string]any
 		transport *wireTransport
 		once      sync.Once
 		err       error
@@ -36,17 +35,17 @@ type (
 
 var _ api.Runtime = (*wireRuntime)(nil)
 
-func newWire(ctx context.Context, opts Options) (*wireRuntime, error) {
+func newWire(ctx context.Context, endpoint string, connectTimeout time.Duration) (*wireRuntime, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	address, err := wireAddress(opts.Endpoint)
+	address, err := wireAddress(endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	connectCtx, cancel := context.WithTimeout(ctx, opts.ConnectTimeout)
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 	var dialed atomic.Bool
 
@@ -62,7 +61,7 @@ func newWire(ctx context.Context, opts Options) (*wireRuntime, error) {
 		}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("connect Wire runtime %s: %w", opts.Endpoint, err)
+		return nil, fmt.Errorf("connect Wire runtime %s: %w", endpoint, err)
 	}
 
 	physical := &wireTransport{connection: connection}
@@ -82,9 +81,9 @@ func newWire(ctx context.Context, opts Options) (*wireRuntime, error) {
 		err = errors.Join(err, ctxErr)
 	}
 
-	rt := &wireRuntime{remote: remote, params: maps.Clone(opts.Params), transport: physical}
+	rt := &wireRuntime{remote: remote, transport: physical}
 	if err != nil {
-		return nil, errors.Join(fmt.Errorf("connect Wire runtime %s: %w", opts.Endpoint, err), rt.Close())
+		return nil, errors.Join(fmt.Errorf("connect Wire runtime %s: %w", endpoint, err), rt.Close())
 	}
 
 	return rt, nil
@@ -99,17 +98,14 @@ func (rt *wireRuntime) Run(ctx context.Context, src api.Source, opts ...api.Sess
 		return nil, err
 	}
 
-	setters := make([]api.SessionOption, len(opts)+1)
-	setters[0] = func(target api.SessionOptions) error {
-		return (&wireSessionOptions{SessionOptions: target}).SetParams(rt.params)
-	}
+	setters := make([]api.SessionOption, len(opts))
 
 	for index, option := range opts {
 		if option == nil {
 			continue
 		}
 
-		setters[index+1] = func(target api.SessionOptions) error {
+		setters[index] = func(target api.SessionOptions) error {
 			return option(&wireSessionOptions{SessionOptions: target})
 		}
 	}

@@ -48,22 +48,12 @@ func TestCommandsRejectRemovedBinaryRuntime(t *testing.T) {
 	}
 }
 
-func TestRunCommandKeepsFlagsAsSharedFQLParameter(t *testing.T) {
+func TestRunCommandKeepsFlagsAsFQLParameter(t *testing.T) {
 	script := writeNamedScript(t, "flags.fql", `RETURN T::EQ(@flags, ["--browser-headless"])`)
 
-	stdout, stderr, err := runCLI(t, "run", `--runtime-param=flags:["--browser-headless"]`, script)
+	stdout, stderr, err := runCLI(t, "run", `--param=flags:["--browser-headless"]`, script)
 	if err != nil {
-		t.Fatalf("shared flags: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
-	}
-
-	assertContains(t, stdout, "Passed")
-	assertEqual(t, stderr, "")
-
-	script = writeNamedScript(t, "override.fql", `RETURN T::EQ(@flags, "per-run")`)
-
-	stdout, stderr, err = runCLIWithEnv(t, map[string]string{"LAB_RUNTIME_PARAM": `flags:"shared"`}, "run", `--param=flags:"per-run"`, script)
-	if err != nil {
-		t.Fatalf("per-run flags: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+		t.Fatalf("flags parameter: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
 
 	assertContains(t, stdout, "Passed")
@@ -78,7 +68,7 @@ func TestRuntimeHelpListsSupportedAdapters(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			assertContains(t, stdout, "built-in, HTTP URL, or wire")
+			assertContains(t, stdout, "builtin, HTTP/HTTPS URL, or wire+tcp://")
 			assertNotContains(t, stdout, "bin:")
 			assertNotContains(t, stdout, "log-output")
 			assertNotContains(t, stdout, "binary runtime")

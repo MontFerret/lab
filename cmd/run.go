@@ -11,6 +11,7 @@ import (
 
 	"github.com/MontFerret/lab/v2/pkg/reporters"
 	"github.com/MontFerret/lab/v2/pkg/runner"
+	"github.com/MontFerret/lab/v2/pkg/runtime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
 	"github.com/MontFerret/lab/v2/pkg/testing"
 )
@@ -47,20 +48,6 @@ func RunFlags(hidden bool) []cli.Flag {
 			Usage:   "reporter (console, simple)",
 			Sources: cli.EnvVars("LAB_REPORTER"),
 			Value:   "console",
-			Hidden:  hidden,
-		},
-		&cli.StringFlag{
-			Name:    "runtime",
-			Aliases: []string{"r"},
-			Usage:   "Ferret runtime (built-in, HTTP URL, or wire with --runtime-endpoint)",
-			Sources: cli.EnvVars("LAB_RUNTIME"),
-			Hidden:  hidden,
-		},
-		&cli.StringSliceFlag{
-			Name:    "runtime-param",
-			Aliases: []string{"rp"},
-			Usage:   "runtime adapter parameters or shared FQL values (--runtime-param=headers:{\"KeyId\": \"abcd\"})",
-			Sources: cli.EnvVars("LAB_RUNTIME_PARAM"),
 			Hidden:  hidden,
 		},
 		&cli.Uint64Flag{
@@ -154,7 +141,7 @@ func RunFlags(hidden bool) []cli.Flag {
 		},
 	}
 
-	flags = append(flags, runtimeConnectionFlags(hidden)...)
+	flags = append(flags, runtimeFlags(hidden)...)
 	flags = append(flags, fsPolicyFlags(hidden)...)
 
 	return append(flags, httpPolicyFlags(hidden)...)
@@ -190,6 +177,11 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 
 	params.SetUserValues(userParams)
 
+	runtimeOptions, err := runtimeOptionsFromCommand(cmd)
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+
 	waitFor := cmd.StringSlice("wait")
 
 	if len(waitFor) > 0 {
@@ -209,14 +201,7 @@ func runScripts(ctx context.Context, cmd *cli.Command, locations []string) (runE
 		}
 	}
 
-	runtimeParams, err := toParams(cmd.StringSlice("runtime-param"))
-
-	if err != nil {
-		return cli.Exit(err, 1)
-	}
-
-	rt, err := newRuntime(ctx, cmd, runtimeParams)
-
+	rt, err := runtime.New(ctx, runtimeOptions)
 	if err != nil {
 		return cli.Exit(err, 1)
 	}

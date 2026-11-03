@@ -48,6 +48,10 @@ Suite, unit, assertion, parameter, and helper behavior is tested in `pkg/testing
 
 CLI parameter bindings are an explicit adaptation step over that materialized view. Every source path is resolved from one snapshot after Lab setup, then its existing value is assigned directly to a user parameter target without text conversion. Nested targets create user-owned object maps. Binding application is atomic: a missing source, reserved target, existing target, or non-object intermediate path leaves the parameter set unchanged.
 
+CLI user values are assembled first (`--param` replaces the environment list and later duplicate keys win). Bindings apply after local services publish endpoints. Each query and assertion then overlays its own manifest `params` onto the common user values independently; assertion values do not inherit query-only overrides. Assertions receive the query result and effective query parameters in `@lab.data.query`. System `lab` values win when materialized. Setup and cleanup remain resource lifecycle operations, not additional FQL stages.
+
+Runtime adapter options are outside this pipeline. They configure HTTP requests or Wire connection setup and never become FQL defaults. Ordinary query names such as `headers` and `path` remain available across adapters.
+
 Parameter isolation is a correctness boundary:
 
 - user input must not overwrite the Lab namespace accidentally

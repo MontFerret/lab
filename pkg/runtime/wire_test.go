@@ -23,9 +23,9 @@ import (
 )
 
 func TestRuntimeSelection(t *testing.T) {
-	for _, value := range []string{"", "builtin", "unknown", "unknown://example", "http://example.test", "https://example.test"} {
+	for _, value := range []string{"", "builtin", "http://example.test", "https://example.test"} {
 		t.Run(value, func(t *testing.T) {
-			rt, err := New(t.Context(), Options{Type: value})
+			rt, err := New(t.Context(), Options{Target: value})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -45,7 +45,7 @@ func TestRuntimeSelection(t *testing.T) {
 		})
 	}
 
-	if _, err := New(t.Context(), Options{Type: "%"}); err == nil {
+	if _, err := New(t.Context(), Options{Target: "%"}); err == nil {
 		t.Fatal("invalid URL must fail selection")
 	}
 }
@@ -53,7 +53,7 @@ func TestRuntimeSelection(t *testing.T) {
 func TestWireEndpointValidation(t *testing.T) {
 	for _, endpoint := range []string{"", "tcp://localhost:1", "tcp://127.0.0.2:1", "tcp://[::1]:1", "grpc://127.0.0.1:1", "tcp://127.0.0.1:", "tcp://127.0.0.1:0", "tcp://127.0.0.1:65536", "tcp://127.0.0.1:-1", "tcp://127.0.0.1:1/", "tcp://127.0.0.1:1?x=1", "tcp://127.0.0.1:1#x", "tcp://user@127.0.0.1:1", " tcp://127.0.0.1:1", "tcp://127.0.0.1:1 "} {
 		t.Run(endpoint, func(t *testing.T) {
-			rt, err := New(t.Context(), Options{Type: "wire", Endpoint: endpoint})
+			rt, err := New(t.Context(), Options{Target: "wire+" + endpoint})
 			if err == nil || rt != nil {
 				t.Fatalf("invalid endpoint returned %T, %v", rt, err)
 			}
@@ -64,43 +64,6 @@ func TestWireEndpointValidation(t *testing.T) {
 		got, err := wireAddress(endpoint)
 		if err != nil || got != address {
 			t.Fatalf("address %q = %q, %v", endpoint, got, err)
-		}
-	}
-}
-
-func TestWireRejectsUnsupportedConfiguration(t *testing.T) {
-	type testCase struct {
-		name string
-		opts Options
-		want string
-	}
-
-	cases := []testCase{
-		{"filesystem", Options{FSPolicy: &FileSystemPolicy{Root: "."}}, "filesystem policy"},
-		{"filesystem false", Options{FSPolicy: &FileSystemPolicy{ReadOnly: pointerTo(false)}}, "filesystem policy"},
-		{"HTTP", Options{HTTPPolicy: &HTTPPolicy{AllowedHosts: []string{"example.test"}}}, "HTTP policy"},
-		{"zero timeout", Options{ConnectTimeoutSet: true}, "must be positive"},
-		{"negative timeout", Options{ConnectTimeout: -time.Second}, "must be positive"},
-	}
-	for _, key := range []string{"headers", "cookies", "path", "flags"} {
-		cases = append(cases, testCase{key, Options{Params: map[string]any{key: nil}}, "runtime parameter"})
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc.opts.Type = "wire"
-			tc.opts.Endpoint = "tcp://127.0.0.1:1"
-			rt, err := New(t.Context(), tc.opts)
-			if err == nil || rt != nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("expected %q before connection, got %T, %v", tc.want, rt, err)
-			}
-		})
-	}
-
-	for _, opts := range []Options{{Endpoint: "tcp://127.0.0.1:1"}, {EndpointSet: true}, {ConnectTimeoutSet: true}, {ConnectTimeout: time.Second}} {
-		_, err := New(t.Context(), opts)
-		if err == nil || !strings.Contains(err.Error(), "require --runtime wire") {
-			t.Fatalf("connection options accepted outside Wire: %v", err)
 		}
 	}
 }
@@ -117,7 +80,7 @@ func TestWireVersionAndIndependentConstructionContext(t *testing.T) {
 				return &apiruntime.Output{Data: []byte("[true]")}, nil
 			}})
 			ctx, cancel := context.WithCancel(t.Context())
-			rt, err := New(ctx, Options{Type: " W i R e ", Endpoint: host.Endpoint})
+			rt, err := New(ctx, Options{Target: "wire+" + host.Endpoint})
 			cancel()
 			if err != nil {
 				t.Fatal(err)
@@ -185,7 +148,7 @@ func TestWireRunRoundTrip(t *testing.T) {
 	}})
 	shared := map[string]any{"shared": "value", "overlap": "shared", "nested": map[any]any{"items": []any{map[any]any{"binary": []byte{0, 255}}}}}
 	perRun := map[string]any{"overlap": "run", "headers": "FQL", "lab": map[string]any{"static": map[string]any{"app": "http://fixtures"}}}
-	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint, Params: shared})
+	rt, err := New(t.Context(), Options{Target: "wire+" + host.Endpoint})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +156,7 @@ func TestWireRunRoundTrip(t *testing.T) {
 	t.Cleanup(func() { _ = rt.Close() })
 	src := api.NewSource("fixtures/日本.fql", "\r\nRETURN @shared // exact text\n")
 	for range 2 {
-		out, err := runAndCollect(t.Context(), rt, src, api.WithParams(perRun))
+		out, err := runAndCollect(t.Context(), rt, src, api.WithParams(shared), api.WithParams(perRun))
 		if err != nil || out == nil || !bytes.Equal(out.Data, output) {
 			t.Fatalf("run = %v, %v", out, err)
 		}
@@ -252,7 +215,7 @@ func TestWirePreservesLargeOutputWithTerminalError(t *testing.T) {
 	host := wirehost.New(t, &apiruntime.Runtime{VersionValue: "host", RunFunc: func(context.Context, api.Source, ...api.SessionOption) (api.Output, error) {
 		return &apiruntime.Output{Data: prefix, Err: errors.New("host failure")}, nil
 	}})
-	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
+	rt, err := New(t.Context(), Options{Target: "wire+" + host.Endpoint})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +231,7 @@ func TestWireHandshakeFailureClosesTransport(t *testing.T) {
 	host := wirehost.New(t, &apiruntime.Runtime{VersionFunc: func(context.Context) (api.Version, error) {
 		return "", errors.New("handshake failed")
 	}})
-	rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
+	rt, err := New(t.Context(), Options{Target: "wire+" + host.Endpoint})
 	if err == nil || rt != nil {
 		t.Fatalf("handshake failure = %T, %v", rt, err)
 	}
@@ -285,7 +248,7 @@ func TestWireConstructionCancellation(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			ctx := t.Context()
 			want := error(context.DeadlineExceeded)
-			opts := Options{Type: "wire", ConnectTimeout: 100 * time.Millisecond}
+			opts := Options{AdapterOptions: map[string]any{"connect-timeout": "100ms"}}
 			started := make(chan struct{})
 			var cancel context.CancelFunc
 			if kind == "canceled" || kind == "handshake canceled" {
@@ -308,7 +271,7 @@ func TestWireConstructionCancellation(t *testing.T) {
 				}
 
 				t.Cleanup(func() { _ = ln.Close() })
-				opts.Endpoint = "tcp://" + ln.Addr().String()
+				opts.Target = "wire+" + "tcp://" + ln.Addr().String()
 				gone := make(chan error, 1)
 				go func() {
 					conn, err := ln.Accept()
@@ -339,7 +302,7 @@ func TestWireConstructionCancellation(t *testing.T) {
 
 				return "", ctx.Err()
 			}})
-			opts.Endpoint = host.Endpoint
+			opts.Target = "wire+" + host.Endpoint
 			if kind == "handshake canceled" {
 				go func() {
 					select {
@@ -376,7 +339,7 @@ func TestWireRunCancellation(t *testing.T) {
 
 				return nil, ctx.Err()
 			}})
-			rt, err := New(t.Context(), Options{Type: "wire", Endpoint: host.Endpoint})
+			rt, err := New(t.Context(), Options{Target: "wire+" + host.Endpoint})
 			if err != nil {
 				t.Fatal(err)
 			}
