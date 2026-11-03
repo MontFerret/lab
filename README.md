@@ -20,7 +20,7 @@
 
 **Lab** is a flexible test runner designed specifically for [Ferret](https://www.github.com/MontFerret/ferret) scripts. It helps automate testing for web scraping, browser automation, API integration, and regression scenarios written in Ferret Query Language (FQL).
 
-> **📢 Notice:** This branch contains the upcoming **Lab for Ferret v2**. For the stable v1 release, please visit [CLI v1](https://github.com/MontFerret/lab/tree/v1).
+> **📢 Notice:** This branch contains the upcoming **Lab for Ferret v2**. For the stable v1 release, please visit [Lab v1](https://github.com/MontFerret/lab/tree/v1).
 
 ---
 
@@ -44,6 +44,7 @@ Read the introductory blog post about Lab [here](https://www.montferret.dev/blog
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Test Suites](#test-suites)
+- [Choose a Runtime](#choose-a-runtime)
 - [Advanced Usage](#advanced-usage)
 - [Configuration Reference](#configuration-reference)
 - [Architecture](#architecture)
@@ -102,30 +103,34 @@ Read the introductory blog post about Lab [here](https://www.montferret.dev/blog
 
 ### 📦 Binary Downloads
 
-Download the latest pre-built binaries from the [releases page](https://github.com/MontFerret/lab/releases).
+Choose a published **v2 release tag** from the [releases page](https://github.com/MontFerret/lab/releases), including prereleases. Set the tag before using the examples below; replace the placeholder with the exact tag you selected:
+
+```bash
+LAB_VERSION='<v2-release-tag>'
+```
+
+GitHub's `releases/latest` endpoint and Docker's `latest` tag select stable releases and may still point to v1. Select a v2 version explicitly.
 
 The recommended local install location is `~/.local/bin`, which does not require elevated permissions.
 
 #### Linux
 
+For Linux x86-64:
+
 ```bash
-curl -L https://github.com/MontFerret/lab/releases/latest/download/lab_linux_amd64.tar.gz | tar xz
+curl -fL "https://github.com/MontFerret/lab/releases/download/${LAB_VERSION}/lab_linux_x86_64.tar.gz" -o lab.tar.gz
+tar -xzf lab.tar.gz
 mkdir -p ~/.local/bin
 mv lab ~/.local/bin/
 ```
 
-Make sure `~/.local/bin` is in your `PATH`:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-To make the change permanent, add the line above to your shell profile, such as `~/.bashrc`, `~/.zshrc`, or equivalent.
+For Linux ARM64, choose `lab_linux_arm64.tar.gz` from the same release.
 
 #### macOS Intel
 
 ```bash
-curl -L https://github.com/MontFerret/lab/releases/latest/download/lab_darwin_amd64.tar.gz | tar xz
+curl -fL "https://github.com/MontFerret/lab/releases/download/${LAB_VERSION}/lab_darwin_x86_64.tar.gz" -o lab.tar.gz
+tar -xzf lab.tar.gz
 mkdir -p ~/.local/bin
 mv lab ~/.local/bin/
 ```
@@ -133,7 +138,8 @@ mv lab ~/.local/bin/
 #### macOS Apple Silicon
 
 ```bash
-curl -L https://github.com/MontFerret/lab/releases/latest/download/lab_darwin_arm64.tar.gz | tar xz
+curl -fL "https://github.com/MontFerret/lab/releases/download/${LAB_VERSION}/lab_darwin_arm64.tar.gz" -o lab.tar.gz
+tar -xzf lab.tar.gz
 mkdir -p ~/.local/bin
 mv lab ~/.local/bin/
 ```
@@ -144,142 +150,118 @@ Make sure `~/.local/bin` is in your `PATH`:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+Add that line to your shell profile to keep the change across sessions.
+
 #### System-wide install
 
-If you prefer installing Lab system-wide, move the binary to `/usr/local/bin`:
+If you prefer installing Lab system-wide, move the binary to `/usr/local/bin` instead:
 
 ```bash
 sudo mv lab /usr/local/bin/
 ```
 
-This step may require administrator privileges.
+This location may require administrator privileges.
 
 #### Windows
 
-Download the `.zip` file from the [releases page](https://github.com/MontFerret/lab/releases), extract `lab.exe`, and place it in a directory included in your `PATH`.
+Download `lab_windows_x86_64.zip` or `lab_windows_arm64.zip` from the selected v2 release, extract `lab.exe`, and place it in a directory included in your `PATH`.
 
 ### 🚀 Install Script
 
-The install script detects your operating system and architecture, downloads the matching binary, and installs it into `~/.local/bin` by default.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/MontFerret/lab/main/install.sh | sh
-```
-
-To inspect the script before running it:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/MontFerret/lab/main/install.sh -o install.sh
-less install.sh
-sh install.sh
-```
-
-To install into a custom directory, set `LAB_INSTALL_DIR`:
-
-```bash
-LAB_INSTALL_DIR="$HOME/bin" sh install.sh
-```
-
-Installing into system directories, such as `/usr/local/bin`, may require elevated permissions.
+The repository's [install.sh](install.sh) is a Bash installer. It uses `VERSION` and `LOCATION`, defaults to `$HOME/.ferret`, and requires the destination directory to exist. Its version validation does not accept prerelease tags, so use the binary downloads above or a source build for v2 prereleases.
 
 ### 🐳 Docker
 
-Run Lab in a container without installing it locally:
+Use the selected v2 release's image tag, without the leading `v`:
 
 ```bash
-# Pull the latest image
-docker pull montferret/lab:latest
+# LAB_VERSION is the v2 release tag selected above.
+LAB_IMAGE_VERSION="${LAB_VERSION#v}"
+docker pull "montferret/lab:${LAB_IMAGE_VERSION}"
 
-# Run a simple test
-docker run --rm -v $(pwd):/workspace montferret/lab:latest run /workspace/tests/
+# Run local tests in the container
+docker run --rm -v "$PWD:/workspace" "montferret/lab:${LAB_IMAGE_VERSION}" run /workspace/tests/
 
 # With custom options
-docker run --rm -v $(pwd):/workspace montferret/lab:latest \
-    run --concurrency=4 --reporter=simple /workspace/tests/
+docker run --rm -v "$PWD:/workspace" "montferret/lab:${LAB_IMAGE_VERSION}" \
+  run --concurrency=4 --reporter=simple /workspace/tests/
 ```
 
-The container entrypoint is Lab-aware, so `docker run <image> run ...` and `docker run <image> version` invoke the Lab binary directly, while raw commands such as `docker run <image> /bin/sh -c 'echo ok'` still pass through to the container shell.
+The image starts its browser environment for Lab commands; the selected Ferret runtime still determines which FQL modules are available. The entrypoint executes explicit non-Lab commands directly in the container.
 
 **Docker Compose Example:**
 
 ```yaml
-version: '3.8'
 services:
   lab:
-    image: montferret/lab:latest
+    image: montferret/lab:${LAB_IMAGE_VERSION}
     volumes:
       - ./tests:/workspace/tests
       - ./static:/workspace/static
     command: ["run", "--serve", "/workspace/static", "/workspace/tests/"]
 ```
 
+Set `LAB_IMAGE_VERSION` in Compose's environment or `.env` file to the v2 image tag you selected.
+
 ### 🛠️ Build from Source
 
-For development or custom builds:
+Use the Go toolchain required by [go.mod](go.mod), plus Git and Make:
 
 ```bash
-# Prerequisites: Go 1.23+ required
 git clone https://github.com/MontFerret/lab.git
 cd lab
-go build -o lab .
-
-# Or use the Makefile
-make build
+make compile
+./bin/lab version
 ```
+
+`make compile` injects both Lab and embedded Ferret version metadata. Use `make build` to run vet and tests before compiling.
 
 ### ✅ Verify Installation
 
 ```bash
 lab version
 lab --help
+lab run --help
 ```
+
+`lab version` reports the Lab binary version and the selected Ferret runtime version.
 
 ## Quick Start
 
 ### 🎯 Basic Usage
 
-The simplest way to run Ferret scripts with Lab:
-
-`lab run` is required for script execution. Root invocation such as `lab tests/` or `lab -f tests/` is not supported.
+Script execution requires the `run` subcommand:
 
 ```bash
 # Execute a single FQL script
 lab run myscript.fql
 
-# Run all FQL scripts in a directory
-lab run myscripts/
+# Run all supported tests in a directory, recursively
+lab run tests/
 
 # Run with increased concurrency
-lab run --concurrency=4 myscripts/
+lab run --concurrency=4 tests/
 
-# Run tests multiple times
+# Require three successful executions of each test
 lab run --times=3 myscript.fql
 ```
 
-Use `lab version --runtime=...` when you want to inspect the version reported by a specific HTTP or Wire runtime.
+To select an HTTP or Wire host, see [Choose a Runtime](#choose-a-runtime). Root invocation such as `lab tests/` is not supported.
 
 ### 📝 Your First Test
 
-Create a simple test file `example.fql`:
+Create `example.fql`. This example uses only Ferret core and runs with the built-in runtime:
 
 ```sql
-LET doc = DOCUMENT("https://www.github.com", {
-    driver: "cdp",
-    userAgent: "Lab Test Runner"
-})
+LET products = [
+  { name: "Keyboard", price: 129 },
+  { name: "USB-C Dock", price: 89 }
+]
 
-// Wait for page to load
-WAIT_ELEMENT(doc, "header")
+T::LEN(products, 2, "expected two products")
+T::NOT::EMPTY(products[0].name, "the first product needs a name")
 
-// Extract page title
-LET title = doc.title
-
-// Return result
-RETURN {
-    url: doc.url,
-    title: title,
-    hasGitHubLogo: ELEMENT_EXISTS(doc, "[aria-label*='GitHub']")
-}
+RETURN true
 ```
 
 Run it:
@@ -288,67 +270,102 @@ Run it:
 lab run example.fql
 ```
 
-### 🎨 Using Chrome DevTools Protocol
+A test passes when execution completes without an error. Lab discards a unit's return value, so `RETURN false` also passes. Use `T::TRUE(condition)`, `T::EQ(actual, expected)`, or another assertion to raise an error when a condition is false.
 
-For browser automation, you'll need a Chrome or Chromium instance running in headless mode:
+### Using a Different Runtime
+
+Lab runs FQL with its built-in Ferret core runtime by default. To use optional modules, including browser functionality such as `web::html`, connect to an external runtime that provides them. Lab connects to an already-running service; it does not start that host for you.
+
+| Runtime | Use when | Target |
+| --- | --- | --- |
+| Built-in | Your tests use Ferret core and its standard library. | Omit `--runtime`, or use `builtin`. |
+| HTTP/HTTPS | You have a Ferret service implementing Lab's HTTP protocol. | The service's execution URL. |
+| Wire | You have a host exposing the Universal Ferret API over gRPC. | `wire+tcp://127.0.0.1:<port>`. |
 
 ```bash
-# Start Chrome in headless mode in a separate terminal
-google-chrome --headless --remote-debugging-port=9222
+# Built-in runtime
+lab run tests/
 
-# Run your tests using the default CDP address
-lab run --cdp=http://127.0.0.1:9222 browser-tests/
+# External HTTP runtime
+lab run --runtime=https://ferret.example.com/api tests/
 
-# Or use a custom CDP address
-lab run --cdp=http://localhost:9223 browser-tests/
+# External Wire runtime
+lab run --runtime=wire+tcp://127.0.0.1:50051 tests/
+
+# Check the version reported by an external runtime
+lab version --runtime=wire+tcp://127.0.0.1:50051
 ```
 
-### 📊 Example Output
+Wire accepts IPv4 loopback endpoints only. The host must support Wire's chunked output protocol. For HTTP headers, Wire connection timeouts, host requirements, and execution behavior, see [Remote Ferret Runtime](#-remote-ferret-runtime) and [Runtime Options](#-runtime-options).
+
+### Using Chrome DevTools Protocol
+
+Browser-backed FQL requires an external runtime with the relevant browser module and driver configured. Browser endpoints are resolved from that runtime's environment. Lab has no `--cdp` flag or `LAB_CDP` setting.
+
+After starting the host and browser, you can wait for a browser health endpoint reachable from Lab before running browser tests:
+
+```bash
+lab run \
+  --runtime=wire+tcp://127.0.0.1:50051 \
+  --wait=http://127.0.0.1:9222/json/version \
+  browser-tests/
+```
+
+`--wait` checks readiness; it does not configure browser access. See the [CDP guide](https://www.montferret.dev/docs/tools/lab/cdp/) for runtime-specific configuration and [Remote Ferret Runtime](#-remote-ferret-runtime) for host integration.
+
+### Example Output
+
+Use the simple reporter for line-oriented output:
+
+```bash
+lab run --reporter=simple example.fql
+```
 
 ```text
-$ lab run example.fql
-✓ example.fql (1.23s)
-  └─ Assertions: 1 passed, 0 failed
-
-Tests: 1 passed, 0 failed
-Time:  1.23s
+PASS file="example.fql" duration=1ms attempts=1 times=1
+DONE passed=1 failed=0 duration=2ms
 ```
+
+Paths and durations vary. A failed test produces a `FAIL` line and a nonzero exit status; expected-error tests that meet their expectation produce `PASS`.
 
 ## Test Suites
 
-Lab supports test suites defined in YAML format, enabling more complex scenarios with assertions, parameters, setup, and cleanup steps.
+Lab runs `.fql` units and YAML suites (`.yaml` or `.yml`). Use a unit for ordinary execution with in-query assertions. Use a suite to separate a query from its assertions or require an execution error.
 
-Use a plain `.fql` file for normal successful execution and in-query assertions. Use YAML when the test needs a richer execution-level expectation, such as requiring the query to return an error.
+A suite contains `query` and either `assert` or `expect.error`, with an optional `timeout` in seconds. Each script defines exactly one of `text` or `ref` and may include `params`. Setup and cleanup are resource lifecycle operations; there are no YAML `setup` or `cleanup` script stages.
 
 ### 📋 Basic Test Suite Structure
+
+Save this as `products.yaml`:
 
 ```yaml
 query:
   text: |
-    LET doc = DOCUMENT("https://github.com/", { driver: "cdp" })
+    LET products = [
+      { name: "Keyboard", price: 129 },
+      { name: "USB-C Dock", price: 89 }
+    ]
 
-    HOVER(doc, ".HeaderMenu-details")
-    CLICK(doc, ".HeaderMenu a")
-
-    WAIT_NAVIGATION(doc)
-    WAIT_ELEMENT(doc, '.IconNav')
-
-    FOR el IN ELEMENTS(doc, '.IconNav a')
-        RETURN TRIM(el.innerText)
+    RETURN products[*].name
 
 assert:
-  text: RETURN T::NOT::EMPTY(@lab.data.query.result)
+  text: |
+    LET names = @lab.data.query.result
+    T::LEN(names, 2)
+    RETURN T::CONTAINS(names, "Keyboard")
 ```
 
-Save as `github-test.yaml` and run:
+Run it with the built-in runtime:
 
 ```bash
-lab run github-test.yaml
+lab run products.yaml
 ```
+
+The assertion receives the completed query's JSON result in `@lab.data.query.result` and its effective parameters in `@lab.data.query.params`. If the query fails, the assertion does not run. Assertion return values are discarded; assertions must raise errors to fail the test.
 
 ### Expected Runtime Errors
 
-Use `expect.error` when a query must fail. An empty error object accepts any error returned by the runtime:
+Use `expect.error` when a query must fail. An empty error object accepts an execution error, including a compilation error:
 
 ```yaml
 query:
@@ -371,119 +388,96 @@ expect:
     contains: "division by zero"
 ```
 
-Message matching prevents an unrelated runtime failure from accidentally satisfying the test. Only `contains` is supported inside `expect.error`; unknown fields fail during suite construction instead of falling back to an unqualified error expectation. A suite using `expect.error` must not define `assert`, because the expected query failure produces no result for an assertion script.
+Only `contains` is supported inside `expect.error`; unknown fields fail suite construction. A suite using `expect.error` must not define `assert`. If the query succeeds, the test fails.
 
-The legacy `.fail.fql` filename convention remains supported: it passes when execution returns any error and fails when execution succeeds. It is deprecated; prefer a YAML suite with `expect.error` for new negative tests.
+The legacy `.fail.fql` filename convention accepts execution errors and emits a deprecation warning. Prefer YAML `expect.error` for new negative tests. Output, session, and plan cleanup failures observed by Lab remain failures; they cannot satisfy an expected-error test or be hidden by a later successful retry. Admission errors already combined inside a runtime retain their existing expected-error handling.
 
 ### 🔗 Reference External Scripts
 
-Keep your FQL scripts separate and reference them in test suites.
-
-**navigation.fql:**
+Save a reusable query as `scripts/products.fql`:
 
 ```sql
-LET doc = DOCUMENT(@url, { driver: "cdp" })
-WAIT_ELEMENT(doc, "body")
-RETURN doc.title
+RETURN { category: @category, names: ["Keyboard", "USB-C Dock"] }
 ```
 
-**suite.yaml:**
+Reference it from `suite.yaml` in the parent directory:
 
 ```yaml
 query:
-  ref: ./scripts/navigation.fql
+  ref: ./scripts/products.fql
   params:
-    url: "https://example.com"
-
-assert:
-  text: |
-    RETURN T::NOT::EMPTY(@lab.data.query.result)
-           AND T::CONTAINS(@lab.data.query.result, "Example")
-```
-
-### 🧪 Complex Test Scenarios
-
-```yaml
-name: "E-commerce User Journey"
-description: "Test complete user purchase flow"
-
-setup:
-  text: |
-    LET baseUrl = "https://demo-shop.example.com"
-    RETURN { baseUrl }
-
-query:
-  text: |
-    LET doc = DOCUMENT(@lab.data.setup.result.baseUrl, { driver: "cdp" })
-
-    // Navigate to product
-    CLICK(doc, ".product-item:first-child a")
-    WAIT_NAVIGATION(doc)
-
-    // Add to cart
-    CLICK(doc, ".add-to-cart")
-    WAIT_ELEMENT(doc, ".cart-confirmation")
-
-    // Go to checkout
-    CLICK(doc, ".checkout-btn")
-    WAIT_NAVIGATION(doc)
-
-    RETURN {
-      currentUrl: doc.url,
-      cartItems: LENGTH(ELEMENTS(doc, ".cart-item")),
-      totalPrice: INNER_TEXT(doc, ".total-price")
-    }
+    category: accessories
 
 assert:
   text: |
     LET result = @lab.data.query.result
-    RETURN T::CONTAINS(result.currentUrl, "checkout")
-           AND result.cartItems > 0
-           AND T::NOT::EMPTY(result.totalPrice)
-
-cleanup:
-  text: |
-    // Clear cart or perform cleanup
-    RETURN "Cleanup completed"
+    T::EQ(result.category, "accessories")
+    RETURN T::LEN(result.names, 2)
 ```
 
-### 🎯 Parameterized Tests
+References resolve relative to the suite's source location. Assertion scripts may also use `ref`.
 
-Create reusable test suites with parameters:
+### Complex Test Scenarios
+
+Use several assertions to validate a structured result. This inventory example runs without external services:
+
+```yaml
+timeout: 10
+query:
+  params:
+    inventory:
+      - sku: keyboard
+        stock: 3
+        price: 129
+      - sku: dock
+        stock: 5
+        price: 89
+  text: |
+    RETURN @inventory
+
+assert:
+  text: |
+    LET inventory = @lab.data.query.result
+    T::LEN(inventory, 2)
+
+    FOR product IN inventory
+      T::NOT::EMPTY(product.sku)
+      T::GTE(product.stock, 0)
+      T::GT(product.price, 0)
+      RETURN true
+```
+
+The top-level timeout covers the query and assertion together on each attempt. Arrange any external fixture setup and teardown in your surrounding test environment.
+
+### Parameterized Tests
+
+Save this as `test-suite.yaml`:
 
 ```yaml
 query:
   text: |
-    LET doc = DOCUMENT(@testUrl, {
-      driver: "cdp",
-      timeout: @pageTimeout
-    })
-
-    WAIT_ELEMENT(doc, @selector)
-
-    RETURN {
-      title: doc.title,
-      elementExists: ELEMENT_EXISTS(doc, @selector)
-    }
+    RETURN { name: @productName, stock: @stock }
 
 assert:
   text: |
-    LET result = @lab.data.query.result
-    RETURN result.elementExists == true
+    LET product = @lab.data.query.result
+    T::NOT::EMPTY(product.name)
+    RETURN T::GTE(product.stock, @minStock)
 ```
 
-Run with parameters:
+Quote each complete parameter binding so the shell preserves JSON strings:
 
 ```bash
-lab run --param=testUrl:"https://example.com" \
-    --param=pageTimeout:5000 \
-    --param=selector:"h1" \
-    test-suite.yaml
+lab run \
+  --param='productName:"Keyboard"' \
+  --param='stock:5' \
+  --param='minStock:2' \
+  test-suite.yaml
 ```
 
-Use `--param-bind` when a script should keep a production-oriented parameter
-while Lab supplies its value. The target is a dot-separated user parameter path;
-the source starts with `@` and must already exist when Lab finishes setup:
+Query and assertion `params` override common user parameters independently; assertion parameters do not inherit query-only overrides. Lab system values remain under the reserved `@lab` namespace.
+
+Use `--param-bind` when a script should keep a production-oriented parameter while Lab supplies its value. The target is a dot-separated user parameter path; the source starts with `@` and must already exist when Lab finishes local-service setup:
 
 ```bash
 lab run tests/ \
@@ -491,87 +485,61 @@ lab run tests/ \
   --param-bind config.api.baseUrl=@environment.api.baseUrl
 ```
 
-Bindings preserve the source value's type. Duplicate or overlapping binding
-targets, conflicts with `--param`, malformed paths, and missing sources are
-configuration errors rather than runtime precedence rules. Paths are
-case-sensitive and dot-separated; each segment starts with a letter or
-underscore and may then contain letters, numbers, underscores, or hyphens.
-Bracket expressions are not accepted, and the `lab` target namespace is
-reserved.
+Bindings preserve the source value's type and resolve from one parameter snapshot. Duplicate or overlapping targets, conflicts with `--param`, malformed paths, and missing sources are configuration errors. Paths are case-sensitive; each segment starts with a letter or underscore, followed by letters, numbers, underscores, or hyphens. Bracket expressions and targets in the `lab` namespace are rejected.
 
-### 📊 Data-Driven Testing
+### Data-Driven Testing
 
-Use external data sources for broader test coverage:
+Validate multiple cases in one suite without treating returned booleans as assertions:
 
 ```yaml
 query:
   text: |
-    LET testData = [
-      { url: "https://site1.com", expectedTitle: "Site 1" },
-      { url: "https://site2.com", expectedTitle: "Site 2" }
+    RETURN [
+      { name: "ready status", actual: "ready", expected: "ready" },
+      { name: "queued status", actual: "queued", expected: "queued" }
     ]
-
-    FOR test IN testData
-      LET doc = DOCUMENT(test.url, { driver: "cdp" })
-      WAIT_ELEMENT(doc, "title")
-
-      RETURN {
-        url: test.url,
-        expectedTitle: test.expectedTitle,
-        actualTitle: doc.title,
-        matches: doc.title == test.expectedTitle
-      }
 
 assert:
   text: |
-    FOR result IN @lab.data.query.result
-      FILTER result.matches != true
-      RETURN false
-
-    RETURN true
+    FOR item IN @lab.data.query.result
+      T::EQ(item.actual, item.expected, item.name)
+      RETURN true
 ```
 
 ## Advanced Usage
 
 ### 📁 File Resolution
 
-Lab supports multiple source locations for maximum flexibility.
+Lab reads local files and directories, Git repositories over HTTP/HTTPS, and HTTP/HTTPS source URLs. Directories are traversed recursively; `.fql`, `.yaml`, and `.yml` are supported.
 
 #### Local Files
 
 ```bash
-# Single file
+# Single file or directory
 lab run /path/to/test.fql
-
-# Directory with glob patterns
-lab run "tests/**/*.fql"
 lab run tests/integration/
 
-# Multiple paths
+# Filter files within a directory using a quoted source URL
+lab run 'file://tests?filter=**/*.fql'
+
+# Multiple locations
 lab run --files=tests/unit/ --files=tests/integration/ --files=scripts/smoke.fql
 ```
 
+The `filter` query parameter uses glob matching against full filesystem paths. A quoted shell pattern such as `"tests/**/*.fql"` is not expanded by Lab; use a directory with a filter instead.
+
 #### Git Repositories
 
-Fetch and execute tests directly from Git repositories:
+Use the repository URL with the `git+http` or `git+https` scheme:
 
 ```bash
-# HTTPS Git repository
-lab run git+https://github.com/username/test-repo.git//tests/
-
-# HTTP Git repository
-lab run git+http://git.example.com/tests.git//integration/
-
-# Specific branch or tag
-lab run git+https://github.com/username/tests.git@v1.2.0//suite.yaml
-
-# Private repositories using token-based authentication
-lab run git+https://username:token@github.com/private/repo.git//tests/
+lab run git+https://github.com/username/test-repo.git
+lab run git+http://git.example.com/tests.git
 ```
 
-#### HTTP Sources
+Lab reads supported files from the cloned repository's default HEAD. It does not provide the `repo.git//subdirectory`, `repo.git@revision`, or `git+ssh` URL forms. To use a particular revision or an authenticated checkout, prepare it with Git and run Lab against the resulting local directory.
 
-Download scripts from web URLs:
+#### HTTP Sources
 
 ```bash
 # Direct script URL
@@ -580,6 +548,8 @@ lab run https://raw.githubusercontent.com/user/repo/main/test.fql
 # Multiple HTTP sources
 lab run https://example.com/tests/suite1.yaml https://example.com/tests/suite2.yaml
 ```
+
+These URLs supply test source files. Select an external execution service separately with `--runtime`.
 
 ### 🌐 Static File Serving
 
@@ -610,12 +580,14 @@ FQL script:
 
 ```sql
 LET response = IO::NET::HTTP::GET(@baseUrl + "/products.json")
+RETURN T::NOT::EMPTY(TO_STRING(response))
 ```
 
 Lab resolves the binding after the fixture server has selected its port and before test execution starts. Scripts that deliberately depend on Lab can continue to use `@lab.static.<alias>` directly.
 
 ```sql
 LET response = IO::NET::HTTP::GET(@lab.static.fixtures + "/products.json")
+RETURN T::NOT::EMPTY(TO_STRING(response))
 ```
 
 #### Multiple Static Endpoints
@@ -627,8 +599,9 @@ lab run --policy-http-allow-localhost --serve ./app --serve ./api-mocks tests/
 FQL script:
 
 ```sql
-LET appPage = DOCUMENT(@lab.static.app, { driver: "cdp" })
+LET appPage = IO::NET::HTTP::GET(@lab.static.app + "/index.html")
 LET apiData = IO::NET::HTTP::GET(@lab.static["api-mocks"] + "/users.json")
+RETURN [TO_STRING(appPage), TO_STRING(apiData)]
 ```
 
 #### Custom Static Aliases
@@ -640,8 +613,9 @@ lab run --policy-http-allow-localhost --serve ./frontend@app --serve ./mockdata@
 FQL script:
 
 ```sql
-LET homePage = DOCUMENT(@lab.static.app + "/index.html", { driver: "cdp" })
+LET homePage = IO::NET::HTTP::GET(@lab.static.app + "/index.html")
 LET userData = IO::NET::HTTP::GET(@lab.static.api + "/user/123.json")
+RETURN [TO_STRING(homePage), TO_STRING(userData)]
 ```
 
 #### Advanced Static Server Example
@@ -734,23 +708,16 @@ lab run \
 
 The equivalent environment variables are `LAB_POLICY_FS_ROOT` and `LAB_POLICY_FS_READ_ONLY`.
 
-### 🔄 Remote Ferret Runtime
+### Remote Ferret Runtime
 
-Lab's built-in, HTTP, and Wire adapters implement `api.Runtime` from the Universal Ferret API. Lab uses one-shot `Run` by default. With `--times > 1` or `--attempts > 1`, it automatically reuses successfully compiled plans within each test case when the runtime supports them.
+For basic commands, see [Choose a Runtime](#choose-a-runtime). This section covers adapter protocols and host requirements; [Runtime Options](#-runtime-options) lists configuration values and precedence.
 
-Every invocation uses fresh parameters, sessions, and outputs. Query and assertion plans compile on first use; changed referenced script names or content select a new plan. HTTP transparently falls back to one-shot execution.
-
-Lab closes outputs and sessions after each invocation and all cached plans before reporting the case, without closing the shared runtime. Cleanup failures remain test failures even if a later retry succeeds and cannot satisfy expected-error tests. Go callers using compilation directly own and close their plans and sessions.
-
-Lab can execute tests against remote Ferret instances instead of using the built-in runtime.
+Lab's adapters implement the Universal Ferret API. The command owns the shared runtime, and each test case owns its execution resources through a case-scoped executor. Outputs settle and temporary sessions close on every invocation; cached plans close before the case result is reported. Go callers using compilation directly own and close their plans and sessions.
 
 #### HTTP/HTTPS Runtime
 
 ```bash
-# Connect to remote Ferret service
-lab run --runtime=https://ferret.example.com/api tests/
-
-# With custom headers and path
+# Configure an existing HTTP service
 lab run \
   --runtime=https://ferret.example.com \
   --runtime-option='headers:{"Authorization":"Bearer token123"}' \
@@ -778,11 +745,9 @@ A successful HTTP run returns a one-shot output that streams the response body. 
 
 #### Wire Runtime
 
-Wire exposes the Universal Ferret API over gRPC. The runtime target includes the complete connection endpoint:
+Wire exposes the Universal Ferret API over gRPC. Configure connection setup separately from FQL parameters:
 
 ```bash
-lab run --runtime=wire+tcp://127.0.0.1:50051 tests/
-
 lab run \
   --runtime=wire+tcp://127.0.0.1:50051 \
   --runtime-option='connect-timeout:"10s"' \
@@ -814,13 +779,13 @@ Test against multiple runtime versions:
 
 ```bash
 # Test with built-in runtime
-lab run tests/ > builtin-results.txt
+lab run --reporter=simple tests/ > builtin-results.txt
 
 # Test with remote runtime
-lab run --runtime=https://ferret-v0.17.example.com tests/ > remote-v0.17-results.txt
+lab run --reporter=simple --runtime=https://ferret.example.com/api tests/ > remote-results.txt
 
-# Compare results
-diff builtin-results.txt remote-v0.17-results.txt
+# Review results (paths, durations, and other host-specific details can differ)
+diff builtin-results.txt remote-results.txt
 ```
 
 ### ⚡ Performance Optimization
@@ -841,12 +806,16 @@ lab run --concurrency=4 --timeout=60 large-test-suite/
 # Run each test 3 times for reliability testing
 lab run --times=3 tests/flaky/
 
-# Retry failed tests up to 2 additional times
+# Allow up to three attempts for a failing test
 lab run --attempts=3 tests/
 
 # Add delay between test cycles
 lab run --times=5 --times-interval=10 stress-tests/
 ```
+
+By default, Lab uses one-shot execution. With `--times > 1` or `--attempts > 1`, built-in and Wire execution lazily reuse successful plans within each case and create a fresh session with fresh parameters on every invocation. Changed referenced script names or content select a different plan. Failed compilations are not cached; HTTP remembers unsupported compilation and continues with one-shot execution. All cached plans are released before the case result is reported.
+
+`--times` counts successful executions. The reported attempt counter includes both repetitions and retries; it is not reset between repetitions. The interval applies between invocations and can be interrupted by cancellation.
 
 #### Conditional Execution
 
@@ -854,10 +823,11 @@ lab run --times=5 --times-interval=10 stress-tests/
 # Wait for services to be available before running tests
 lab run \
   --wait=http://127.0.0.1:9222/json/version \
-  --wait=postgres://localhost:5432/testdb \
   --wait-timeout=30 \
   tests/integration/
 ```
+
+Only HTTP/HTTPS readiness checks are registered. `--wait-timeout` is the interval between attempts, in seconds; `--wait-attempts` sets the attempt count.
 
 ## Configuration Reference
 
@@ -869,13 +839,12 @@ These flags apply to `lab run`.
 |------|-------|----------------------|---------|-------------|
 | `--files` | `-f` | `LAB_FILES` | - | Location of FQL script files to run |
 | `--timeout` | `-t` | `LAB_TIMEOUT` | `30` | Test timeout in seconds |
-| `--cdp` | - | `LAB_CDP` | `http://127.0.0.1:9222` | Chrome DevTools Protocol address |
 | `--reporter` | - | `LAB_REPORTER` | `console` | Output reporter: `console`, `simple` |
 | `--runtime` | `-r` | `LAB_RUNTIME` | Built-in | Complete runtime target: `builtin`, HTTP/HTTPS URL, or `wire+tcp://127.0.0.1:<port>` |
 | `--runtime-option` | - | `LAB_RUNTIME_OPTION` | - | Repeatable adapter configuration: `name:<JSON value>` |
 | `--concurrency` | `-c` | `LAB_CONCURRENCY` | `1` | Number of parallel test executions |
-| `--times` | - | `LAB_TIMES` | `1` | Number of times to run each test |
-| `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Number of retry attempts for failed tests |
+| `--times` | - | `LAB_TIMES` | `1` | Number of successful executions required per test |
+| `--attempts` | `-a` | `LAB_ATTEMPTS` | `1` | Maximum attempts for a failing test |
 | `--times-interval` | - | `LAB_TIMES_INTERVAL` | `0` | Interval between test cycles in seconds |
 | `--serve` | - | `LAB_SERVE` | - | Served directory mapping exposed over HTTP |
 | `--mock` | - | `LAB_MOCK` | - | OpenAPI mock API spec exposed over HTTP |
@@ -884,7 +853,7 @@ These flags apply to `lab run`.
 | `--param` | `-p` | `LAB_PARAM` | - | Query parameters for tests |
 | `--param-bind` | - | `LAB_PARAM_BIND` | - | Bind a user parameter path to an existing parameter reference |
 | `--wait` | `-w` | `LAB_WAIT` | - | Wait for resource availability |
-| `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Wait timeout in seconds |
+| `--wait-timeout` | `--wt` | `LAB_WAIT_TIMEOUT` | `5` | Interval between readiness attempts, in seconds |
 | `--wait-attempts` | - | `LAB_WAIT_ATTEMPTS` | `5` | Number of wait attempts |
 | `--policy-fs-root` | - | `LAB_POLICY_FS_ROOT` | Current working directory | Filesystem root for the built-in runtime |
 | `--policy-fs-read-only` | - | `LAB_POLICY_FS_READ_ONLY` | `false` | Make the built-in runtime filesystem read-only |
@@ -926,9 +895,6 @@ export LAB_TIMEOUT=60
 export LAB_CONCURRENCY=4
 export LAB_REPORTER=simple
 
-# CDP configuration
-export LAB_CDP=http://chrome-headless:9222
-
 # Runtime configuration
 export LAB_RUNTIME=https://ferret-api.example.com
 export LAB_RUNTIME_OPTION='headers:{"API-Key":"secret123"}'
@@ -954,7 +920,6 @@ export LAB_ATTEMPTS=3
 # Wait for services
 lab run \
   --wait=http://app:3000/health \
-  --wait=postgres://db:5432/testdb \
   --wait-timeout=60 \
   tests/integration/
 ```
@@ -965,7 +930,6 @@ lab run \
 #!/bin/bash
 # dev-test.sh
 
-export LAB_CDP=http://localhost:9222
 export LAB_TIMEOUT=30
 export LAB_CONCURRENCY=1
 
@@ -1060,7 +1024,7 @@ Lab is built with a modular architecture that separates source resolution, test 
 │ • File System   │───▶│ • Orchestration │───▶│                 │
 │ • Git Repos     │    │ • Parallelism   │    │ • Built-in      │
 │ • HTTP URLs     │    │ • Retry Logic   │    │ • Remote HTTP   │
-└─────────────────┘    │ • Reporting     │    │ • External Bin  │
+└─────────────────┘    │ • Reporting     │    │ • Wire / gRPC   │
                        └─────────────────┘    └─────────────────┘
                                 │
                 ┌───────────────┴───────────────┐
@@ -1076,7 +1040,7 @@ Lab is built with a modular architecture that separates source resolution, test 
 
 ### 📦 Core Components
 
-#### Sources (`sources/`)
+#### Sources (`pkg/sources/`)
 
 Handles fetching test files from various locations:
 
@@ -1085,7 +1049,7 @@ Handles fetching test files from various locations:
 - **HTTP Source** - Download scripts from web URLs
 - **Aggregate Source** - Combine multiple source types
 
-#### Runtime (`runtime/`)
+#### Runtime (`pkg/runtime/`)
 
 Manages Ferret script execution:
 
@@ -1093,16 +1057,16 @@ Manages Ferret script execution:
 - **Remote Runtime** - Communicates with remote Ferret services over HTTP
 - **Wire Runtime** - Uses the hosted Universal Ferret API over gRPC
 
-#### Test Runner (`runner/`)
+#### Test Runner (`pkg/runner/`)
 
 Orchestrates test execution:
 
 - **Parallel Processing** - Manages concurrent test execution
 - **Retry Mechanism** - Handles failed test retries
 - **Resource Management** - Controls timeouts and resource allocation
-- **Lifecycle Management** - Handles setup, execution, assertion, and cleanup phases
+- **Lifecycle Management** - Owns each case executor across repetitions and retries, closing it before reporting the result
 
-#### Static Server (`staticserver/`)
+#### Static Server (`pkg/staticserver/`)
 
 Built-in HTTP server for local static assets:
 
@@ -1110,7 +1074,7 @@ Built-in HTTP server for local static assets:
 - **Dynamic ports** - Allocate free ports automatically
 - **Alias support** - Assign stable names to served directories
 
-#### Mock Server (`mockserver/`)
+#### Mock Server (`pkg/mockserver/`)
 
 OpenAPI-compatible mock REST API server:
 
@@ -1118,7 +1082,7 @@ OpenAPI-compatible mock REST API server:
 - **Template responses** - Render body values and raw templates from request context
 - **Local lifecycle** - Reuses shared local server binding and endpoint management
 
-#### Local Server (`localserver/`)
+#### Local Server (`pkg/localserver/`)
 
 Shared local HTTP server runtime:
 
@@ -1126,32 +1090,32 @@ Shared local HTTP server runtime:
 - **Entry parsing** - Handles path, alias, and port bindings
 - **Lifecycle management** - Starts, stops, and reports endpoint URLs
 
-#### Reporters (`reporters/`)
+#### Reporters (`pkg/reporters/`)
 
 Output formatting and result presentation:
 
 - **Console Reporter** - Rich output for interactive use
 - **Simple Reporter** - Plain text output suitable for CI/CD
 
-#### Testing Framework (`testing/`)
+#### Testing Framework (`pkg/testing/`)
 
 Test suite definition and validation:
 
 - **YAML Parser** - Parse test suite definitions
 - **Parameter Injection** - Handle user/system parameters and setup-time parameter rebinding
-- **Assertion Engine** - Validate test results
+- **Execution Semantics** - Run units, query/assertion suites, and expected-error tests
+- **Case Executor** - Own output settlement, fresh sessions, and optional compiled-plan reuse
 
 ### 🔄 Execution Flow
 
-1. **Input Processing** - Parse command-line arguments and environment variables
-2. **Source Resolution** - Fetch test files from configured sources
-3. **Local Service Initialization** - Start static and mock servers, if configured
-4. **Runtime Setup** - Initialize Ferret runtime, built-in, HTTP remote, or Wire
-5. **Test Discovery** - Find and parse test files and suites
-6. **Parallel Execution** - Run tests according to concurrency settings
-7. **Result Collection** - Gather execution results and timing data
-8. **Reporting** - Format and output results via the selected reporter
-9. **Cleanup** - Stop local servers and release resources
+1. **Input Processing** - Parse locations, parameters, bindings, and runtime options
+2. **Dependency Readiness** - Wait for configured HTTP/HTTPS endpoints
+3. **Runtime Setup** - Initialize the built-in, HTTP, or Wire adapter
+4. **Source Setup** - Construct sources and runner settings
+5. **Local Services** - Start static/mock services, publish URLs, and resolve parameter bindings
+6. **Test Execution** - Discover cases and run units or suite query/assertion scripts with configured concurrency, timeouts, repetitions, and retries
+7. **Reporting** - Present progress results and the final summary
+8. **Cleanup** - Close case executors before their results, then release command-owned services and the runtime
 
 ### 🎯 Design Principles
 
@@ -1167,8 +1131,9 @@ Test suite definition and validation:
 
 **Prerequisites:**
 
-- Go 1.23 or later
+- The Go toolchain specified in [go.mod](go.mod)
 - Git
+- Make for the workflow commands below
 
 **Build Steps:**
 
@@ -1183,8 +1148,8 @@ make install-tools
 # Build the project
 make build
 
-# Or manually
-go build -o bin/lab -ldflags "-X main.version=dev" ./main.go
+# Compile without running vet and tests
+make compile
 ```
 
 **Development Workflow:**
@@ -1201,7 +1166,7 @@ make fmt
 # Lint code
 make lint
 
-# Run all checks
+# Run vet, tests, and compilation (lint and formatting are separate)
 make build
 ```
 
@@ -1212,11 +1177,11 @@ make build
 go test -v ./...
 
 # Run specific package tests
-go test -v ./sources/...
-go test -v ./runtime/...
+go test -v ./pkg/sources/...
+go test -v ./pkg/runtime/...
 
-# Run tests with coverage
-make cover
+# Run tests with coverage locally
+go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 ```
 
 ### 🏗️ Project Structure
@@ -1224,28 +1189,33 @@ make cover
 ```text
 lab/
 ├── main.go              # Application entry point
-├── cmd/                 # CLI command implementations
-├── localserver/         # Shared local HTTP server lifecycle
-├── mockserver/          # OpenAPI-compatible mock API server
-├── staticserver/        # Static file server
-├── reporters/           # Output formatters
-├── runner/              # Test execution orchestration
-├── runtime/             # Ferret runtime implementations
-├── sources/             # Test file source handlers
-├── testing/             # Test suite definitions
+├── cmd/                 # CLI commands, flags, and validation
+├── pkg/
+│   ├── localserver/     # Shared local HTTP server lifecycle
+│   ├── mockserver/      # OpenAPI-compatible mock APIs
+│   ├── staticserver/    # Static file serving
+│   ├── reporters/       # Result presentation
+│   ├── runner/          # Scheduling, repetitions, and retries
+│   ├── runtime/         # Built-in, HTTP, and Wire adapters
+│   ├── sources/         # Test source loading
+│   └── testing/         # Test semantics, parameters, and case executors
+├── internal/testutil/   # Controlled runtime and Wire-host fixtures
+├── docs/development/    # Contributor and subsystem guides
 ├── assets/              # Documentation assets
-├── Dockerfile           # Container build definition
-├── Makefile             # Build automation
-└── README.md            # Project documentation
+├── scripts/             # Build and release support
+├── Dockerfile           # Source-based container build
+├── Dockerfile.release   # Release-binary container build
+├── Makefile             # Development workflow
+└── README.md
 ```
 
 ### 📚 Adding New Features
 
 #### New Source Type
 
-1. Implement the `Source` interface in `sources/`.
-2. Add URL scheme handling in `sources/source.go`.
-3. Add tests in `sources/`.
+1. Implement the `Source` interface in `pkg/sources/`.
+2. Add URL scheme handling in `pkg/sources/source.go`.
+3. Add tests in `pkg/sources/`.
 
 #### New Runtime
 
@@ -1255,8 +1225,8 @@ lab/
 
 #### New Reporter
 
-1. Implement the `Reporter` interface in `reporters/`.
-2. Register the reporter in CLI flags.
+1. Implement the `Reporter` interface in `pkg/reporters/`.
+2. Register it in `pkg/reporters/reporter.go` and update CLI help when user-selectable.
 3. Add output format tests.
 
 ## Best Practices
@@ -1266,20 +1236,21 @@ lab/
 #### Directory Structure
 
 ```text
-tests/
-├── unit/              # Unit tests for individual components
-│   ├── api/
-│   └── ui/
-├── integration/       # Integration tests
-│   ├── user-flows/
-│   └── data-validation/
-├── e2e/               # End-to-end tests
-│   ├── critical-path/
-│   └── smoke/
-├── fixtures/          # Test data and assets
-│   ├── pages/
-│   └── data/
-└── scripts/           # Reusable FQL scripts
+project/
+├── tests/                 # Run with lab run tests/
+│   ├── unit/              # Individual components
+│   │   ├── api/
+│   │   └── ui/
+│   ├── integration/       # Integration tests
+│   │   ├── user-flows/
+│   │   └── data-validation/
+│   ├── e2e/               # End-to-end tests
+│   │   ├── critical-path/
+│   │   └── smoke/
+│   └── fixtures/          # Non-test assets such as JSON and HTML
+│       ├── pages/
+│       └── data/
+└── scripts/               # Referenced FQL helpers, outside test discovery
     ├── common/
     └── helpers/
 ```
@@ -1292,27 +1263,22 @@ tests/
 
 #### Test Suite Best Practices
 
+Keep each suite focused, use explicit assertions, and set a timeout appropriate to the work:
+
 ```yaml
-name: "User Authentication Flow"
-description: "Verify user login, logout, and session management"
-
-setup:
-  text: |
-    // Clear any existing sessions
-    // Set up test data
-
+timeout: 10
 query:
   text: |
-    // Main test logic with clear comments
+    RETURN { status: "ready", items: ["keyboard", "dock"] }
 
 assert:
   text: |
-    // Specific, meaningful assertions
-
-cleanup:
-  text: |
-    // Clean up test data
+    LET result = @lab.data.query.result
+    T::EQ(result.status, "ready", "inventory should be ready")
+    RETURN T::LEN(result.items, 2)
 ```
+
+Keep helper queries outside directories you run as test collections, or select tests with a source filter. Lab discovers supported files recursively, including referenced `.fql` files if they are under the selected directory. Manage external fixture setup and teardown outside the suite manifest.
 
 ### ⚡ Performance Optimization
 
@@ -1332,7 +1298,7 @@ lab run --concurrency=8 tests/
 #### Resource Management
 
 - Use appropriate timeouts for different test types.
-- Implement cleanup in test suites.
+- Manage external fixture setup and teardown in the surrounding test environment.
 - Monitor memory usage with large test suites.
 - Use the static server for shared static assets.
 
@@ -1349,18 +1315,15 @@ lab run --timeout=300 --concurrency=1 tests/extended/
 
 ### 🔒 Security Considerations
 
-- Never commit sensitive data in test files.
-- Use environment variables for credentials.
-- Sanitize test outputs that might contain secrets.
-- Use separate test environments for security testing.
+- Keep credentials out of committed test files.
+- Supply secret parameter bindings through your CI secret store using `LAB_PARAM`.
+- Use JSON-encoded values, such as `apiKey:"..."`, with the same syntax as `--param`.
+- Keep runtime authentication in `LAB_RUNTIME_OPTION` or `--runtime-option`, separate from FQL inputs.
+- Avoid logging secret parameters or sensitive query results.
 
 ```bash
-# Good: use environment variables
-export TEST_API_KEY="your-key-here"
-lab run --param=apiKey:$TEST_API_KEY tests/
-
-# Bad: hardcode secrets in scripts
-# LET apiKey = "secret-key-123"
+# LAB_PARAM and LAB_RUNTIME_OPTION can be injected by your CI secret store.
+lab run --reporter=simple tests/
 ```
 
 ## Troubleshooting
@@ -1369,85 +1332,44 @@ lab run --param=apiKey:$TEST_API_KEY tests/
 
 #### Chrome/CDP Connection Issues
 
-```text
-Error: Failed to connect to CDP at http://127.0.0.1:9222
+Use an external runtime that provides the browser module your scripts require. Configure the browser endpoint in that host's Ferret/module configuration; there is no Lab CDP flag.
+
+Check the browser endpoint from the environment that must reach it:
+
+```bash
+curl http://127.0.0.1:9222/json/version
 ```
 
-**Solutions:**
-
-1. Start Chrome in headless mode:
-
-   ```bash
-   google-chrome --headless --remote-debugging-port=9222 --no-sandbox
-   ```
-
-2. Check if Chrome is running:
-
-   ```bash
-   curl http://127.0.0.1:9222/json/version
-   ```
-
-3. Use a custom CDP address:
-
-   ```bash
-   lab run --cdp=http://localhost:9223 tests/
-   ```
+For an HTTP runtime in a container, `127.0.0.1` in its browser configuration refers to that container. Make Lab fixture URLs reachable from the host with `--serve-bind` and `--serve-host` when needed. See [Using Chrome DevTools Protocol](#-using-chrome-devtools-protocol).
 
 #### Test Timeouts
 
-```text
-Error: Test timed out after 30 seconds
+Increase the per-attempt timeout when the work requires it:
+
+```bash
+lab run --timeout=60 tests/
 ```
 
-**Solutions:**
-
-1. Increase timeout:
-
-   ```bash
-   lab run --timeout=60 tests/
-   ```
-
-2. Optimize test scripts:
-
-   ```sql
-   -- Add explicit waits
-   WAIT_ELEMENT(doc, ".loading", { displayed: false })
-
-   -- Use shorter timeouts for quick checks
-   WAIT_ELEMENT(doc, ".button", { timeout: 5000 })
-   ```
+A suite may set its own top-level `timeout`. Query execution, output consumption, and assertions share that attempt's deadline. For browser-specific waits and timeouts, use the options supported by the module on your external host.
 
 #### Git Source Issues
 
-```text
-Error: Failed to clone repository
+Use a complete repository URL with the `git+http` or `git+https` scheme. Lab does not support `git+ssh`, inline revision selectors, or a `//tests/` suffix.
+
+For private repositories or a chosen revision, prepare a checkout with Git's normal authentication facilities, then run the relevant local directory. Set `TEST_REVISION` to the branch, tag, or commit you need before running these commands:
+
+```bash
+git clone https://github.com/your-org/test-repo.git test-repo
+cd test-repo
+git checkout "${TEST_REVISION}"
+lab run tests/
 ```
 
-**Solutions:**
-
-1. Check repository URL:
-
-   ```bash
-   git clone https://github.com/user/repo.git
-   ```
-
-2. Use token-based authentication for private repositories:
-
-   ```bash
-   lab run git+https://username:token@github.com/private/repo.git//tests/
-   ```
-
-3. Use SSH for private repositories:
-
-   ```bash
-   lab run git+ssh://git@github.com/private/repo.git//tests/
-   ```
+Clone and checkout errors belong to Git; Lab source errors retain the relevant location or filename.
 
 #### Static Server Port Conflicts
 
-```text
-Error: failed to start static file server on port 8080
-```
+If binding a configured port fails with an address-in-use error, choose another port or stop the process already listening there.
 
 **Solutions:**
 
@@ -1460,7 +1382,7 @@ Error: failed to start static file server on port 8080
 2. Check for port conflicts:
 
    ```bash
-   netstat -tlnp | grep :8080
+   lsof -nP -iTCP:8080 -sTCP:LISTEN
    ```
 
 ### 📊 Performance Issues
@@ -1468,7 +1390,7 @@ Error: failed to start static file server on port 8080
 #### High Memory Usage
 
 - Reduce concurrency with `--concurrency=2`.
-- Implement cleanup in tests.
+- Release resources owned by your runtime host and surrounding test environment.
 - Use a separately hosted HTTP or Wire runtime for memory-intensive tests.
 
 #### Slow Test Execution
@@ -1482,14 +1404,13 @@ Error: failed to start static file server on port 8080
 
 #### Verbose Output
 
-```bash
-# Enable detailed logging, if supported by the current build
-export LOG_LEVEL=debug
-lab run tests/
+Use the simple reporter to see file identity, duration, attempt count, and final errors without interactive console formatting:
 
-# Use the simple reporter for cleaner output
+```bash
 lab run --reporter=simple tests/
 ```
+
+There is no Lab `LOG_LEVEL` environment setting. Configure additional execution logging in the selected runtime host when it supports it.
 
 #### Test Individual Scripts
 
@@ -1503,10 +1424,14 @@ lab run --attempts=1 problematic-test.fql
 
 #### Validate Test Syntax
 
+Run a small core-only test to check the local setup:
+
 ```bash
-# Test FQL syntax with Ferret CLI
-ferret -q "RETURN 1"
+printf 'RETURN T::EQ(1 + 1, 2)\n' > check.fql
+lab run check.fql
 ```
+
+Lab compiles and executes the script; it is not a syntax-only checker. When a function is unavailable, verify that the selected runtime includes the required module.
 
 ## Contributing
 

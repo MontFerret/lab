@@ -14,11 +14,13 @@ Runtime adapter details are covered in [Runtime](runtime.md).
 
 Supported source forms include:
 
-- local files, directories, and globs
-- Git repositories and revisions
+- local files and directories, with optional glob filters
+- Git repositories over HTTP/HTTPS at their default HEAD
 - HTTP and HTTPS URLs
 - aggregates of multiple sources
 - a no-op source used where an empty implementation is useful
+
+For a specific Git revision or an authenticated checkout, prepare a local checkout with Git and use it as a filesystem source. The CLI does not implement inline Git revision selectors, `//subdirectory` suffixes, or `git+ssh` sources.
 
 Source identity travels with each file so later errors and results can identify the original path or URL. Aggregate sources preserve the identity of their children.
 

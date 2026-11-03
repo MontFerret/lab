@@ -63,7 +63,7 @@ Both `run` and `version` use shared runtime flag declarations and `runtimeOption
 
 `runtime.Options.Validate` performs the same pure resolution as runtime construction. Run validates before dependency waiting, connects afterward, and preserves the existing per-test execution timeout. Version uses the same target and option handling without executing FQL. HTTP `path` affects execution only, never version URL derivation.
 
-Commands construct `api.Runtime`; test cases supply FQL inputs only through existing parameter facilities and execute one-shot `Run`. Runtime options never supply shared FQL defaults. Names such as `headers`, `path`, and `flags` remain ordinary query inputs when supplied through `--param`. See the README migration table for the intentionally removed interface and defaults layer.
+Commands construct `api.Runtime`; test cases supply FQL inputs through existing parameter facilities and execute through their case-scoped executor. It uses one-shot `Run` by default and reuses compiled plans for repetitions or retries when supported. Runtime options never supply shared FQL defaults. Names such as `headers`, `path`, and `flags` remain ordinary query inputs when supplied through `--param`. See the README migration table for the intentionally removed interface and defaults layer.
 
 `--param-bind <target>=@<source>` adapts an existing parameter to an ordinary user parameter path. Binding declarations are validated before external setup where possible. Sources are resolved only after dynamic Lab values are available, and all sources use the same pre-binding snapshot so declaration order cannot create binding chains. Targets may be nested but cannot use the reserved `lab` namespace or overlap another binding or `--param` target.
 
