@@ -48,7 +48,7 @@ func TestUnitUsesCanonicalOneShotSourceAndIsolatedParameters(t *testing.T) {
 			return &apiruntime.Output{}, nil
 		},
 		CompileFunc: func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error) {
-			t.Fatal("Lab must use one-shot Run")
+			t.Fatal("default execution must use one-shot Run")
 
 			return nil, nil
 		},
@@ -58,7 +58,7 @@ func TestUnitUsesCanonicalOneShotSourceAndIsolatedParameters(t *testing.T) {
 			return nil, nil
 		},
 	}
-	if err := unit.Run(t.Context(), rt, params); err != nil || calls != 1 || !reflect.DeepEqual(params.ToMap(), original) {
+	if err := unit.Run(t.Context(), newOneShotExecutor(t, rt), params); err != nil || calls != 1 || !reflect.DeepEqual(params.ToMap(), original) {
 		t.Fatalf("unit result/parameter isolation: %v calls=%d %#v", err, calls, params.ToMap())
 	}
 }
@@ -118,7 +118,7 @@ func TestSuiteCanonicalOutputContract(t *testing.T) {
 					return &apiruntime.Output{}, nil
 				},
 				CompileFunc: func(context.Context, api.Source, ...api.PlanOption) (api.Plan, error) {
-					t.Fatal("suite must use Run")
+					t.Fatal("default suite execution must use Run")
 
 					return nil, nil
 				},
@@ -128,7 +128,7 @@ func TestSuiteCanonicalOutputContract(t *testing.T) {
 					return nil, nil
 				},
 			}
-			err = suite.Run(t.Context(), rt, params.Clone())
+			err = suite.Run(t.Context(), newOneShotExecutor(t, rt), params.Clone())
 			if (tc.err == nil && err != nil) || (tc.err != nil && !errors.Is(err, tc.err)) || calls != tc.wantCalls || params.ToMap()["value"] != "user" {
 				t.Fatalf("suite result: %v calls=%d %#v", err, calls, params.ToMap())
 			}
@@ -152,7 +152,7 @@ func TestTestCasesPreserveCancellation(t *testing.T) {
 			rt := &apiruntime.Runtime{RunFunc: func(ctx context.Context, _ api.Source, _ ...api.SessionOption) (api.Output, error) {
 				return nil, ctx.Err()
 			}}
-			if err := testCase.Run(ctx, rt, labtesting.NewParams()); !errors.Is(err, context.Canceled) {
+			if err := testCase.Run(ctx, newOneShotExecutor(t, rt), labtesting.NewParams()); !errors.Is(err, context.Canceled) {
 				t.Fatalf("lost cancellation: %v", err)
 			}
 		})
@@ -179,7 +179,7 @@ func TestCasesCloseOutputWhenConsumptionIsRejected(t *testing.T) {
 
 				return &apiruntime.Output{CloseFunc: func() error { closed++; return closeErr }}, nil
 			}}
-			err = testCase.Run(ctx, rt, labtesting.NewParams())
+			err = testCase.Run(ctx, newOneShotExecutor(t, rt), labtesting.NewParams())
 			if !errors.Is(err, context.Canceled) || !errors.Is(err, closeErr) || closed != 1 {
 				t.Fatalf("canceled before consumption: err=%v, closes=%d", err, closed)
 			}

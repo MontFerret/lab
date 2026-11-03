@@ -38,15 +38,17 @@ Command behavior and lifecycle are described in [CLI](cli.md).
 ### Test execution
 
 - `pkg/sources` discovers content from local files, directories, globs, Git repositories, HTTP URLs, and aggregates.
-- `pkg/testing` represents direct FQL tests and YAML query/assertion suites, manages user and Lab parameters, and executes test-level validation.
-- `pkg/runner` schedules source files, clones per-test parameters, applies concurrency, retries, repeated runs, intervals, timeouts, and cancellation, and produces progress and summary streams.
+- `pkg/testing` represents direct FQL tests and YAML query/assertion suites, manages user and Lab parameters, and executes test-level validation. Its case-scoped executor owns output settlement, fresh invocation sessions, and optional compiled-plan reuse.
+- `pkg/runner` schedules source files, clones per-test parameters, applies concurrency, retries, repeated runs, intervals, timeouts, and cancellation, and produces progress and summary streams. It owns one executor per scheduled case and closes it before publishing the final result.
 - `pkg/reporters` consumes runner streams and presents results without controlling execution.
 
 These stages are described in [Test execution](test-execution.md).
 
 ### Runtime adapters
 
-`pkg/runtime` is the only Lab package that executes FQL. It selects and configures the embedded Ferret runtime, the remote HTTP adapter, or the Wire/UAPI adapter over gRPC. It returns `api.Runtime` directly. Test cases and runner options use that Universal API contract; Lab execution calls one-shot `Run` with `api.Source` and session parameters. Built-in and Wire expose caller-owned compilation, while HTTP rejects it. Lab passes source content and parameters through these contracts without taking ownership of FQL semantics.
+`pkg/runtime` is the only Lab package that executes FQL. It selects and configures the embedded Ferret runtime, the remote HTTP adapter, or the Wire/UAPI adapter over gRPC. It returns `api.Runtime` directly.
+
+Runner options use that Universal API contract. Test cases use an executor that calls one-shot `Run` by default and lazily reuses successful compiled plans for repetitions or retries. Plans are keyed by exact source name and content and remain scoped to their case; sessions and outputs are never shared between invocations. Built-in and Wire support compilation; HTTP reports an unsupported capability, which the executor remembers and handles through one-shot fallback. Lab passes source content and parameters through these contracts without taking ownership of FQL semantics.
 
 Adapter behavior is described in [Runtime](runtime.md).
 

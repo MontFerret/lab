@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/MontFerret/api"
-	sources2 "github.com/MontFerret/lab/v2/pkg/sources"
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	labsrc "github.com/MontFerret/lab/v2/pkg/sources"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 type (
@@ -75,7 +75,7 @@ func New(opts Options) (*Runner, error) {
 	}, nil
 }
 
-func (r *Runner) Run(ctx Context, src sources2.Source) Stream {
+func (r *Runner) Run(ctx Context, src labsrc.Source) Stream {
 	onProgress := make(chan Result)
 	onSummary := make(chan Summary)
 
@@ -113,7 +113,7 @@ func (r *Runner) Run(ctx Context, src sources2.Source) Stream {
 	}
 }
 
-func (r *Runner) consume(ctx Context, onNext <-chan sources2.File, onError <-chan sources2.Error) <-chan Result {
+func (r *Runner) consume(ctx Context, onNext <-chan labsrc.File, onError <-chan labsrc.Error) <-chan Result {
 	out := make(chan Result)
 
 	go func() {
@@ -172,8 +172,8 @@ func (r *Runner) consume(ctx Context, onNext <-chan sources2.File, onError <-cha
 	return out
 }
 
-func (r *Runner) runCase(ctx context.Context, file sources2.File, params testing2.Params) Result {
-	testCase, err := testing2.New(testing2.Options{
+func (r *Runner) runCase(ctx context.Context, file labsrc.File, params labtesting.Params) (result Result) {
+	testCase, err := labtesting.New(labtesting.Options{
 		File:    file,
 		Timeout: r.testTimeout,
 	})
@@ -186,6 +186,9 @@ func (r *Runner) runCase(ctx context.Context, file sources2.File, params testing
 			Error:    err,
 		}
 	}
+
+	executor := labtesting.NewExecutor(r.runtime, r.testCount > 1 || r.testAttempts > 1)
+	defer func() { result.Error = errors.Join(result.Error, executor.Close()) }()
 
 	var warning string
 
@@ -221,7 +224,7 @@ loop:
 		attemptCounter++
 		currentStart := time.Now()
 
-		err = testCase.Run(ctx, r.runtime, params)
+		err = testCase.Run(ctx, executor, params.Clone())
 
 		totalDuration += time.Since(currentStart).Nanoseconds()
 

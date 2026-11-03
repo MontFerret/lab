@@ -736,7 +736,11 @@ The equivalent environment variables are `LAB_POLICY_FS_ROOT` and `LAB_POLICY_FS
 
 ### 🔄 Remote Ferret Runtime
 
-Lab's built-in, HTTP, and Wire adapters implement `api.Runtime` from the Universal Ferret API. The runner uses one-shot `Run` for every unit, query, and assertion. Built-in and Wire also expose compilation to Go callers who own and close their plans and sessions.
+Lab's built-in, HTTP, and Wire adapters implement `api.Runtime` from the Universal Ferret API. Lab uses one-shot `Run` by default. With `--times > 1` or `--attempts > 1`, it automatically reuses successfully compiled plans within each test case when the runtime supports them.
+
+Every invocation uses fresh parameters, sessions, and outputs. Query and assertion plans compile on first use; changed referenced script names or content select a new plan. HTTP transparently falls back to one-shot execution.
+
+Lab closes outputs and sessions after each invocation and all cached plans before reporting the case, without closing the shared runtime. Cleanup failures remain test failures even if a later retry succeeds and cannot satisfy expected-error tests. Go callers using compilation directly own and close their plans and sessions.
 
 Lab can execute tests against remote Ferret instances instead of using the built-in runtime.
 
@@ -798,7 +802,7 @@ Start a Wire host separately. The target must be `wire+tcp://127.0.0.1:<port>` w
 
 The `connect-timeout` runtime option defaults to `"5s"` and must be a positive duration string. It bounds connection and handshake setup; `--timeout` continues to bound each test. Both `run` and `version` accept the same runtime target and options.
 
-Lab preserves source identity/content and uses Wire's one-shot `Runtime.Run`. The host must support chunked output framing (Wire `v1.0.0-alpha.3`). Lab consumes each output before marking an attempt complete, so a terminal failure after the first chunk still fails the attempt. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
+Lab preserves source identity/content, uses Wire's one-shot `Runtime.Run` by default, and reuses compiled plans for repetitions or retries. Compiled sessions receive the same nested YAML parameter conversion and validation as one-shot execution. The host must support chunked output framing (Wire `v1.0.0-alpha.3`). Lab consumes each output before marking an attempt complete, so a terminal failure after the first chunk still fails the attempt. `lab version` reports the hosted `api.Runtime.Version` exactly, captured during the handshake.
 
 Lab owns the gRPC transport and closes the logical Wire runtime before that transport. Setup failures also release the transport. Transport loss requires a new Lab invocation; the adapter does not redial or switch runtimes.
 

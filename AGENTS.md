@@ -22,7 +22,7 @@ CLI -> sources -> testing -> runner -> runtime adapter -> Ferret -> reporter
 Keep these boundaries intact:
 
 - Lab coordinates execution; Ferret owns FQL syntax, compilation, VM execution, and runtime value semantics.
-- The built-in runtime owns Ferret through `uapi.New`. Adapters, commands, runner options, and test cases use `api.Runtime` directly; Lab execution remains one-shot `Run`. Remote HTTP and Wire runtimes remain explicit integration adapters.
+- The built-in runtime owns Ferret through `uapi.New`. Adapters, commands, and runner options use `api.Runtime` directly. Test cases use a case-scoped executor: one-shot `Run` by default, with lazy compiled-plan reuse for repetitions or retries when supported. The runner owns executor lifetime; executors borrow the runtime and own cached plans and fresh per-invocation sessions. HTTP falls back to one-shot execution. Remote HTTP and Wire runtimes remain explicit integration adapters.
 - User parameters and Lab system parameters stay isolated until materialized for Ferret. Lab system values remain under `@lab`, including `@lab.static` and `@lab.mock`.
 - Owned resources must be released on normal return, error, timeout, and cancellation. Cleanup must remain safe after partial startup.
 - Sources preserve useful identity and error context. Reporters observe runner output and do not control execution semantics.

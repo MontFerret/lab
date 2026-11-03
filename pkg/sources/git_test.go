@@ -19,7 +19,7 @@ import (
 
 	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 type MockFile struct {
@@ -447,14 +447,16 @@ assert:
 						return &apiruntime.Output{Data: []byte{}}, nil
 					}}
 
-					s, err := testing2.NewSuite(testing2.Options{
+					s, err := labtesting.NewSuite(labtesting.Options{
 						File:    f,
 						Timeout: time.Second,
 					})
 
 					So(err, ShouldBeNil)
 
-					err = s.Run(context.Background(), rt, testing2.NewParams())
+					executor := labtesting.NewExecutor(rt, false)
+					err = s.Run(context.Background(), executor, labtesting.NewParams())
+					So(executor.Close(), ShouldBeNil)
 					So(err, ShouldBeNil)
 				}
 			})

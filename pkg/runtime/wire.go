@@ -98,27 +98,25 @@ func (rt *wireRuntime) Run(ctx context.Context, src api.Source, opts ...api.Sess
 		return nil, err
 	}
 
-	setters := make([]api.SessionOption, len(opts))
-
-	for index, option := range opts {
-		if option == nil {
-			continue
-		}
-
-		setters[index] = func(target api.SessionOptions) error {
-			return option(&wireSessionOptions{SessionOptions: target})
-		}
-	}
-
-	return rt.remote.Run(ctx, src, setters...)
+	return rt.remote.Run(ctx, src, wireSessionSetters(opts)...)
 }
 
 func (rt *wireRuntime) Compile(ctx context.Context, src api.Source, opts ...api.PlanOption) (api.Plan, error) {
-	return rt.remote.Compile(ctx, src, opts...)
+	plan, err := rt.remote.Compile(ctx, src, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &wirePlan{Plan: plan}, nil
 }
 
 func (rt *wireRuntime) CompileDebug(ctx context.Context, src api.Source, opts ...api.PlanOption) (api.Plan, error) {
-	return rt.remote.CompileDebug(ctx, src, opts...)
+	plan, err := rt.remote.CompileDebug(ctx, src, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &wirePlan{Plan: plan}, nil
 }
 
 func (rt *wireRuntime) Close() error {

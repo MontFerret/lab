@@ -6,11 +6,11 @@ Lab does not own FQL semantics. Adapters pass source identity, query content, an
 
 ## Common contract
 
-Lab uses the Universal API's `api.Runtime` directly in construction, commands, runner options, and test cases. There is no Lab-owned runtime interface. Adapters implement `Version`, one-shot `Run`, `Compile`, `CompileDebug`, and `Close` with canonical sources, session options, and outputs.
+Lab uses the Universal API's `api.Runtime` directly in construction, commands, and runner options. Test cases use the execution-only `testing.Executor` contract. There is no Lab-owned runtime interface. Adapters implement `Version`, one-shot `Run`, `Compile`, `CompileDebug`, and `Close` with canonical sources, session options, and outputs.
 
-Test cases call one-shot `Run` with the source and materialized parameters. An admission error returns no handle. Once admitted, the caller owns the `api.Output` and keeps the invocation context alive through consumption. Units, assertions, and expected-error queries discard chunks using `Consume`. Suite queries use `Collect`, check its terminal error, and decode completed `Content.Data` as JSON regardless of content type. Absent and empty content both map to a nil suite result. `Close` abandons unread output and releases a handle when cancellation prevents consumption from starting.
+The case executor calls one-shot `Run` with the source and materialized parameters by default. For repetitions or retries it lazily compiles each distinct source name/content pair and opens a fresh session per invocation. Unsupported compilation selects remembered one-shot fallback for that executor; syntax, transport, and cancellation errors propagate. An admission error returns no handle. Once admitted, the caller owns the `api.Output` and keeps the invocation context alive through consumption. Units, assertions, and expected-error queries discard chunks using `Consume`. Suite queries use `Collect`, check its terminal error, and decode completed `Content.Data` as JSON regardless of content type. Absent and empty content both map to a nil suite result. `Close` abandons unread output and releases a handle when cancellation prevents consumption from starting.
 
-Callers using compilation directly own their plans and sessions and must close them before the runtime. Lab does not manage reusable plans or sessions.
+The runner owns one executor per case. The executor settles each output, closes its session, and retains successful plans until case completion. It closes plans in reverse acquisition order before the runner reports the result. Cleanup errors cannot satisfy expected failures and remain observable even after a later successful retry. The shared runtime is owned and closed by the command after cases finish. Direct Go callers likewise own their plans and sessions and close them before the runtime.
 
 `New(ctx, opts)` uses the caller context to bound Wire transport establishment and handshake. It does not retain that context for execution.
 
@@ -66,11 +66,11 @@ Wire exposes the Universal Ferret API over gRPC. Lab selects it with `--runtime=
 
 The `connect-timeout` adapter option is a positive duration string and defaults to `"5s"`. It bounds connection and handshake only; the existing test timeout remains separate. The caller context can impose an earlier cancellation or deadline. Lab closes the transport to unblock stalled stream creation as well as failed handshakes. Canceling the construction context after success does not cancel later executions.
 
-Lab execution uses UAPI's one-shot `Runtime.Run`: source name, exact content, and invocation parameters are passed unchanged. String-keyed nested YAML objects are converted to Wire's portable map shape; binary and numeric values retain their types. Inputs are not mutated. `headers`, `cookies`, `path`, and `flags` remain ordinary per-test FQL parameter names; adapter options are never injected into them.
+Lab uses UAPI's one-shot `Runtime.Run` by default and compiled plans with fresh sessions for repetitions or retries. Source name, exact content, and invocation parameters are preserved. String-keyed nested YAML objects are converted to Wire's portable map shape; binary and numeric values retain their types. Inputs are not mutated. `headers`, `cookies`, `path`, and `flags` remain ordinary per-test FQL parameter names; adapter options are never injected into them.
 
 The host must support chunked output framing as provided by Wire `v1.0.0-alpha.3`. Wire checks framing compatibility during Connect. The adapter forwards the remote one-shot output handle to the caller. Consumption observes terminal execution, delivery, and cleanup errors. A parameter-setter adapter preserves nested YAML conversion while forwarding filesystem and output settings. Non-nil callbacks run once in order and their errors are joined.
 
-`Compile` and `CompileDebug` forward directly to the hosted runtime. Compiled plans and their sessions retain the host's UAPI contract without Lab wrappers. Version reporting returns the hosted `api.Runtime.Version(ctx)` exactly; Wire captures that value during Connect, so version reads do not require another RPC.
+`Compile` and `CompileDebug` compile through the hosted runtime. A thin plan wrapper applies the same session-option normalization to `NewSession` and `NewDebugSession` as one-shot `Run`, preserving callbacks, overrides, validation, and input isolation. Plan metadata and closure delegate to the underlying plan. Version reporting returns the hosted `api.Runtime.Version(ctx)` exactly; Wire captures that value during Connect, so version reads do not require another RPC.
 
 Lab owns the gRPC client transport it creates. Wire borrows it and owns the logical connection. After all runs settle, the adapter closes the logical runtime before the transport, retains both cleanup errors, and supports repeated/concurrent close calls. A lost physical connection is terminal for that adapter; it does not redial or select another runtime. The server owns its hosted runtime and configuration.
 
@@ -78,7 +78,7 @@ Filesystem and outbound HTTP execution policies and unsupported adapter options 
 
 ## Test support
 
-Transport-independent controlled runtimes and option-capture fixtures live in `internal/testutil/apiruntime`. They implement UAPI directly and reject unexpected compilation by default. `internal/testutil/wirehost` owns only the real loopback server and connection observations. Production adapters do not include a function-backed test shim.
+Transport-independent controlled runtimes and option-capture fixtures live in `internal/testutil/apiruntime`. They implement UAPI directly, provide controlled plans and sessions, and reject unexpected compilation by default. `internal/testutil/wirehost` owns only the real loopback server and connection observations. Production adapters do not include a function-backed test shim.
 
 ## Policy boundaries
 

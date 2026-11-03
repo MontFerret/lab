@@ -26,10 +26,11 @@ func BenchmarkSuiteRun(b *testing.B) {
 
 	params := labtesting.NewParams()
 	params.SetUserValue("value", 42)
+	executor := newOneShotExecutor(b, rt)
 	b.ReportAllocs()
 
 	for b.Loop() {
-		if err := suite.Run(b.Context(), rt, params.Clone()); err != nil {
+		if err := suite.Run(b.Context(), executor, params.Clone()); err != nil {
 			b.Fatal(err)
 		}
 	}

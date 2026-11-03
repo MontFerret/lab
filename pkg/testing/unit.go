@@ -21,11 +21,14 @@ func NewUnit(opts Options) (*Unit, error) {
 	return &Unit{file: opts.File, timeout: opts.Timeout}, nil
 }
 
-func (unit *Unit) Run(ctx context.Context, rt api.Runtime, params Params) error {
+func (unit *Unit) Run(ctx context.Context, executor Executor, params Params) error {
 	ctx, cancel := context.WithTimeout(ctx, unit.timeout)
 	defer cancel()
 
-	err := runForEffect(ctx, rt, api.NewSource(unit.file.Name, string(unit.file.Content)), params.ToMap())
+	err := executor.Consume(ctx, api.NewSource(unit.file.Name, string(unit.file.Content)), api.WithParams(params.ToMap()))
+	if hasCleanupFailure(err) {
+		return err
+	}
 
 	if unit.mustFail() {
 		if err != nil {

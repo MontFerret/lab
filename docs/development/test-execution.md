@@ -30,11 +30,19 @@ New source types implement the existing source contract and are registered in th
 
 ## Test cases and suites
 
-`pkg/testing` converts a source file into an executable Lab test case. Direct FQL files execute as units. YAML suite files define a query followed by either an assertion or a structured `expect.error` runtime-error expectation. Query and assertion scripts may be inline FQL or referenced scripts. Cases accept `api.Runtime` directly and preserve each script's identity and content in `api.Source`. They pass materialized values through `api.WithParams` and use one-shot `Run`, leaving temporary plans and sessions to the runtime. Test cases settle each output within the test deadline before the runner counts or retries the attempt. Units and assertions consume and discard chunks. Suites collect query output, check for terminal errors, then decode the detached bytes as JSON regardless of content type. Absent and empty content yield a nil result. A failed query skips the assertion even if it delivered valid JSON.
+`pkg/testing` converts a source file into an executable Lab test case. Direct FQL files execute as units. YAML suite files define a query followed by either an assertion or a structured `expect.error` runtime-error expectation. Query and assertion scripts may be inline FQL or referenced scripts.
+
+Cases accept the `Executor` contract and preserve each script's identity and content in `api.Source`. They pass materialized values through `api.WithParams`.
+
+A case-scoped executor uses one-shot `Runtime.Run` by default. When `--times > 1` or `--attempts > 1`, it compiles scripts lazily and caches successful plans by exact source name and content. Every invocation opens a fresh session with current parameters. Failed compilations are not cached; referenced scripts are resolved on every attempt, and changed names or content select another plan. Compilation matching `errors.ErrUnsupported` switches that executor to one-shot execution, including for HTTP. Other compilation failures propagate. Compilation, execution, and output settlement share the test deadline.
+
+Units and assertions consume and discard chunks. Suites collect query output, check for terminal errors, then decode the detached bytes as JSON regardless of content type. Absent and empty content yield a nil result. A failed query skips the assertion even if it delivered valid JSON.
 
 An empty `expect.error` object accepts either an admission error from the runtime or a terminal error from consuming the query output. Its optional `contains` field performs a substring match against the error message. Unknown fields inside `expect.error` fail during suite construction rather than degrading to an unqualified error expectation. Expected-error suites do not deserialize query output or resolve and run an assertion, and combining `assert` with `expect.error` is invalid.
 
-The `.fail.fql` expected-failure convention remains supported for compatibility but is deprecated. Its execution semantics stay unchanged, and the test case exposes a deprecation warning that the runner carries once per file result for reporters to present.
+The executor settles output before closing its session. Cleanup failures remain observable, cannot satisfy expected-error tests, and remain in the final case result even if a later retry succeeds. It releases cached plans in reverse acquisition order when the case ends, including after failure or cancellation, without closing the borrowed runtime. UAPI admission errors may already contain opaque upstream cleanup failures; Lab preserves their existing expected-error handling.
+
+The `.fail.fql` expected-failure convention remains supported for compatibility but is deprecated. It accepts execution failures, including compilation failures, while resource cleanup failures still fail the case. The test case exposes a deprecation warning that the runner carries once per file result for reporters to present.
 
 Lab owns the test-language lifecycle around FQL; Ferret owns the meaning of the FQL itself. Changes to syntax, compilation, runtime values, or VM behavior belong in Ferret rather than `pkg/testing`.
 
@@ -74,7 +82,7 @@ Parameter serialization for a particular runtime remains owned by `pkg/runtime`.
 - cancellation and worker shutdown
 - progress results and final summary calculation
 
-Runner settings normalize zero values to the established defaults. A source file receives a cloned parameter set before work is scheduled.
+Runner settings normalize zero values to the established defaults. A source file receives a cloned parameter set before work is scheduled, and every attempt gets another clone. One executor survives all repetitions and retries of that case. The runner closes it before publishing the final result; cleanup errors are retained while the normal retry schedule continues.
 
 Each scheduled file becomes one progress result containing its identity, attempts, successful run count, duration, and final error. Source errors also become progress results so reporters can present them consistently. The summary counts passed and failed results and records total wall-clock duration.
 

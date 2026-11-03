@@ -112,6 +112,10 @@ func (manifest ScriptManifest) runtimeParams(params Params) map[string]any {
 }
 
 func (manifest ErrorExpectationManifest) evaluate(actual error) error {
+	if hasCleanupFailure(actual) {
+		return actual
+	}
+
 	if actual == nil {
 		return errors.New("expected query to fail, but it completed successfully")
 	}

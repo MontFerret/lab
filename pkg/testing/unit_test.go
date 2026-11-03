@@ -3,16 +3,16 @@ package testing_test
 import (
 	"context"
 	"errors"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	"github.com/MontFerret/api"
 	"github.com/MontFerret/lab/v2/internal/testutil/apiruntime"
 	"github.com/MontFerret/lab/v2/pkg/sources"
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
-func TestUnitExpectedFailureCompatibility(t *stdtesting.T) {
+func TestUnitExpectedFailureCompatibility(t *testing.T) {
 	tests := []struct {
 		name       string
 		filename   string
@@ -36,8 +36,8 @@ func TestUnitExpectedFailureCompatibility(t *stdtesting.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *stdtesting.T) {
-			testCase, err := testing2.New(testing2.Options{
+		t.Run(test.name, func(t *testing.T) {
+			testCase, err := labtesting.New(labtesting.Options{
 				File: sources.File{
 					Name:    test.filename,
 					Content: []byte("RETURN 1"),
@@ -52,7 +52,7 @@ func TestUnitExpectedFailureCompatibility(t *stdtesting.T) {
 				return &apiruntime.Output{Data: []byte(`1`), Err: test.runtimeErr}, nil
 			}}
 
-			err = testCase.Run(context.Background(), rt, testing2.NewParams())
+			err = testCase.Run(context.Background(), newOneShotExecutor(t, rt), labtesting.NewParams())
 			if test.wantErr == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}

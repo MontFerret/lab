@@ -54,7 +54,7 @@ func NewSuite(opts Options) (*Suite, error) {
 	}, nil
 }
 
-func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) error {
+func (suite *Suite) Run(ctx context.Context, executor Executor, params Params) error {
 	ctx, cancel := context.WithTimeout(ctx, suite.timeout)
 	defer cancel()
 
@@ -64,7 +64,7 @@ func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) erro
 	}
 
 	if expectedError := suite.manifest.Expect.Error; expectedError != nil {
-		err := runForEffect(ctx, rt, query, suite.manifest.Query.runtimeParams(params.Clone()))
+		err := executor.Consume(ctx, query, api.WithParams(suite.manifest.Query.runtimeParams(params.Clone())))
 
 		return expectedError.evaluate(err)
 	}
@@ -76,14 +76,9 @@ func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) erro
 
 	queryParams := suite.manifest.Query.runtimeParams(params.Clone())
 
-	out, err := rt.Run(ctx, query, api.WithParams(queryParams))
+	content, err := executor.Collect(ctx, query, api.WithParams(queryParams))
 	if err != nil {
 		return fmt.Errorf("failed to execute query script: %w", err)
-	}
-
-	content, err := out.Collect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to execute query script: %w", settleFailedOutput(out, err))
 	}
 
 	outVal, err := suite.deserializeQueryOutput(content)
@@ -98,7 +93,7 @@ func (suite *Suite) Run(ctx context.Context, rt api.Runtime, params Params) erro
 		},
 	})
 
-	return runForEffect(ctx, rt, assertion, suite.manifest.Assert.runtimeParams(params))
+	return executor.Consume(ctx, assertion, api.WithParams(suite.manifest.Assert.runtimeParams(params)))
 }
 
 func (suite *Suite) resolveScript(ctx context.Context, scriptType string, manifest ScriptManifest) (api.Source, error) {
