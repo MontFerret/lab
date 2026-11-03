@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	testing2 "github.com/MontFerret/lab/v2/pkg/testing"
+	labtesting "github.com/MontFerret/lab/v2/pkg/testing"
 )
 
 func TestParseParamPath(t *testing.T) {
@@ -18,7 +18,7 @@ func TestParseParamPath(t *testing.T) {
 
 	for _, value := range valid {
 		t.Run(value, func(t *testing.T) {
-			path, err := testing2.ParseParamPath(value)
+			path, err := labtesting.ParseParamPath(value)
 			if err != nil {
 				t.Fatalf("expected valid path, got %v", err)
 			}
@@ -35,7 +35,7 @@ func TestParseParamPathRejectsMalformedPaths(t *testing.T) {
 
 	for _, value := range invalid {
 		t.Run(value, func(t *testing.T) {
-			if _, err := testing2.ParseParamPath(value); err == nil {
+			if _, err := labtesting.ParseParamPath(value); err == nil {
 				t.Fatalf("expected %q to be rejected", value)
 			}
 		})
@@ -43,7 +43,7 @@ func TestParseParamPathRejectsMalformedPaths(t *testing.T) {
 }
 
 func TestParamPathOverlaps(t *testing.T) {
-	var empty testing2.ParamPath
+	var empty labtesting.ParamPath
 	config := mustParamPath(t, "config")
 	api := mustParamPath(t, "config.api")
 	baseURL := mustParamPath(t, "config.api.baseUrl")
@@ -63,7 +63,7 @@ func TestParamPathOverlaps(t *testing.T) {
 }
 
 func TestParamsApplyBindings(t *testing.T) {
-	params := testing2.NewParams()
+	params := labtesting.NewParams()
 	params.SetUserValues(map[string]any{
 		"endpoint": "https://example.test",
 		"payload": map[string]any{
@@ -76,7 +76,7 @@ func TestParamsApplyBindings(t *testing.T) {
 		"fixtures": "http://127.0.0.1:43123",
 	})
 
-	err := params.ApplyBindings([]testing2.ParamBinding{
+	err := params.ApplyBindings([]labtesting.ParamBinding{
 		newParamBinding(t, "baseUrl", "lab.static.fixtures"),
 		newParamBinding(t, "config.api.url", "endpoint"),
 		newParamBinding(t, "config.api.payload", "payload"),
@@ -120,10 +120,10 @@ func TestParamsApplyBindings(t *testing.T) {
 }
 
 func TestParamsApplyBindingsUsesOneSnapshotAndIsAtomic(t *testing.T) {
-	params := testing2.NewParams()
+	params := labtesting.NewParams()
 	params.SetUserValue("source", true)
 
-	err := params.ApplyBindings([]testing2.ParamBinding{
+	err := params.ApplyBindings([]labtesting.ParamBinding{
 		newParamBinding(t, "first", "source"),
 		newParamBinding(t, "second", "first"),
 	})
@@ -142,9 +142,9 @@ func TestParamsApplyBindingsUsesOneSnapshotAndIsAtomic(t *testing.T) {
 }
 
 func TestParamsApplyBindingsRejectsMissingSource(t *testing.T) {
-	params := testing2.NewParams()
+	params := labtesting.NewParams()
 
-	err := params.ApplyBindings([]testing2.ParamBinding{
+	err := params.ApplyBindings([]labtesting.ParamBinding{
 		newParamBinding(t, "baseUrl", "lab.static.missing"),
 	})
 	if err == nil || err.Error() != `parameter binding target "baseUrl": source "@lab.static.missing" does not exist` {
@@ -153,7 +153,7 @@ func TestParamsApplyBindingsRejectsMissingSource(t *testing.T) {
 }
 
 func TestParamsApplyBindingsRejectsExistingTarget(t *testing.T) {
-	params := testing2.NewParams()
+	params := labtesting.NewParams()
 	params.SetUserValues(map[string]any{
 		"source": true,
 		"config": map[string]any{
@@ -161,7 +161,7 @@ func TestParamsApplyBindingsRejectsExistingTarget(t *testing.T) {
 		},
 	})
 
-	err := params.ApplyBindings([]testing2.ParamBinding{
+	err := params.ApplyBindings([]labtesting.ParamBinding{
 		newParamBinding(t, "config.enabled", "source"),
 	})
 	if err == nil || err.Error() != `parameter target "config.enabled" already exists` {
@@ -170,10 +170,10 @@ func TestParamsApplyBindingsRejectsExistingTarget(t *testing.T) {
 }
 
 func TestParamsApplyBindingsRejectsReservedLabTarget(t *testing.T) {
-	params := testing2.NewParams()
+	params := labtesting.NewParams()
 	params.SetUserValue("source", true)
 
-	err := params.ApplyBindings([]testing2.ParamBinding{
+	err := params.ApplyBindings([]labtesting.ParamBinding{
 		newParamBinding(t, "lab.value", "source"),
 	})
 	if err == nil || err.Error() != `parameter binding target "lab.value" uses reserved namespace "lab"` {
@@ -181,19 +181,19 @@ func TestParamsApplyBindingsRejectsReservedLabTarget(t *testing.T) {
 	}
 }
 
-func newParamBinding(t *testing.T, targetValue string, sourceValue string) testing2.ParamBinding {
+func newParamBinding(t *testing.T, targetValue string, sourceValue string) labtesting.ParamBinding {
 	t.Helper()
 
-	return testing2.ParamBinding{
+	return labtesting.ParamBinding{
 		Target: mustParamPath(t, targetValue),
 		Source: mustParamPath(t, sourceValue),
 	}
 }
 
-func mustParamPath(t *testing.T, value string) testing2.ParamPath {
+func mustParamPath(t *testing.T, value string) labtesting.ParamPath {
 	t.Helper()
 
-	path, err := testing2.ParseParamPath(value)
+	path, err := labtesting.ParseParamPath(value)
 	if err != nil {
 		t.Fatalf("failed to parse path %q: %v", value, err)
 	}
